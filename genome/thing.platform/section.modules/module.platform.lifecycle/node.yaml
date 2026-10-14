@@ -4,6 +4,9 @@ fields:
   name: Realization lifecycle
   description: Coordinates accepted-Genome plans, scoped Tasks, fenced attempts and combined implementation review.
   path: worker/lifecycle-service.ts
+links:
+  - { rel: implements, to: endpoint.lifecycle-task-review }
+  - { rel: implements, to: endpoint.lifecycle-task-review-file }
 files:
-  - worker/lifecycle-service.ts
+  - worker/lifecycle*.ts
   - worker/tasks/**

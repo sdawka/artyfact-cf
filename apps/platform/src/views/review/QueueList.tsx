@@ -7,6 +7,9 @@ import styles from "./review.module.css";
 
 interface Props {
   groups: readonly QueueGroup[];
+  planId?: string | null;
+  taskId?: string | null;
+  error?: string | null;
   evolutionId: string | null;
   realizationId: string | null;
   promoting: boolean;
@@ -17,7 +20,7 @@ interface Props {
 }
 
 /** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it on the right. */
-export function QueueList({ groups, evolutionId, realizationId, promoting, importing, loading = false }: Props) {
+export function QueueList({ groups, evolutionId, realizationId, promoting, importing, planId, taskId, error, loading = false }: Props) {
   const count = waitingCount(groups);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
@@ -26,23 +29,23 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, impor
       </h2>
       {groups.length ? (
         groups.map((g) => (
-          <Group key={g.evolution} group={g} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} />
+          <Group key={g.planId ?? g.evolution} group={g} planId={planId} taskId={taskId} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} />
         ))
       ) : (
-        <p className={styles.muted} {...(loading && { role: "status" })}>{loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
+        <p className={styles.muted} {...(loading && { role: "status" })}>{error ? "The decision queue could not be fully loaded." : loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
       )}
     </section>
   );
 }
 
-function Group({ group, evolutionId, realizationId, promoting, importing }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
+function Group({ group, evolutionId, realizationId, promoting, importing, planId, taskId }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
   const id = useId();
   return (
     <section className={styles.group} aria-labelledby={id}>
       <h3 id={id} className={styles.groupTitle}>{group.title}</h3>
       <ul className={styles.rows}>
         {group.rows.map((row) => {
-          const current = row.kind === "import"
+          const current = row.plan ? row.plan.id === planId && (row.task?.id ?? null) === (taskId ?? null) : row.kind === "import"
             ? !!importing
             : row.kind === "promotion"
               ? promoting && evolutionId === group.evolution
@@ -57,11 +60,12 @@ function Group({ group, evolutionId, realizationId, promoting, importing }: { gr
 function Row({ row, title, current }: { row: QueueRow; title: string; current: boolean }) {
   const href = useKeepParams();
   const { candidates: selected } = useSelection();
-  const to = row.kind === "import"
-    ? href("review", { evolution: null, realization: null, panel: "import" })
+  const to = row.plan ? href("review", {plan: row.plan.id, task: row.task?.id ?? null, evolution:null, realization:null, panel:null}) : row.kind === "import"
+    ? href("review", { evolution: null, realization: null, panel: "import", plan:null, task:null })
     : row.kind === "promotion"
-      ? href("review", { evolution: row.evolution, realization: null, panel: "promote" })
-      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null });
+      ? href("review", { evolution: row.evolution, realization: null, panel: "promote", plan:null, task:null })
+      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null, plan:null, task:null });
+  if (row.plan) return <Link to={to} className={styles.row} data-kind={row.kind} data-testid={`queue-${row.key}`} aria-current={current ? "true" : undefined}><strong>{row.task?.title ?? "Promote implementation"}</strong><span>{row.task ? "Task result awaits selection" : "Plan awaits promotion"}</span></Link>;
   const r = row.realization;
   const ready = row.kind === "promotion";
   if (row.importReview) {

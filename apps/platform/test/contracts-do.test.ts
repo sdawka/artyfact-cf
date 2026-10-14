@@ -1,3 +1,5 @@
+import { taskAvailability } from '@artyfact/model';
+import { awaitsAgent } from '../worker/do/plan-summary';
 import { env } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
@@ -187,6 +189,15 @@ describe("summary planCounts", () => {
   const candidate = (i: SystemAuthority, pid: string, tid: string, a: { id: string; generation: number }, commit: string) =>
     i.lifecycleCandidate(pid, tid, a.id, a.generation, { commit, manifest: {}, changedPaths: [`${tid}/file.ts`], changedNodes: [tid] }).candidate;
 
+  it("matches pure task availability at the expired lease boundary",async()=>{
+    await inDo(i=>{
+      const p=i.createRealizationPlan({title:"Parity",tasks:[task("a"),task("b",["a"])]});
+      i.claimLifecycleTask(p.id,"a",{});
+      const plan=i.realizationPlan(p.id),now=Date.now();plan.tasks[0].attempts[0].leaseExpiresAt=new Date(now).toISOString();
+      expect(taskAvailability(plan,plan.tasks[0],now)).toBe("resume");
+      for(const t of plan.tasks)expect(awaitsAgent(plan,t,now)).toBe(taskAvailability(plan,t,now)!==undefined);
+    });
+  });
   it("counts open plans, claimable tasks, submitted tasks and integrated plans", async () => {
     await inDo((i, state) => {
       expect(i.summary()!.planCounts).toEqual({ open: 0, awaitingAgent: 0, submitted: 0, integrated: 0 });

@@ -1,5 +1,27 @@
 <!-- grreat:record id=roadmap.next kind=roadmap_item status=active parent=goal.north-star -->
-# Deliver Parts composition in one integration PR
+# Implement the app intention fixes
+
+## Active follow-up: app intention alignment
+
+Accepted implementation plan, 2026-10-14. Close the six confirmed gaps in [[journals/2026-10-14-intention-spike]] and unify Review. Extend PR #77 with one commit per fix; keep local agents, optional Parts, Genome-only Things and separate Genome/implementation approval. Finish at a green review-ready PR; no merge or deployment is included.
+
+| Commit | Owner | Acceptance |
+| --- | --- | --- |
+| 1. Fix acceptance contract drift detection | Lifecycle Sol | Criteria, hook, source-reference and automatically enforced gate changes require replan; disjoint advances preserve pinned provenance. |
+| 2. Scope operational controls to the selected Thing | Runtime Sol | Only eligible Thing bindings can load metrics or mutate flags; scope changes clear editors synchronously; no-binding Things issue no operational requests. |
+| 3. Complete the local agent onboarding handoff | CLI Sol | `ontology bootstrap --prepare-only` materializes reviewed files without provisioning; correct origin/credential placeholders and destination skill; minimal scaffold preparation, reviewed init, real node-scoped draft, no imaginary plan file. Genome-only is a valid stopping point. |
+| 4. Scope runtime evidence and version summaries | Runtime Sol | Observations never become passes; implementation evidence is separately labelled and exactly associated; scope-matched totals never borrow heterogeneous lineage. |
+| 5. Add scoped runtime event pagination | Runtime Sol | Exact Thing/build/output filters precede pagination; cursor loading and retry preserve evidence; scoped totals are stable and scope navigation resets pages. |
+| 6. Offer recovery for expired task attempts | CLI Sol | Shared availability rules recommend resume while preserving dependencies, writer exclusion, credentials fencing and dirty work. |
+| 7. Unify pending decisions in Review | Integration Sol | One inbox/count per decision, exact Task candidate diffs/evaluations, integrated review and safe promotion; Work retains execution. Errors never claim an empty inbox. |
+
+Execution: primary owns orchestration and verification. Four isolated Sol worktrees; Runtime delivers 2 → 4 → 5 and CLI delivers 3 → 6 serially. Integration owns shared interfaces/root routes and applies the six worker commits before its Review commit. One writer per overlapping file; final lifecycle/CLI review-link edits follow their owners' completion. No worker PRs or child agents. Canonical notes have one primary writer.
+
+Interfaces: optional exact `thing`, `build`, `output` Phenome filters; cursor affects rows but not scoped totals; no data migration. Dedicated Task-review and changed-file endpoints validate plan/task/candidate/path ownership and retain existing visibility. Review links use `?plan=&task=` for Task selection and `?plan=` for implementation promotion; execution remains in Work. Existing CLI JSON fields and legacy routes remain compatible. Custom ontology validation remains server-authoritative; local source preparation must not bypass Task-based feature implementation.
+
+Validation: failing regressions before fixes; isolated baseline dependencies from the lockfile; focused unit/Worker/UI checks; complete fake-provider onboarding-to-runtime browser journey with direct links, error/polling states, mobile, keyboard and reduced motion. Independent Sol review, full `npm run ci -- --ultra-compact`, GRREAT validation and versioned sync attempt, then all hosted checks green on the final PR head. No production-write or real-Artifacts evidence is inferred from fake-provider tests.
+
+## Earlier Parts delivery
 
 - Intended outcome: Implement [[goals]] using the contracts in [model](../design/model.md), [backend](../design/backend.md), and [UI](../design/ui.md).
 - Work: For this delivery, the primary only orchestrates Sol agents and owns final judgment. The Sol integration implementer owns shared DTOs, authority/schema/routing integration, canonical docs, lockfile, validation, and preparation of the single draft PR. Workers own only their assigned paths, accommodate other edits, and do not spawn children or create PRs.

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { Candidate, ConflictReport } from "../../../shared/api";
 import * as api from "@/api/client";
 import { qk, useConflicts, useEvolutions, useHistory, useImportReview, useSystems } from "@/api/queries";
+import { useApiMode, usePlans } from "../work/plan/queries";
 import { useSystemRoute } from "@/model/useSelection";
 import { reviewQueue, waitingCount, type QueueGroup } from "./queue";
 
@@ -16,6 +17,7 @@ export interface ReviewQueue {
   candidates: Candidate[];
   conflicts: ConflictReport[];
   isLoading: boolean;
+  error: string | null;
 }
 
 /**
@@ -24,6 +26,8 @@ export interface ReviewQueue {
  */
 export function useReviewQueue(): ReviewQueue {
   const { systemId } = useSystemRoute();
+  const apiMode = useApiMode();
+  const plans = usePlans(systemId, apiMode);
   const board = useEvolutions();
   const history = useHistory();
   const commits = history.data;
@@ -43,14 +47,14 @@ export function useReviewQueue(): ReviewQueue {
   const results = useQueries({
     queries: evolutionIds.map((e) => ({ queryKey: qk.candidates(systemId, e), queryFn: () => api.getCandidates(systemId, e), enabled: !!systemId })),
   });
-  const stamp = results.map((r) => r.dataUpdatedAt).join(",");
+  const stamp = results.map((r) => `${r.dataUpdatedAt}:${r.status}`).join(",");
   const loaded = results.map((r) => r.data);
   return useMemo(() => {
     const candidates = loaded.flatMap((d) => d?.candidates ?? []);
     const all = [...(conflicts ?? []), ...loaded.flatMap((d) => d?.conflicts ?? [])];
-    const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all, importReview });
-    return { groups, count: waitingCount(groups), candidates, conflicts: all, isLoading: board.isLoading || history.isLoading };
+    const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all, importReview, plans: plans.data?.plans });
+    return { groups, count: waitingCount(groups), candidates, conflicts: all, error: plans.error ? `Reading plans: ${(plans.error as Error).message}` : board.error ? `Reading decisions: ${(board.error as Error).message}` : history.error ? `Reading history: ${(history.error as Error).message}` : results.some(r=>r.error) ? "Some candidate evidence could not be loaded." : null, isLoading: board.isLoading || history.isLoading || (apiMode && plans.isLoading) || results.some(r=>r.isLoading) };
     // `loaded` is a fresh array each render; `stamp` changes when any of it does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, importReview, stamp]);
+  }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, importReview, stamp, plans.data, plans.error, plans.isLoading, apiMode, board.error, history.error]);
 }

@@ -75,3 +75,11 @@ Give Atlas components glowy borders and shadows, with thicker emphasis on the si
 ## 2026-10-13T23:23:10-04:00 — Atlas emphasis follows interaction
 
 Keep Atlas components quiet at rest; stronger glow and relation-facing borders follow selection and hover. This scopes the relation emphasis chosen above.
+
+## 2026-10-14T10:18:07-04:00 — One decision inbox
+
+Review is the unified inbox for imports, Genome approvals, Task selections and integrated implementation promotions. Work retains planning and execution. This makes pending human decisions discoverable in one place while preserving the separate approval stages.
+
+## 2026-10-14T10:18:07-04:00 — Truthful runtime evidence before automated evaluation
+
+Scope runtime observations to the inspected Thing/deployment/output, label implementation evaluations separately, and keep outcome verdicts unknown without matching authoritative runtime evaluation evidence. This delivery does not add a runtime evaluation engine or turn raw counts/events into passing outcomes.

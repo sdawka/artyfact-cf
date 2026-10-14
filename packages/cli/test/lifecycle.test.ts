@@ -14,7 +14,7 @@ it('creates a pinned plan through the scoped API and returns its durable review 
  expect(err).toEqual([]);expect(code).toBe(0);
  expect(calls[0]?.url).toBe('http://localhost:1337/api/systems/system.one/realization-plans');
  expect(new Headers(calls[0]?.init?.headers).get('authorization')).toBe('Bearer admin');
- expect(out.join('\n')).toContain('/s/system.one/r/head/work?plan=plan.one');
+ expect(out.join('\n')).toContain('/s/system.one/r/head/review?plan=plan.one');
 });
 it('previews a native import without accepting it',async()=>{
  const file=join(cwd,'ontology.json');writeFileSync(file,JSON.stringify({format:'artyfact.ontology-package@1',id:'custom',version:'1',dependencies:[],templates:{}}));
@@ -38,12 +38,36 @@ it('bootstrap refuses invalid reviews before writing or provisioning resources',
  const err:string[]=[];const code=await main(['ontology','bootstrap','import.bad','--system','system.one','--dir','bootstrap-bad','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:()=>{},err:s=>err.push(s)});
  expect(code).toBe(1);expect(err.join('\n')).toContain('accepted import');
 });
+it.each([
+ {'node.yaml':'id: system.one\nkind: system\n'},
+ {'node.yaml':'id: system.one\nkind: system\n', 'thing.web/node.yaml':'id: thing.web\nkind: thing\n', 'thing.web/artifact.web/node.yaml':'id: artifact.web\nkind: artifact\nfields: {type: worker-fullstack}\n'},
+])('prepare-only materializes accepted files without source or provisioning',async(genomeFiles)=>{
+ const dir=join(cwd,`prepare-${Math.random()}`),calls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>{calls.push(url);return Response.json({id:'import.one',systemId:'system.one',status:'accepted',genomeFiles});}));
+ const out:string[]=[],err:string[]=[];
+ expect(await main(['ontology','bootstrap','import.one','--system','system.one','--dir',dir,'--prepare-only','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:s=>out.push(s),err:s=>err.push(s)})).toBe(0);
+ expect(err).toEqual([]);expect(calls).toHaveLength(1);expect(readdirSync(dir)).toEqual(['genome']);
+ for(const [path,content] of Object.entries(genomeFiles))expect(readFileSync(join(dir,'genome',path),'utf8')).toBe(content);
+ expect(out.join('\n')).toContain('No repositories were provisioned');
+});
+it.each([
+ {status:'review',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n'}},
+ {status:'accepted',systemId:'system.other',genomeFiles:{'node.yaml':'id: system.other\n'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.other\n'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n','../escape':'bad'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n','collision':'file','collision/node.yaml':'bad'}},
+])('prepare-only rejects unsafe or unaccepted source before writing',async(review)=>{
+ const dir=join(cwd,`rejected-${Math.random()}`);
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({id:'import.one',...review})));
+ expect(await main(['ontology','bootstrap','import.one','--system','system.one','--dir',dir,'--prepare-only','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:()=>{},err:()=>{}})).toBe(1);
+ expect(existsSync(dir)).toBe(false);
+});
 it('starts and resumes one task fork with fenced credentials, checkpoints, and submits real Git commits',async()=>{
  const {execFileSync}=await import('node:child_process');const {mkdirSync,readFileSync,readdirSync,statSync}=await import('node:fs');
  const dir=join(cwd,'task-real'),source=join(cwd,'source'),bare=join(cwd,'task.git');mkdirSync(source);const sh=(at:string,...args:string[])=>execFileSync('git',['-C',at,...args],{encoding:'utf8'}).trim();
  sh(cwd,'init','--bare','-q',bare);sh(source,'init','-q','-b','main');writeFileSync(join(source,'app.ts'),'base');sh(source,'add','app.ts');sh(source,'-c','user.name=test','-c','user.email=test@test','commit','-q','-m','base');sh(source,'push','-q',bare,'HEAD:main');sh(bare,'symbolic-ref','HEAD','refs/heads/main');
  const remote=`https://${'a'.repeat(32)}.artifacts.cloudflare.net/git/ns/task.git`,secret='a1'.repeat(32),secret2='b2'.repeat(32),token='fork-write-token';const calls:{url:string;body:any;auth:string|null}[]=[];let generation=1;
- vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{calls.push({url,body:init?.body?JSON.parse(String(init.body)):undefined,auth:new Headers(init?.headers).get('authorization')});if(url.endsWith('/start')||url.endsWith('/resume')){if(url.endsWith('/resume'))generation=2;return Response.json({attempt:{id:`attempt.${generation}`,generation},secret:generation===1?secret:secret2,token:{value:token,remote,expiresAt:'2030-01-01'},remote,packet:{markdown:'Pinned Genome and scope'},reviewUrl:'http://localhost:1337/s/system.one/r/head/work?plan=plan.one'});}return Response.json({task:{status:'submitted'},candidate:{id:'candidate.task'},evaluations:[]});}));
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{calls.push({url,body:init?.body?JSON.parse(String(init.body)):undefined,auth:new Headers(init?.headers).get('authorization')});if(url.endsWith('/start')||url.endsWith('/resume')){if(url.endsWith('/resume'))generation=2;return Response.json({attempt:{id:`attempt.${generation}`,generation},secret:generation===1?secret:secret2,token:{value:token,remote,expiresAt:'2030-01-01'},remote,packet:{markdown:'Pinned Genome and scope'},reviewUrl:'http://localhost:1337/s/system.one/r/head/review?plan=plan.one'});}return Response.json({task:{status:'submitted'},candidate:{id:'candidate.task'},evaluations:[]});}));
  const old={count:process.env.GIT_CONFIG_COUNT,key:process.env.GIT_CONFIG_KEY_0,value:process.env.GIT_CONFIG_VALUE_0};process.env.GIT_CONFIG_COUNT='1';process.env.GIT_CONFIG_KEY_0=`url.${bare}.insteadOf`;process.env.GIT_CONFIG_VALUE_0=remote;
  const run=async(args:string[],at=cwd,env:Record<string,string>={})=>{const out:string[]=[],err:string[]=[];const code=await main(args,{cwd:at,env:{ARTYFACT_ADMIN_TOKEN:'admin',ARTYFACT_PLATFORM:'http://localhost:1337',...env},out:s=>out.push(s),err:s=>err.push(s)});return {code,out:out.join('\n'),err:err.join('\n')};};
  try{
@@ -122,6 +146,17 @@ it('plan draft prints tasks, waves and problems and saves nothing without --crea
  } finally { await srv.close(); }
 });
 
+it('drafts explicit source-bound nodes without an Evolution or plan file, then saves only with create',async()=>{
+ const srv=await fake(h=>h.url.endsWith('/draft')?[200,draftResponse]:[201,{id:'plan.source'}]);
+ const args=['plan','draft','--system','system.one','--node','module.web.entry','--platform',srv.base];
+ try{
+  expect((await cli(args,{ARTYFACT_ADMIN_TOKEN:'admin'})).code).toBe(0);
+  expect(srv.hits).toHaveLength(1);expect(srv.hits[0].body).toEqual({nodes:['module.web.entry']});
+  expect((await cli([...args,'--create'],{ARTYFACT_ADMIN_TOKEN:'admin'})).code).toBe(0);
+  expect(srv.hits[2].body).toEqual(draftResponse.request);
+ }finally{await srv.close();}
+});
+
 it('plan draft --create posts the draft request unchanged and prints the plan id', async () => {
  const srv = await fake(h => h.url.endsWith('/draft') ? [200, draftResponse] : [201, { id: 'plan.new' }]);
  try {
@@ -130,7 +165,7 @@ it('plan draft --create posts the draft request unchanged and prints the plan id
   expect(srv.hits.map(h => `${h.method} ${h.url}`)).toEqual(['POST /api/systems/system.one/realization-plans/draft', 'POST /api/systems/system.one/realization-plans']);
   expect(srv.hits[1]!.body).toEqual(draftResponse.request);
   expect(r.out).toContain('plan: plan.new');
-  expect(r.out).toContain('/s/system.one/r/head/work?plan=plan.new');
+  expect(r.out).toContain('/s/system.one/r/head/review?plan=plan.new');
   const needsAdmin = await cli(['plan', 'draft', '--system', 'system.one', '--platform', srv.base], {});
   expect(needsAdmin.code).toBe(1); expect(srv.hits).toHaveLength(2);
  } finally { await srv.close(); }
@@ -178,7 +213,7 @@ it('plan tasks quotes a hostile plan or task id in the printed claim line', asyn
 });
 
 it('plan tasks names no claim when every pending task waits on a dependency', async () => {
- const waiting = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'working' } : t) };
+ const waiting = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'working', attempts:[{status:'working',leaseExpiresAt:'2099-01-01T00:00:00Z'}] } : t) };
  const srv = await fake(() => [200, waiting]);
  try {
   const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
@@ -206,7 +241,7 @@ it('claim turns blocked, taken and interference refusals into friendly one-line 
 
 it('plan tasks skips a task whose conflicting task holds a live attempt', async () => {
  const live = { id: 'attempt.1', status: 'working', agentLabel: 'claude:task.c', leaseExpiresAt: '2099-01-01T00:00:00Z' };
- const plan = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'selected' } : t.id === 'task.c' ? { ...t, attempts: [live] } : t) };
+ const plan = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'selected', selectedCandidate:'candidate.a' } : t.id === 'task.c' ? { ...t, attempts: [live] } : t) };
  const srv = await fake(() => [200, plan]);
  try {
   const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
@@ -335,4 +370,32 @@ it('claim stores the write token only in .git/artyfact-task.json, writes packet.
   await srv.close();
   for (const [key, value] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
  }
+});
+
+it.each(['claimed','working'])('plan tasks offers resume for an expired %s attempt and preserves next JSON',async(status)=>{
+ const t={...planFixture.tasks[0],status,attempts:[{status:'working',leaseExpiresAt:'2000-01-01T00:00:00Z'}]};
+ const p={...planFixture,tasks:[t]};const send=vi.fn(async()=>Response.json(p));vi.stubGlobal('fetch',send);
+ const args=['plan','tasks','plan.one','--system','system.one','--platform','https://example.com'];
+ const r=await cli(args,{});expect(r.code).toBe(0);
+ expect(r.out).toContain('resume: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task resume plan.one task.a');
+ expect(r.out).toContain('--dir ./work/task.a');expect(r.out).toContain('--platform https://example.com');
+ expect(r.out).toContain("existing workspace");
+ const json=JSON.parse((await cli([...args,'--json'],{})).out);
+ expect(json).toMatchObject({next:'task.a',nextAction:{taskId:'task.a',action:'resume'}});
+});
+it('orders available recovery and fresh tasks by wave and quotes hostile IDs',async()=>{
+ const evil="task.a'$(touch pwned)";
+ const t={...planFixture.tasks[0],id:evil,status:'working',attempts:[{status:'working',leaseExpiresAt:'2000-01-01T00:00:00Z'}]};
+ const p={...planFixture,id:'plan one;x',tasks:[{...planFixture.tasks[0],id:'task.later'},t],analysis:{conflicts:[],waves:[[evil],['task.later']]}};
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json(p)));
+ const r=await cli(['plan','tasks','plan.one','--system','system.one','--platform','https://example.com'],{});
+ expect(r.out).toContain(`task resume 'plan one;x' 'task.a'\\''$(touch pwned)'`);
+ expect(r.out).not.toContain('task claim');
+});
+
+it('returns an encoded plan review link',async()=>{
+ const out:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({id:'plan/a ?'})));
+ expect(await main(['plan','create','--file',join(cwd,'plan.json'),'--system','system.one','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:"admin"},out:s=>out.push(s),err:()=>{}})).toBe(0);
+ expect(out.join('\n')).toContain('/s/system.one/r/head/review?plan=plan%2Fa%20%3F');
 });

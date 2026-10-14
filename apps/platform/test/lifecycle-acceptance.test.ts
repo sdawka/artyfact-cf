@@ -132,3 +132,98 @@ it('promotes an integrated plan under the real hook runner, which evaluates Thin
   expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
   expect((await systemStub(env, systemId).state())!.manifest!.artifacts['artifact.webapp']).toMatchObject({ realizationPlan: p.id });
 });
+
+const PEOPLE = 'thing.webapp/section.ui/screen.people/node.yaml';
+const editNode = (path: string, edit: (node: any) => void) => (files: Map<string, string>) => {
+  const node = parse(files.get(path)!); edit(node); files.set(path, stringify(node));
+};
+const changeClaim = editNode(PEOPLE, n => { n.criteria[0].claim = 'A new acceptance promise'; });
+async function importContractFlow(edit: (files: Map<string, string>) => void): Promise<Flow> {
+  const systemId = `system.contract${crypto.randomUUID().slice(0, 8)}`, ns = new FakeArtifacts(), genomeRepo = `g-${systemId}`, appRepo = `a-${systemId}`;
+  const files = new Map(Object.entries(genomeFor(systemId))); edit(files);
+  ns.create(genomeRepo).commit(files, 'Genome'); ns.create(appRepo).commit(appFiles, 'App'); setArtifactsOverride(ns);
+  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo, review: false }, ADMIN);
+  expect(imported.status, JSON.stringify(imported.json)).toBe(201);
+  return { ns, systemId, genomeRepo, appRepo, imp: imported.json, forks: 0 };
+}
+
+it.each(['claim', 'submit', 'integrate', 'promote'])('refuses criterion-only drift at %s without changing implementation state', async stage => {
+  const f = await importFresh(), p = await planFor(f), taskPath = `${root(f, p.id)}/tasks/ui`;
+  let body: unknown = {}, auth = ADMIN, endpoint = `${taskPath}/claim`;
+  if (stage === 'submit') {
+    const started = await call<TaskStartResponse>('POST', endpoint, {}, ADMIN);
+    expect(started.status).toBe(201);
+    const { task: current, attempt, secret } = started.json;
+    const repo = f.ns.repo(current.forkRepo), files = await walkTree(repo, current.base.commit);
+    files.set('src/ui/people/index.html', '<h1>Updated</h1>');
+    body = { attemptId: attempt.id, generation: attempt.generation, commit: repo.commit(files, 'Task edit') };
+    auth = { authorization: `Bearer ${secret}` }; endpoint = `${taskPath}/submit`;
+  }
+  if (stage === 'integrate' || stage === 'promote') {
+    await submitAndSelect(f, p, 'ui'); endpoint = `${root(f, p.id)}/${stage}`;
+    if (stage === 'promote') {
+      const review = await integrate(f, p);
+      body = { expectedHead: review.expectedHead, candidateIds: review.bindings.map(b => b.candidateId), rationale: 'Reviewed' };
+    }
+  }
+  await genomeAmendment(f, changeClaim);
+  const stub = systemStub(env, f.systemId), before = (await stub.state())!, originalPlan = await stub.realizationPlan(p.id);
+  const result = await call<{ error: { code: string } }>('POST', endpoint, body, auth);
+  expect(result.status, JSON.stringify(result.json)).toBe(409);
+  expect(result.json.error.code).toBe('replan-required');
+  const after = (await stub.state())!;
+  expect(after.manifest).toEqual(before.manifest); expect(after.head).toBe(before.head);
+  expect(await stub.realizationPlan(p.id)).toEqual(originalPlan);
+});
+
+it.each(['inputs', 'removal', 'attachment', 'reverse-link'])('requires replan for checked hook %s', async change => {
+  const f = await importFresh(), p = await planFor(f);
+  await genomeAmendment(f, files => {
+    editNode(PEOPLE, n => {
+      if (change === 'inputs') n.criteria[0].hooks[0].inputs = { check: 'new-contract' };
+      if (change === 'removal') n.criteria[0].hooks = [];
+      if (change === 'attachment') n.criteria[0].hooks.push({ ...n.criteria[0].hooks[0], id: 'hook.extra' });
+    })(files);
+    if (change === 'reverse-link') files.set('hook.extra/node.yaml', stringify({ id: 'hook.extra', kind: 'hook', fields: { criteria: ['C.people.list'], assay: 'new-contract', tier: 'execution', engine: 'vitest', triggers: ['submission'], binding: 'bound' } }));
+  });
+  const result = await call<{ error: { code: string } }>('POST', `${root(f, p.id)}/tasks/ui/claim`, {}, ADMIN);
+  expect(result.status, JSON.stringify(result.json)).toBe(409); expect(result.json.error.code).toBe('replan-required');
+});
+
+it.each(['claim', 'source', 'ancestor'])('includes out-of-scope explicit checks and their %s dependencies', async change => {
+  const external = 'ext.person/node.yaml';
+  const f = await importContractFlow(editNode(external, n => { n.criteria = [{ id: 'C.external', claim: 'Keep the observer contract', sourceRefs: ['entity.ContactRecord'], gates: [] }]; }));
+  const p = await planFor(f, [{ ...task(), checks: ['C.external'] }]);
+  await genomeAmendment(f, editNode(change === 'claim' ? external : change === 'source' ? 'thing.webapp/section.domain/entity.ContactRecord/node.yaml' : 'thing.webapp/section.domain/node.yaml', n => {
+    if (change === 'claim') n.criteria[0].claim = 'A changed observer contract'; else n.fields.name = 'Changed dependency';
+  }));
+  const result = await call<{ error: { code: string } }>('POST', `${root(f, p.id)}/tasks/ui/claim`, {}, ADMIN);
+  expect(result.status, JSON.stringify(result.json)).toBe(409); expect(result.json.error.code).toBe('replan-required');
+});
+
+it.each(['system-submission', 'promotion', 'new-promotion'])('includes automatic %s contracts when checks are empty', async change => {
+  const f = await importContractFlow(files => { if (change === 'system-submission') editNode('node.yaml', n => { n.criteria.push({ id: 'C.system.submission', claim: 'A submission-only promise', gates: ['submission'], hooks: [{ id: 'hook.system.submission', assay: 'scope', tier: 'basic', engine: 'diff', triggers: ['submission'], binding: 'bound' }] }); })(files); });
+  const p = await planFor(f, [{ ...task(), checks: [] }]);
+  await genomeAmendment(f, editNode(change === 'system-submission' ? 'node.yaml' : 'thing.webapp/node.yaml', n => {
+    if (change === 'new-promotion') n.criteria.push({ id: 'C.new.gate', claim: 'A new enforced contract', gates: ['promotion'], hooks: [{ id: 'hook.new.gate', assay: 'gate', engine: 'manifest', tier: 'basic', triggers: ['promotion'], binding: 'bound' }] });
+    else n.criteria[change === 'system-submission' ? 1 : 0].claim = 'A changed automatic contract';
+  }));
+  const result = await call<{ error: { code: string } }>('POST', `${root(f, p.id)}/tasks/ui/claim`, {}, ADMIN);
+  expect(result.status, JSON.stringify(result.json)).toBe(409); expect(result.json.error.code).toBe('replan-required');
+});
+
+it('permits unrelated criterion drift and treats hook inputs as opaque strings', async () => {
+  const f = await importContractFlow(files => {
+     editNode(PEOPLE, n => { n.criteria[0].hooks[0].inputs = { note: 'ext.person C.unrelated' }; })(files);
+    editNode('ext.person/node.yaml', n => { n.criteria = [{ id: 'C.unrelated', claim: 'An unrelated promise', gates: [] }]; })(files);
+  });
+  const p = await planFor(f);
+  const accepted = await genomeAmendment(f, editNode('ext.person/node.yaml', n => { n.fields.name = 'Another person'; n.criteria[0].claim = 'An unrelated changed promise'; }));
+  await submitAndSelect(f, p, 'ui');
+  const review = await integrate(f, p);
+  const promoted = await call('POST', `${root(f, p.id)}/promote`, { expectedHead: review.expectedHead, candidateIds: review.bindings.map(b => b.candidateId), rationale: 'Reviewed disjoint change' }, ADMIN);
+  expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
+  const state = (await systemStub(env, f.systemId).state())!;
+  expect(state.genomeCommit).toBe(accepted.commit);
+  expect(state.manifest!.artifacts['artifact.webapp'].realizedGenome).toBe(p.genome.commit);
+});

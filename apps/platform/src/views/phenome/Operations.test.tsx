@@ -25,3 +25,24 @@ it('creates a rollout example accepted by the server flag validator',async()=>{
  renderApp('/s/system.peopling/r/head/phenome',undefined,qc=>qc.setQueryData(qk.model('system.peopling','head'),{...fixtureBundle(),source:'api'}));fireEvent.click(await screen.findByRole('button',{name:'Create boolean flag'}));fireEvent.change(screen.getByLabelText('Flag key'),{target:{value:'birthday-cards'}});fireEvent.click(screen.getByText('Edit targeting and percentage rollout'));fireEvent.click(screen.getByRole('button',{name:'Use 10% rollout example'}));fireEvent.change(screen.getByLabelText('Change reason'),{target:{value:'Review staged rollout'}});fireEvent.click(screen.getByRole('button',{name:'Save flag'}));
  await waitFor(()=>expect(writes).toHaveLength(1));expect(()=>validateFlag(writes[0]!.flag)).not.toThrow();
 });
+
+function operationScopeSetup(){
+ sessionStorage.setItem(ADMIN_TOKEN_KEY,'admin');const paths:string[]=[];
+ const bundle=fixtureBundle();bundle.source='api';const original=bundle.model.things[0]!;const binding=original.artifacts[0]!;
+ bundle.model.things=[{...original,id:'thing.a',artifacts:[{...binding,artifact:'artifact.a'},{...binding,artifact:'artifact.shared'}]},{...original,id:'thing.b',artifacts:[{...binding,artifact:'artifact.b'},{...binding,artifact:'artifact.shared'}]},{...original,id:'thing.genome',artifacts:[]}];
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{const u=String(url);paths.push(`${init?.method??'GET'} ${u}`);if(u.includes('/model'))return Response.json(bundle);if(u.endsWith('/operations/bindings'))return Response.json({bindings:['artifact.a','artifact.b','artifact.shared'].map(bindingId=>({bindingId,configured:true}))});if(u.includes('/metrics'))return Response.json({state:'unavailable',lineage:null,requests:null,invocationErrors:null,cpu:{p50:null,p99:null}});if(u.includes('/measurements'))return Response.json({state:'available',measurements:[]});if(u.includes('/flags'))return Response.json({state:'available',flags:[]});if(u.endsWith('/audit'))return Response.json({entries:[]});return Response.json({builds:[],production:null,history:[],events:[],versions:[],artifacts:[]});}));
+ const app=renderApp('/s/system.peopling/r/head/things/thing.b/phenome',undefined,qc=>qc.setQueryData(qk.model('system.peopling','head'),bundle));return {...app,paths};
+}
+it('only requests and writes eligible Thing bindings even when another Thing is first',async()=>{
+ const {paths,container}=operationScopeSetup();fireEvent.click(await screen.findByRole('button',{name:'Create boolean flag'}));
+ expect(paths.some(p=>p.includes('/artifact.b/metrics'))).toBe(true);expect(paths.some(p=>p.includes('/artifact.a/'))).toBe(false);
+ const select=screen.getByLabelText('Artifact binding').parentElement!.querySelector('select')!;expect(Array.from(select.options).map(o=>o.value)).toContain('artifact.shared');expect(Array.from(select.options).map(o=>o.value)).not.toContain('artifact.a');
+ fireEvent.change(screen.getByLabelText('Flag key'),{target:{value:'test-flag'}});fireEvent.change(screen.getByLabelText('Change reason'),{target:{value:'Reviewed'}});fireEvent.click(screen.getByRole('button',{name:'Save flag'}));await waitFor(()=>expect(paths.some(p=>p.startsWith('POST ')&&p.includes('/artifact.b/flags'))).toBe(true));
+});
+it('clears editor state on binding and Thing transitions and issues no controls for Genome-only Things',async()=>{
+ const {router,paths,container}=operationScopeSetup();fireEvent.click(await screen.findByRole('button',{name:'Create boolean flag'}));fireEvent.change(screen.getByLabelText('Flag key'),{target:{value:'stale'}});
+ fireEvent.change(screen.getByLabelText('Artifact binding').parentElement!.querySelector('select')!,{target:{value:'artifact.shared'}});expect(screen.queryByLabelText('Flag key')).toBeNull();
+ fireEvent.click(await screen.findByRole('button',{name:'Create boolean flag'}));await router.navigate('/s/system.peopling/r/head/things/thing.a/phenome');await waitFor(()=>expect(screen.queryByLabelText('Flag key')).toBeNull());
+ await waitFor(()=>expect(paths.some(p=>p.includes('/artifact.a/metrics'))).toBe(true));const before=paths.length;await router.navigate('/s/system.peopling/r/head/things/thing.genome/phenome');expect(await screen.findByText('No operational bindings for this Thing.')).toBeTruthy();expect(screen.queryByRole('button',{name:'Create boolean flag'})).toBeNull();expect(paths.slice(before).filter(p=>/\/(metrics|flags|measurements|audit)/.test(p))).toEqual([]);
+ await router.navigate('/s/system.peopling/r/head/phenome');await waitFor(()=>expect(screen.getByLabelText('Artifact binding').parentElement!.querySelector('select')?.options.length).toBe(4));
+});

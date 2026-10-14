@@ -25,9 +25,16 @@ describe('realization plan HTTP lifecycle',()=>{
   expect((await call('POST',path(f.systemId),{title:'Build',tasks:[definition]})).status).toBe(401);
   const created=await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN);expect(created.status,JSON.stringify(created.json)).toBe(201);const p=created.json;
   const count=(await systemStub(env,f.systemId).evolutions()).length;
-  const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;expect(s.reviewUrl).toBe(`http://example.com/s/${f.systemId}/r/head/work?plan=${encodeURIComponent(p.id)}`);
+  const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;expect(s.packet.reviewUrl).toBe(s.reviewUrl);expect(s.reviewUrl).toBe(`http://example.com/s/${f.systemId}/r/head/review?plan=${encodeURIComponent(p.id)}&task=ui`);
   const repo=f.ns.repo(s.task.forkRepo),files=await walkTree(repo,s.task.base.commit);files.set('src/ui/people/index.html','<h1>People</h1>');const commit=repo.commit(files,'UI');
   const sub=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit},{authorization:`Bearer ${s.secret}`});expect(sub.status,JSON.stringify(sub.json)).toBe(201);
+  const taskReview=await call<{candidates:{candidate:typeof sub.json.candidate;manifest:{commit:string};evaluations:unknown[]}[]}>('GET',`${path(f.systemId,p.id)}/tasks/ui/review`,undefined,{});
+  expect(taskReview.status).toBe(200);expect(taskReview.json.candidates[0].candidate.id).toBe(sub.json.candidate.id);expect(taskReview.json.candidates[0].manifest.commit).toBe(commit);expect(taskReview.json.candidates[0].evaluations.length).toBeGreaterThan(0);
+  const taskFile=`${path(f.systemId,p.id)}/tasks/ui/review/files?candidateId=${encodeURIComponent(sub.json.candidate.id)}&path=src%2Fui%2Fpeople%2Findex.html`;
+  expect((await call('GET',taskFile,undefined,{})).status).toBe(200);
+  expect((await call('GET',taskFile.replace('ui/review','wrong/review'),undefined,{})).status).toBe(404);
+  expect((await call('GET',taskFile.replace(encodeURIComponent(sub.json.candidate.id),'wrong-candidate'),undefined,{})).status).toBe(404);
+  expect((await call('GET',taskFile.replace('src%2Fui%2Fpeople%2Findex.html','src%2Findex.ts'),undefined,{})).status).toBe(400);
   const selected=await call<RealizationPlan>('POST',path(f.systemId,p.id,'ui','select'),{candidateId:sub.json.candidate.id},ADMIN);expect(selected.status,JSON.stringify(selected.json)).toBe(200);
   const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);expect(integrated.json.bindings).toHaveLength(1);
   const review=integrated.json;
@@ -36,6 +43,25 @@ describe('realization plan HTTP lifecycle',()=>{
   const compared=await call<{from:{repo:string};to:{text:string}}>('GET',lifecyclePaths.reviewFile(f.systemId,p.id,'artifact.webapp','src/ui/people/index.html').replace(/^\/api/,''),undefined,{});expect(compared.status).toBe(200);expect(compared.json.from.repo).toBe(f.appRepo);expect(compared.json.to.text).toBe('<h1>People</h1>');
   const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId)},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
   const state=await systemStub(env,f.systemId).state();expect(state!.genomeCommit).toBe(p.genome.commit);expect(state!.manifest!.artifacts['artifact.webapp'].realizedGenome).toBe(p.genome.commit);expect((await systemStub(env,f.systemId).evolutions()).length).toBe(count);
+ });
+ it('refuses another Task’s valid candidate and a mismatched pinned review manifest',async()=>{
+  const f=await importFresh();
+  const submit=async(tid:string)=>{
+   const p=(await call<RealizationPlan>('POST',path(f.systemId),{title:tid,tasks:[{...definition,id:tid}]},ADMIN)).json;
+   const start=(await call<TaskStartResponse>('POST',path(f.systemId,p.id,tid,'claim'),{},ADMIN)).json;
+   const repo=f.ns.repo(start.task.forkRepo),files=await walkTree(repo,start.task.base.commit);files.set('src/ui/people/index.html',tid);
+   const res=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,tid,'submit'),{attemptId:start.attempt.id,generation:start.attempt.generation,commit:repo.commit(files,tid)},{authorization:`Bearer ${start.secret}`});expect(res.status).toBe(201);
+   return {p,candidate:res.json.candidate};
+  };
+  const one=await submit('one'),two=await submit('two');
+  const scoped=lifecyclePaths.taskReviewFile(f.systemId,one.p.id,'one',two.candidate.id,'src/ui/people/index.html').replace(/^\/api/,'');
+  expect((await call('GET',scoped,undefined,{})).status).toBe(404);
+  await runInDurableObject(env.SYSTEMS.getByName(f.systemId),async(_i:SystemAuthority,state)=>{
+   const sql=state.storage.sql,raw=sql.exec('SELECT manifest_json FROM candidates WHERE id = ?',one.candidate.id).toArray()[0];
+   const manifest=JSON.parse(String(raw.manifest_json));manifest.baseCommit='0'.repeat(40);
+   sql.exec('UPDATE candidates SET manifest_json=? WHERE id=?',JSON.stringify(manifest),one.candidate.id);
+  });
+  expect((await call('GET',lifecyclePaths.taskReview(f.systemId,one.p.id,'one').replace(/^\/api/,''),undefined,{})).status).toBe(409);
  });
  it('resume rotates platform and Git credentials and denies the old attempt',async()=>{
   const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json;

@@ -22,3 +22,4 @@ export type {
 } from "./schema.ts";
 export * from './lifecycle.ts';
 export * from './ontology-package.ts';
+export * from './task-availability.ts';

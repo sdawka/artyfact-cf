@@ -1,5 +1,7 @@
-import { Button, Input } from "@/components/ui";
-import { useId, useState } from "react";
+import { Button } from "@/components/ui";
+import { useId } from "react";
+import { Link } from "react-router";
+import { useKeepParams } from "@/model/useSelection";
 import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -18,31 +20,23 @@ interface Props {
   writeReason: string | null;
   /** The command was hidden on the board; it stays hidden here. */
   commandHidden: boolean;
-  selecting: boolean;
-  /** The latest attempt's candidate, when the realization list knows it; prefills the select form. */
-  suggestedCandidate?: string | undefined;
   error: string | null;
-  onSelect(candidateId: string): void;
   onOpenTask(id: string): void;
   onClose(): void;
 }
 
 const List = ({ items, empty }: { items: readonly string[]; empty: string }) =>
-  items.length ? <ul className={styles.paths}>{items.map((x) => <li key={x}>{x}</li>)}</ul> : <p className={workStyles.muted}>{empty}</p>;
+  items.length ? <ul className={styles.paths}>{[...new Set(items)].map((x) => <li key={x}>{x}</li>)}</ul> : <p className={workStyles.muted}>{empty}</p>;
 
-/** `?task=`: why the task is in its wave, its footprint, read and write nodes, steps, checks, attempts, and the select form. */
-export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, selecting, suggestedCandidate, error, onSelect, onOpenTask, onClose }: Props) {
+/** `?task=`: why the task is in its wave, its footprint, read and write nodes, steps, checks, attempts, and the review link. */
+export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, error, onOpenTask, onClose }: Props) {
   const uid = useId();
   const m = useModel();
-  const [candidate, setCandidate] = useState(suggestedCandidate ?? "");
+  const href = useKeepParams();
   const n = waveOf(plan, t.id);
   const fp = t.footprint;
   const command = taskCommand(plan, t, now);
-  const select = (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (writeReason || !candidate.trim()) return;
-    onSelect(candidate.trim());
-  };
+
 
   return (
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`} data-testid="task-detail">
@@ -125,20 +119,7 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, sel
       ) : <p className={workStyles.muted}>No attempt yet.</p>}
       {t.selectedCandidate && <p>Selected candidate <code>{t.selectedCandidate}</code></p>}
 
-      {t.status === "submitted" && (
-        <form onSubmit={select} className={workStyles.form}>
-          <div className={workStyles.field}>
-            <label htmlFor={`${uid}-c`}>Reviewed candidate ID for {t.title}</label>
-            <Input id={`${uid}-c`} value={candidate} onChange={(e) => setCandidate(e.target.value)} autoComplete="off" required />
-          </div>
-          <div className={workStyles.actions}>
-            <Button type="submit" variant="primary" disabled={!!writeReason || selecting || !candidate.trim()} aria-describedby={writeReason ? `${uid}-w` : undefined}>
-              {selecting ? "Selecting…" : "Select reviewed Task result"}
-            </Button>
-            {writeReason && <span id={`${uid}-w`} className={workStyles.reason}>{writeReason}</span>}
-          </div>
-        </form>
-      )}
+      {(t.status === "submitted" || t.selectedCandidate) && <Button asChild variant="secondary"><Link to={href("review", {plan:plan.id, task:t.id, panel:null, evolution:null, realization:null})}>Review Task result</Link></Button>}
       {error && <p role="alert" className={workStyles.error}>{error}</p>}
     </section>
   );

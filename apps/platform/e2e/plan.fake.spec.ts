@@ -59,7 +59,7 @@ test.describe("realization plan from draft to promotion @fake", () => {
 
     plan = await apiPlan(request, planId);
     for (const t of deps) {
-      await selectInUi(page, t, submitted[t.id]!);
+      await selectInUi(page, planId, t, submitted[t.id]!);
       await expect(page.getByTestId(`task-${t.id}`).locator('[data-status="selected"]')).toBeVisible({ timeout: 15_000 });
     }
     await checkPage(page, testInfo, "plan-selected");
@@ -71,11 +71,12 @@ test.describe("realization plan from draft to promotion @fake", () => {
       const claimed = await run(["task", "claim", planId, t.id, "--system", SYS, "--dir", t.id]);
       expect(claimed.code, claimed.stderr).toBe(0);
       submitted[t.id] = await implementAndSubmit(t, join(work, t.id), run);
-      await selectInUi(page, t, submitted[t.id]!);
+      await selectInUi(page, planId, t, submitted[t.id]!);
     }
 
     // Integrate, review the combined change, promote.
     await page.getByRole("button", { name: "Integrate selected Task results" }).click();
+    await page.getByRole("link", {name:"Review integrated implementation"}).click();
     await expect(page.getByRole("heading", { name: "Combined implementation review" })).toBeVisible({ timeout: 30_000 });
     await checkPage(page, testInfo, "plan-review");
     await page.getByLabel("Promotion rationale").fill("Reviewed every changed binding in the e2e run.");
@@ -101,10 +102,17 @@ async function implementAndSubmit(t: Task, dir: string, run: (args: string[], cw
 }
 
 /** Opens the task on the board and selects its reviewed candidate. */
-async function selectInUi(page: Page, t: Pick<Task, "id" | "title">, candidateId: string) {
+async function selectInUi(page: Page, planId:string, t: Pick<Task, "id" | "title">, candidateId: string) {
   await page.getByTestId(`task-${t.id}`).getByRole("button", { name: t.title }).click();
   const detail = page.getByTestId("task-detail");
   await expect(detail.getByRole("heading", { name: t.title })).toBeVisible();
-  await detail.getByLabel(`Reviewed candidate ID for ${t.title}`).fill(candidateId);
-  await detail.getByRole("button", { name: "Select reviewed Task result" }).click();
+  await detail.getByRole("link",{name:"Review Task result"}).click();
+  const review=page.getByRole("region",{name:`Review ${t.title}`});
+  await expect(review.getByText(candidateId,{exact:true})).toBeVisible();
+  // Evidence is visible before selection; the submitted id comes only from the displayed candidate.
+  await expect(review.getByRole("heading",{name:"Changed files"})).toBeVisible();
+  await review.getByRole("button",{name:"Select reviewed Task result"}).click();
+  await expect(review.getByText("This Task result is no longer awaiting selection.")).toBeVisible();
+  await page.getByRole("link",{name:"Open execution plan"}).click();
+  await expect(page).toHaveURL(new RegExp(`/work\\?plan=${encodeURIComponent(planId)}`));
 }

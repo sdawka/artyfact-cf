@@ -3,6 +3,22 @@
 
 ## Now
 
+- Implemented: the seven intention-alignment fixes in [[roadmap]], using parallel Sol agents and one integration PR [#77](https://github.com/sdawka/artyfact-cf/pull/77). Work is execution; Review contains pending decisions. Runtime observations remain separate from implementation evidence and unknown outcome verdicts.
+- Verification: independent Sol reviews are clear after corrections. The complete 10-step local gate passed in 256s: 2872 root units, 98 fixture and 16 fake-provider browser cases, plus all site checks. See [[journals/2026-10-14-intention-fixes]]; exact hosted check results remain attached to PR #77.
+- Next action: review the seven fixes in PR #77 after its final hosted checks are green. No merge or deployment is included.
+- Tracking: seven canonical records validate. Versioned RPC preview returned `pending: missing_credentials`, `applied: 0`; the separate Artyfact destination requirement and prior conflict remain unresolved. Real-Artifacts provisioning is unverified.
+- Last updated: 2026-10-14T10:53:13-04:00.
+
+## Spike baseline
+
+- Investigation: app-intention spike completed against `a3c95f2`; six concrete gaps and one product-coherence recommendation are recorded in [[journals/2026-10-14-intention-spike]]. No product implementation or production changes.
+- Evidence: primary focused suites passed 14 tests; bounded agent suites passed another 60 and 24. Criterion-only overlap false negative reproduced independently. UI suites could not collect because `@radix-ui/react-icons` is missing locally; browser and full CI verification were not performed.
+- Recommended next action: address acceptance-contract drift and Thing-scoped operations, then validate the complete onboarding-to-runtime journey. These fixes are proposed, not started.
+- Tracking: vault validation passed (7 records); RPC dry-run returned `pending: missing_credentials`, `applied: 0`. Existing real-Artifacts verification and confirmed separate GRREAT destination remain pending. Preserve prior release evidence below and the wrong-project sync conflict.
+- Last updated: 2026-10-14T09:58:06-04:00.
+
+## Latest release context
+
 - Released: application UI polish [PR #71](https://github.com/sdawka/artyfact-cf/pull/71) merged at `994d2ff8a0be410cae3f3e156115c0079913018e`, including upstream `161be0b` and the final overlay-shortcut guard. That exact merged revision deployed as Worker version `9eb75476-c87e-4e1a-822b-0054066c4b55` to [artyfact-platform](https://artyfact-platform.dawka.workers.dev).
 - Verified: final local platform gate passed 2826 units (9 skips), 96 fixture and 16 fake-platform browser tests, plus typecheck/build. [Hosted verification](https://github.com/sdawka/artyfact-cf/actions/runs/38560962465) passed on the final PR head in 13m30s. The earlier full local gate, before the final shortcut fix, passed site checks (55 units, 51 browser tests with 5 skips). The canonical protected read returned 200 after deployment, proving admin-token preservation. Evidence: [[journals/2026-10-13-ui-polish]].
 - Live smoke: authenticated desktop/mobile checks pass across Home, Atlas, Thing/Code/Deployments/Overview/Work and private Parts. Twenty-one settled captures at 1440×900 and 390×844 show no horizontal overflow, serious/critical axe findings, app errors or attempted writes; mobile Menu focus/Escape and overlay shortcut ownership, normal palette toggling, Effects off and reduced-motion portals pass. Entering AddContactDialog then Up restores the exact prior viewport at both widths.

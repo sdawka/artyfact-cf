@@ -9,6 +9,7 @@ import { useParam } from "../work/lib";
 import { CandidateReview } from "../work/panels/CandidateReview";
 import { GenomeReview } from "../work/panels/GenomeReview";
 import { PromotionPanel } from "../work/panels/PromotionPanel";
+import { PlanDecision } from "./PlanDecision";
 import { QueueList } from "./QueueList";
 import { useReviewQueue } from "./useReviewQueue";
 import styles from "./review.module.css";
@@ -23,6 +24,8 @@ export default function ReviewView() {
   const { evolutions, realizations, isLoading: boardLoading } = useWorkData();
   const queue = useReviewQueue();
   const { candidates: selected } = useSelection();
+  const [planId] = useParam("plan");
+  const [taskId] = useParam("task");
   const [panel] = useParam("panel");
   const [evolutionParam] = useParam("evolution");
   const [realizationId] = useParam("realization");
@@ -33,14 +36,15 @@ export default function ReviewView() {
   const promoting = panel === "promote" && !!evolution;
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
   const groups = queue.groups.map((g) => ({ ...g, title: (g.evolution && evolutions.find((e) => e.id === g.evolution)?.title) || g.title }));
-  const open = importing || promoting || (!!realization && !!evolution) || selected.length > 0;
+  const open = !!planId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
   const loading = boardLoading || queue.isLoading;
   // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
-  const linked = importing || panel === "promote" || !!realizationId;
+  const linked = !!planId || !!taskId || importing || panel === "promote" || !!realizationId;
   const missing = loading
     ? null
     : realizationId && !realization
       ? `No realization ${realizationId} on this System.`
+      : taskId && !planId ? "Task review needs a plan: pick one from the queue."
       : panel === "promote" && !evolution
         ? (evolutionParam ? `No Evolution ${evolutionParam} on this System.` : "Promotion needs an Evolution: pick one from the queue.")
         : null;
@@ -48,14 +52,15 @@ export default function ReviewView() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       <h1 id="view-title">Review</h1>
-      <p className={styles.lede}>Imports, candidates, amendments and promotions that need a person.</p>
-      {queue.count === 0 && !open && !linked ? (
+      <p className={styles.lede}>Imports, Task results, candidates, amendments and promotions that need a person.</p>
+      {queue.error && <p role="alert">{queue.error}</p>}
+      {queue.count === 0 && !open && !linked && !queue.error ? (
         <EmptyState surface title={loading ? "Loading the queue…" : "Nothing is waiting on you."} live={loading} />
       ) : (
         <div className={styles.panes}>
-          <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />
+          <QueueList groups={groups} planId={planId} taskId={taskId} error={queue.error} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />
           <div className={styles.detail}>
-            {importing ? (
+            {planId ? (<PlanDecision key={planId} planId={planId} taskId={taskId} />) : importing ? (
               <GenomeReview />
             ) : promoting ? (
               <PromotionPanel key={evolution!.id} evolution={evolution!} />

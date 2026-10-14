@@ -3,6 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { PHENOME_LIMITS, PhenomeEventHeader } from "@artyfact/model";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhenomeEventsResponse, PhenomeIngestResponse } from "../shared/api";
+import { phenomeVersionKey } from "../shared/phenome";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { REGISTRY, type BootstrapInput, type SystemAuthority } from "../worker/do/system-authority";
 import { ingestEvents, ingestPrincipal, resetPhenomeThrottle, setPhenomeRefresh } from "../worker/phenome";
@@ -327,8 +328,8 @@ describe("GET phenome/events", () => {
     ]);
     const { versions } = (await get("?limit=1")).json;
     expect(versions).toEqual([
-      { key: "build-three", buildId: "build-three", commit: A2, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: null, count: 1 },
-      { key: A1, buildId: A1, commit: A1, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: expect.stringMatching(/^sc-1/), count: 2 },
+      { key: phenomeVersionKey(null,"build-three",A2), buildId: "build-three", commit: A2, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: null, count: 1 },
+      { key: phenomeVersionKey(null,A1,A1), buildId: A1, commit: A1, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: expect.stringMatching(/^sc-1/), count: 2 },
     ]);
   });
 });
@@ -404,7 +405,7 @@ describe("commit resolution", () => {
     const { events, versions } = (await get()).json;
     expect(events.map((x) => x.commit)).toEqual([A2, A2]);
     expect(versions).toHaveLength(1);
-    expect(versions[0]).toMatchObject({ key: A2, count: 2 });
+    expect(versions[0]).toMatchObject({ key: phenomeVersionKey(null,A2,A2), count: 2 });
   });
 
   it("drops a non-admin event whose buildId is not its commit", async () => {
@@ -501,4 +502,36 @@ describe("registry refresh and SSE", () => {
     await reader.cancel();
     expect(JSON.parse(text.replace(/^data: /, ""))).toMatchObject({ type: "phenome.ingested", count: 2, commit: A2 });
   });
+});
+
+describe('scoped runtime summaries',()=>{
+ it('applies exact Thing/build/output and existing filters before paging and aggregation',async()=>{
+  await inDo(i=>{const sql=sqlOf(i);for(const [id,dep,thing,build,output,kind,sc] of [
+   ['a','dep-a','thing.a','runtime.a','output.shared','health','sc.a'],['b','dep-b','thing.a','runtime.a','output.shared','health','sc.b'],['c','dep-a','thing.b','runtime.a','output.shared','health','sc.a'],['d','dep-a','thing.a','runtime.b','output.other','health','sc.a'],['e','dep-a','thing.a','runtime.a','output.shared','journey.step','sc.a'],['f','dep-a','thing.a','runtime.a','output.shared','health','sc.a'],
+  ])sql.exec("INSERT INTO phenome_events (event_id,deployment_id,realization_id,thing_id,artifact_id,build_id,commit_hash,system_commit,kind,emitted_at,received_at,payload_json,realized_artifact_id,genome_commit) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",id,dep,rid,thing,'artifact.webapp',build,A2,sc,kind,'2026-01-01','2026-01-01','{}',output,G1);});
+  const filter=`?thing=thing.a&build=runtime.a&output=output.shared&deployment=dep-a&kind=health&realization=${rid}&commit=${A2.slice(0,7)}&limit=1`;
+  const first=(await get(filter)).json;expect(first.events.map(e=>e.id)).toEqual(['f']);expect(first.versions).toEqual([expect.objectContaining({key:'output.shared',count:2,deployment:'dep-a',systemCommit:'sc.a'})]);
+  const older=(await get(`${filter}&before=${first.nextBefore}`)).json;expect(older.events.map(e=>e.id)).toEqual(['a']);expect(older.versions).toEqual(first.versions);expect(older.nextBefore).toBeUndefined();
+  expect((await get('?thing=thing.missing')).json).toEqual({events:[],versions:[]});
+  const mixed=(await get('?thing=thing.a&build=runtime.a&output=output.shared&kind=health')).json;expect(mixed.versions).toEqual([expect.objectContaining({count:3,deployment:null,systemCommit:null})]);
+ });
+ it('keeps aggregate metadata unknown when any member lacks provenance',async()=>{
+  await inDo(i=>{const sql=sqlOf(i);for(const [id,dep,sc] of [['legacy',null,null],['known','dep-a','sc.a']])sql.exec("INSERT INTO phenome_events (event_id,deployment_id,thing_id,artifact_id,build_id,commit_hash,system_commit,kind,emitted_at,received_at,payload_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",id,dep,'thing.webapp','artifact.webapp','runtime.a',A2,sc,'health','2026-01-01','2026-01-01','{}');});
+  expect((await get()).json.versions[0]).toMatchObject({count:2,deployment:null,systemCommit:null});
+ });
+});
+
+it('finds older Thing history behind more than fifty other-Thing events and keeps paged totals stable',async()=>{
+ await inDo(i=>{const sql=sqlOf(i);for(let index=0;index<56;index++)sql.exec("INSERT INTO phenome_events (event_id,deployment_id,thing_id,artifact_id,build_id,commit_hash,kind,emitted_at,received_at,payload_json,realized_artifact_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",`history.${index}`,'dep-b',index<3?'thing.b':'thing.a','artifact.webapp','runtime.b',A2,'health','2026-01-01','2026-01-01','{}','output.b');});
+ expect((await get()).json.events.every(e=>e.thingId==='thing.a')).toBe(true);
+ const scope='?thing=thing.b&deployment=dep-b&build=runtime.b&output=output.b&kind=health&limit=2';const first=(await get(scope)).json;expect(first.events.map(e=>e.id)).toEqual(['history.2','history.1']);expect(first.versions[0].count).toBe(3);
+ const last=(await get(`${scope}&before=${first.nextBefore}`)).json;expect(last.events.map(e=>e.id)).toEqual(['history.0']);expect(last.versions).toEqual(first.versions);expect(last.nextBefore).toBeUndefined();
+});
+
+it('separates legacy source commits that reuse a runtime build ID across pages',async()=>{
+ await inDo(i=>{const sql=sqlOf(i);for(const [id,commit,dep,sc] of [['old.1',A1,'dep.old','sc.old'],['old.2',A1,'dep.old','sc.old'],['new.1',A2,'dep.new','sc.new']])sql.exec("INSERT INTO phenome_events (event_id,deployment_id,thing_id,artifact_id,build_id,commit_hash,system_commit,kind,emitted_at,received_at,payload_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",id,dep,'thing.webapp','artifact.webapp','runtime.reused',commit,sc,'health','2026-01-01','2026-01-01','{}');});
+ const newest=(await get('?limit=1')).json;expect(newest.versions).toEqual([
+  expect.objectContaining({key:JSON.stringify(['runtime.reused',A2]),count:1,deployment:'dep.new',systemCommit:'sc.new'}),
+  expect.objectContaining({key:JSON.stringify(['runtime.reused',A1]),count:2,deployment:'dep.old',systemCommit:'sc.old'}),
+ ]);const older=(await get(`?limit=2&before=${newest.nextBefore}`)).json;expect(older.versions).toEqual(newest.versions);expect(older.events.map(e=>e.commit)).toEqual([A1,A1]);
 });

@@ -4,6 +4,7 @@
  */
 import { PHENOME_LIMITS } from "@artyfact/model";
 import type { PhenomeEvent, PhenomeEventsQuery, PhenomeEventsResponse, RealizedArtifact } from "../../shared/api";
+import { phenomeVersionKey } from "../../shared/phenome";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -153,10 +154,15 @@ export class PhenomeStore {
   list(systemId: string, q: PhenomeEventsQuery = {}): PhenomeEventsResponse {
     const limit = Math.min(Math.max(Math.trunc(q.limit ?? DEFAULT_LIMIT) || DEFAULT_LIMIT, 1), MAX_LIMIT);
     const where: string[] = [], args: SqlStorageValue[] = [];
+    if (q.thing) { where.push("thing_id = ?"); args.push(q.thing); }
+    if (q.build) { where.push("build_id = ?"); args.push(q.build); }
+    if (q.output) { where.push("realized_artifact_id = ?"); args.push(q.output); }
     if (q.deployment) { where.push("deployment_id = ?"); args.push(q.deployment); }
     if (q.commit) { where.push("commit_hash LIKE ? ESCAPE '\\'"); args.push(`${q.commit.replace(/[\\%_]/g, "\\$&")}%`); }
     if (q.kind) { where.push("kind = ?"); args.push(q.kind); }
     if (q.realization) { where.push("realization_id = ?"); args.push(q.realization); }
+    const scopeWhere = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const scopeArgs = [...args];
     if (q.before !== undefined && Number.isFinite(q.before)) { where.push("seq < ?"); args.push(q.before); }
     const rows = this.all(
       `SELECT * FROM phenome_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY seq DESC LIMIT ?`,
@@ -164,13 +170,14 @@ export class PhenomeStore {
     );
     const page = rows.slice(0, limit);
     const events = page.map((r) => this.dto(systemId, r));
-    // Bare columns alongside MAX(seq) come from the newest event of each version.
+    // Aggregates describe the full non-cursor scope. A nullable identity is universal only when every row agrees.
+    const consistent = (column: string) => `CASE WHEN COUNT(${column}) = COUNT(*) AND MIN(${column}) = MAX(${column}) THEN MIN(${column}) ELSE NULL END AS ${column}`;
     const versions = this.all(
-      `SELECT build_id, commit_hash, deployment_id, system_commit, realized_artifact_id, genome_commit, COUNT(*) AS n, MAX(seq) AS newest FROM phenome_events
-       GROUP BY build_id, commit_hash, realized_artifact_id, genome_commit ORDER BY newest DESC LIMIT ?`,
-      MAX_VERSIONS,
+      `SELECT build_id, commit_hash, realized_artifact_id, ${consistent("genome_commit")}, ${consistent("deployment_id")}, ${consistent("system_commit")}, COUNT(*) AS n, MAX(seq) AS newest FROM phenome_events
+       ${scopeWhere} GROUP BY build_id, commit_hash, realized_artifact_id ORDER BY newest DESC LIMIT ?`,
+      ...scopeArgs, MAX_VERSIONS,
     ).map((r) => ({
-      key: str(r.realized_artifact_id) ?? String(r.build_id), buildId: String(r.build_id), commit: String(r.commit_hash),
+      key: phenomeVersionKey(str(r.realized_artifact_id), String(r.build_id), String(r.commit_hash)), buildId: String(r.build_id), commit: String(r.commit_hash),
       output: str(r.realized_artifact_id), genomeCommit: str(r.genome_commit), deployment: str(r.deployment_id), systemCommit: str(r.system_commit), count: Number(r.n),
     }));
     return { events, ...(rows.length > limit && { nextBefore: Number(page[page.length - 1].seq) }), versions };

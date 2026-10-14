@@ -104,8 +104,8 @@ describe("plan lib", () => {
     expect(planError("Drafting", { status: 409, code: "import-unreviewed", message: "import is unreviewed." })).toBe("import is unreviewed. Accept the import review first.");
   });
 
-  it("counts work waiting from planCounts", () => {
+  it("counts only agent work from planCounts", () => {
     expect(workWaiting(undefined)).toBe(0);
-    expect(workWaiting({ open: 2, awaitingAgent: 2, submitted: 1, integrated: 1 })).toBe(4);
+    expect(workWaiting({ open: 2, awaitingAgent: 2, submitted: 1, integrated: 1 })).toBe(2);
   });
 });

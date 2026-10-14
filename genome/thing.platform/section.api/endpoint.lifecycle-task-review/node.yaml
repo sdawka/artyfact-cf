@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-task-review
+kind: endpoint
+fields:
+  name: Review exact Task candidates
+  description: Reads candidate manifests, source and pinned base lineage, changed files, and evaluations belonging to one Task.
+  route: GET /api/systems/:id/realization-plans/:pid/tasks/:tid/review
+  auth: System read visibility; writes remain admin-only.

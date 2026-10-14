@@ -73,12 +73,13 @@ const USAGE = `artyfact <command>
   plan draft --system sid [--evolution eid ...] [--node id ...] [--hint text] [--title t] [--create] [--json]
         draft a Realization plan (persists nothing); --create posts the draft and prints the plan id
   plan tasks <plan> --system sid [--json]
-        task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim command
+        task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim or resume command
   task claim|start|resume <plan> <task> --system sid [--dir d] [--agent-label l]
         keeps the fork write token in <dir>/.git/artyfact-task.json (0600, never staged); submit uses it, never prints it
   task checkpoint "<message>" | submit | status
   task select <plan> <task> --system sid --candidate id
   ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]
+        bootstrap <import> --dir new-project [--prepare-only] materializes accepted Genome; prepare-only never provisions
   operations bindings|metrics|measurements|flags|audit|flag-create|flag-update|flag-disable --system sid [--binding id]
   skill [--dir project] [--write] [--agent claude|generic]
   validate-genome <genomeDir> [--app dir] [--templates dir] [--json] [--strict]
