@@ -62,7 +62,7 @@ test.describe("the self-model @fake", () => {
   });
 
   test("every view renders for Artyfact without console errors @fake", async ({ page }, testInfo) => {
-    await sweepViews(page, testInfo, BASE, "self");
+    await sweepViews(page, testInfo, BASE, "self", "Artyfact");
   });
 
   test("an intent about the platform lands under thing.platform; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {

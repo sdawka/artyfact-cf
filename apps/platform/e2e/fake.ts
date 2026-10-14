@@ -135,13 +135,13 @@ export async function createEvolution(page: Page, title: string, intent: string,
   await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 }
 
-/** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. */
-export async function sweepViews(page: Page, testInfo: TestInfo, base: string, tag: string): Promise<void> {
+/** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. Overview's h1 is the System's name. */
+export async function sweepViews(page: Page, testInfo: TestInfo, base: string, tag: string, systemName: string): Promise<void> {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
   const views: [string, string][] = [
-    ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
+    ["overview", systemName], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
     ["work", "Work"], ["review", "Review"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
   ];
   // Each view loads, renders and runs axe plus a screenshot; give the sweep a budget per view instead of one test's 30 s.
