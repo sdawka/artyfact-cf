@@ -185,33 +185,37 @@ export function flatten(plan: readonly ProposalPlanNode[], expanded: ReadonlySet
 export const OTHER_NODE = { id: "other", kind: "other", title: "Other changes" } as const;
 
 /**
- * The agreement tree for `ops` from the model index, the same shape the platform stores on a proposal: rooted at
- * Things (or the System when an op targets it), each op in the node it touches (`add` under its parent with the
- * proposed title and kind, `link`/`unlink` on their `from` node), ancestors as op-less nodes, `path` the containment
- * chain from the System root to the node inclusive, `summary` the subtree's verb counts. Ops on nodes the index
- * cannot place go under a trailing "Other changes" node.
+ * The agreement tree for `ops` from the model index, the same tree the platform stores on a proposal (`planOf` in
+ * worker/intents.ts; test/fixtures/plan-tree.ts holds the cases both must agree on): rooted at Things, or at the System
+ * root for a node outside every Thing; each op in the node it touches (`add` under its parent, else the System root,
+ * with the proposed title and kind; `link`/`unlink` on their `from` node), ancestors as op-less nodes, `path` the
+ * containment chain from the System root to the node inclusive, `summary` the subtree's verb counts. Ops on nodes the
+ * index cannot place go under a trailing "Other changes" node.
  */
 export function planFromOps(ops: readonly ProposedOp[], index: ModelIndex): ProposalPlanNode[] {
   const root = index.model.system.id;
   const minted = new Map(ops.filter((o) => o.op === "add").map((o) => [o.node, o]));
   const chain = (id: string, seen: Set<string>): string[] | null => {
+    if (id === root) return [root];
     if (index.byId(id)) {
       const p = index.path(id).map((e) => e.id);
       return p[0] === root ? p : null;
     }
     const add = minted.get(id);
-    if (!add?.parent || seen.has(id)) return null;
-    const up = chain(add.parent, seen.add(id));
+    if (!add || seen.has(id)) return null;
+    const up = chain(add.parent ?? root, seen.add(id));
     return up && [...up, id];
   };
+  const kindOf = (id: string) => index.byId(id)?.kind ?? minted.get(id)?.kind ?? "node";
   const nodes = new Map<string, ProposalPlanNode>();
   const roots: ProposalPlanNode[] = [];
   const other: ProposalPlanNode = { ...OTHER_NODE, path: [], summary: "", opIds: [], children: [] };
   const make = (id: string, path: string[]): ProposalPlanNode => {
     const e = index.byId(id);
     const add = minted.get(id);
-    const title = typeof add?.fields?.title === "string" && add.fields.title ? add.fields.title : e?.name || id;
-    return { id, kind: e?.kind ?? add?.kind ?? "unknown", title, path, summary: "", opIds: [], children: [] };
+    const named = add?.fields?.title ?? add?.fields?.name;
+    const title = typeof named === "string" && named.trim() ? named.trim() : e?.name || id;
+    return { id, kind: kindOf(id), title, path, summary: "", opIds: [], children: [] };
   };
   for (const op of ops) {
     const full = chain(op.node, new Set());
@@ -219,7 +223,8 @@ export function planFromOps(ops: readonly ProposedOp[], index: ModelIndex): Prop
       other.opIds.push(op.id);
       continue;
     }
-    const start = full.length > 1 ? 1 : 0;
+    const thing = full.findIndex((id) => kindOf(id) === "thing");
+    const start = thing === -1 ? 0 : thing;
     let parent: ProposalPlanNode | undefined;
     for (let i = start; i < full.length; i++) {
       const id = full[i]!;

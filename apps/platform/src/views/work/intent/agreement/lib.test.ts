@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProposalPlanNode, ProposedOp } from "../../../../../shared/api";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
+import { PLAN_TREE, PLAN_TREE_OPS, planShape } from "../../../../../test/fixtures/plan-tree";
 import { SAMPLE_PROPOSAL } from "../sample";
 import { acceptSet, blockedBy, cascade, countsText, flatten, initialExpanded, planFromDelta, planFromOps, rollupPlan, uncoveredOps, walk } from "./lib";
 
@@ -94,6 +95,10 @@ describe("agreement lib", () => {
     expect(uncoveredOps(plan, SAMPLE_PROPOSAL.ops)).toEqual([]);
     // The sample's static plan is what planFromOps builds.
     expect(SAMPLE_PROPOSAL.plan).toEqual(planFromOps(SAMPLE_PROPOSAL.ops, index));
+  });
+
+  it("builds the tree the platform stores from the same ops (shared fixture with worker planOf)", () => {
+    expect(planShape(planFromOps(PLAN_TREE_OPS, index))).toEqual(PLAN_TREE);
   });
 
   it("builds an amendment plan from a semantic delta", () => {

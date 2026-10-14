@@ -4,6 +4,7 @@
  * accepted ops committed to a Genome realization's fork and submitted as a candidate. The Genome repo holds the example's
  * v2 node tree, which the model loader (import, start work, submit) and the tree codec both read.
  */
+import { PLAN_TREE, PLAN_TREE_OPS, planShape } from "./fixtures/plan-tree";
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -1091,5 +1092,11 @@ describe("POST /intents/:pid/accept with a staged approval", () => {
     expect(g.status, JSON.stringify(g.json)).toBe(409);
     expect(g.json.error).toMatchObject({ code: "stale-base", message: expect.stringContaining("candidate was staged"), details: { currentHead: r.json.commit } });
     expect((await systemStub(env, s.systemId).proposal(next))?.proposal.provenance.genomeCommit).toBe(s.genomeCommit);
+  });
+});
+
+describe("plan tree shape", () => {
+  it("builds the tree the SPA fallback builds from the same ops (shared fixture)", () => {
+    expect(planShape(planOf(PLAN_TREE_OPS, tree()))).toEqual(PLAN_TREE);
   });
 });
