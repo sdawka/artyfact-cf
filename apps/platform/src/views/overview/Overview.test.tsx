@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
 describe("Overview", () => {
@@ -99,5 +100,30 @@ describe("Overview", () => {
     expect(link.getAttribute("href")).toContain("/work?");
     expect(link.getAttribute("href")).toContain("evolution=evolution.1");
     expect(screen.getByText("not deployed")).toBeTruthy();
+  });
+});
+
+describe("Overview hero and facts (design critique S5, S18)", () => {
+  it("holds the System h1, Purpose and primary inside the one light, with the readings on a band below it", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
+    const h1 = await screen.findByRole("heading", { level: 1, name: "Peopling" });
+    const hero = screen.getByRole("region", { name: "System light" });
+    expect(hero.contains(h1)).toBe(true);
+    const field = hero.querySelector('[data-effect="surface"]')!.parentElement!;
+    expect(field.contains(h1)).toBe(true);
+    expect(within(hero).getByRole("link", { name: "Describe a change" })).toBeTruthy();
+    // The labelled values sit outside the field, never over the haze.
+    const lead = within(hero).getByText("The light reflects readiness, checks, active work and blockers.");
+    expect(field.contains(lead)).toBe(false);
+  });
+
+  it("reads Facts' head from the same source as the TopBar when the model has none", async () => {
+    renderApp("/s/system.peopling/r/head/overview", undefined, (qc) =>
+      qc.setQueryData(qk.revisions("system.peopling"), {
+        revisions: [{ id: "head", kind: "head", label: "head (sc-1)" }, { id: "sc-1-e12083f7", kind: "commit", label: "sc-1 Import" }],
+      }));
+    const facts = await screen.findByRole("region", { name: "Facts" });
+    const head = within(facts).getByText("Head").nextElementSibling!;
+    expect(head.textContent).toBe("sc-1-e12083f7");
   });
 });

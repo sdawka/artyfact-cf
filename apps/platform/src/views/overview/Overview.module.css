@@ -1,23 +1,43 @@
 .view { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 1200px; }
 .view > * { min-width: 0; }
 .view > * + * { margin-top: var(--spacing-10); }
-.view > header + * { margin-top: 0; }
 .purposeId { color: var(--color-text-subtle); font-family: var(--font-code); font-size: var(--type-code, 0.875em); }
 
-/* The one light: a veil keeps the text readable with effects off. */
-.hero { display: grid; min-width: 0; }
-.heroTop {
-  position: relative;
-  isolation: isolate;
+/* The one light: the System header in the field's clear upper-left, the light along its bottom and right edges, the
+   readings on a solid band below. Nothing dense sits over the haze, so text stays readable with effects off. */
+.hero {
+  display: grid;
+  min-width: 0;
   overflow: hidden;
-  padding: var(--spacing-6);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--border-radius-lg);
   background: var(--surface-panel);
 }
-.heroText { position: relative; z-index: 1; display: grid; gap: var(--spacing-3); max-width: var(--measure-body); padding: var(--spacing-3) var(--spacing-4); border-radius: var(--border-radius-md); background: color-mix(in srgb, var(--surface-panel) 62%, transparent); }
+.heroField {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: start;
+  min-height: 220px;
+  padding: var(--spacing-8) var(--spacing-8) var(--spacing-12);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+.heroHead { position: relative; z-index: 1; min-width: 0; }
+.heroHeader { margin-bottom: 0; }
+.heroFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--spacing-2) var(--spacing-6);
+  padding: var(--spacing-3) var(--spacing-8);
+  border-top: 1px solid var(--color-border-faint);
+  background: var(--surface-panel);
+}
 .heroLead { margin: 0; font: var(--type-meta); color: var(--color-text-secondary); }
-@media (max-width: 639px) { .heroTop { padding: var(--spacing-3); } }
+@media (max-width: 639px) {
+  .heroField { min-height: 180px; padding: var(--spacing-5) var(--spacing-4) var(--spacing-10); }
+  .heroFoot { padding: var(--spacing-3) var(--spacing-4); }
+}
 
 .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--spacing-6); padding: var(--spacing-5); background: var(--surface-panel); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
 .twoCol { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: var(--spacing-8); align-items: start; }
@@ -39,7 +59,7 @@
 .codeList code { overflow-wrap: anywhere; white-space: normal; }
 
 .details { min-width: 0; }
-.details > summary { cursor: pointer; min-height: var(--control-height); display: flex; align-items: center; font: var(--type-h3); }
+.details > summary { cursor: pointer; min-height: var(--control-height); padding-block: var(--spacing-2); font: var(--type-h3); }
 .purposes { display: grid; gap: var(--spacing-6); padding-top: var(--spacing-3); }
 .purpose { display: grid; gap: var(--spacing-3); max-width: var(--measure-body); }
 .statement { margin: 0; font: var(--type-body); }
@@ -48,3 +68,5 @@
 .bullets { margin: 0; padding-left: var(--spacing-4); font: var(--type-ui); display: grid; gap: var(--spacing-1); }
 .plainText { margin: 0; font: var(--type-ui); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-3); margin: 0; padding: 0; list-style: none; }
+.nowrap { white-space: nowrap; }
+.destination { color: var(--color-text-secondary); white-space: nowrap; font: var(--type-ui); }

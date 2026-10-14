@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Finding } from "@artyfact/model";
-import { blockerAction, conformanceMeter, outcomeMeter, readinessMeter, relativeTime, shortRev } from "./states";
+import { blockerAction, conformanceMeter, headCommit, outcomeMeter, readinessMeter, relativeTime, shortRev } from "./states";
 
 const f = (level: Finding["level"], rule = "x.y"): Finding => ({
   level, rule, message: "m", facts: [], derivation: { relation: level, tuple: [rule], edb: false, children: [] },
@@ -63,5 +63,23 @@ describe("helpers", () => {
     expect(relativeTime("2026-10-12T10:00:00Z", now)).toBe("5 minutes ago");
     expect(relativeTime("1970-01-01T00:00:00.000Z", now)).toBe("unknown");
     expect(relativeTime("nope", now)).toBe("unknown");
+  });
+});
+
+describe("headCommit (the TopBar's head, design critique S5)", () => {
+  const revisions = [
+    { id: "head", kind: "head", label: "head (sc-1)" },
+    { id: "sc-1-e12083f7", kind: "commit", label: "sc-1 Import" },
+  ];
+  it("prefers the model's own head", () => {
+    expect(headCommit("sc-9-abc", revisions)).toBe("sc-9-abc");
+  });
+  it("resolves the revision picker's head label to the full System commit when the model has none", () => {
+    expect(headCommit(undefined, revisions)).toBe("sc-1-e12083f7");
+    expect(headCommit(null, [revisions[0]!])).toBe("sc-1");
+  });
+  it("is unknown only when neither source knows", () => {
+    expect(headCommit(undefined, [])).toBeUndefined();
+    expect(headCommit(undefined, [{ id: "head", kind: "head", label: "head" }])).toBeUndefined();
   });
 });
