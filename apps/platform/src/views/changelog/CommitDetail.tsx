@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui";
+import { ArrowRightIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ChangelogEntry, ChangelogRow } from "../../../shared/api";
 import { useChangelogEntry } from "@/api/queries";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
-import { StatusChip, buildTone } from "@/components/StatusChip/StatusChip";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { buildTone } from "@/components/StatusChip/StatusChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useKeepParams, useSystemRoute, viewPath } from "@/model/useSelection";
 import { shortSha } from "@/model/time";
@@ -37,7 +39,7 @@ function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
         return (
           <li key={`${f.scope}:${f.path}`} data-status={f.status} data-scope={f.scope}>
             <span className={styles.glyph} aria-label={f.status}>{GLYPH[f.status]}</span>
-            <Link to={to} className="u-marker"><code>{f.path}</code></Link>
+            <Link to={to}><code>{f.path}</code></Link>
             {f.nodes.map((n) => <NodeChip key={n} id={n} size="sm" />)}
           </li>
         );
@@ -51,67 +53,74 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
   const { systemId } = useSystemRoute();
   const delta = useSemanticDelta(entry.genome.delta, row.parent, row.id);
   const evaluations = entry.criteria.flatMap((c) => (c.evaluation ? [c.evaluation] : []));
+  const hasBuilds = row.builds.length > 0 || !!row.deployment;
+  // Sections with nothing in them fold into one line instead of three "No X recorded." paragraphs.
+  const empty = [
+    ...(entry.criteria.length ? [] : ["criteria"]),
+    ...(evaluations.length ? [] : ["evaluations"]),
+    ...(hasBuilds ? [] : ["builds", "deployments"]),
+  ];
   return (
     <>
+      <div className={styles.detailHead}>
+        {row.parent && <Button asChild variant="secondary"><Link to={href("compare", { from: row.parent, to: row.id })}>Compare with parent</Link></Button>}
+        {!row.legacyFormat && <Link to={viewPath(systemId, row.id, "map")} className="u-marker">Open in Map</Link>}
+      </div>
       <Section title="Genome">
         {row.legacyFormat ? (
           // A v1 Genome has no node delta and no model to open; its files below still diff.
           <p role="note" className={styles.muted}>{LEGACY_NOTICE}</p>
+        ) : delta ? (
+          <SemanticDelta delta={delta} summary />
         ) : (
-          <>
-            {delta ? (
-              <SemanticDelta delta={delta} />
-            ) : (
-              <p className={styles.muted}>{entry.genome.loadError ? `Genome comparison unknown: ${entry.genome.loadError}` : "No Genome comparison."}</p>
-            )}
-            <p><Link to={viewPath(systemId, row.id, "map")} className="u-marker">Open this revision in the Map</Link></p>
-          </>
+          <p className={styles.muted}>{entry.genome.loadError ? `Genome comparison unknown: ${entry.genome.loadError}` : "No Genome comparison."}</p>
         )}
       </Section>
       <Section title="Files">
         <Files entry={entry} row={row} />
       </Section>
-      <Section title="Criteria">
-        {entry.criteria.length ? (
+      {entry.criteria.length > 0 && (
+        <Section title="Criteria">
           <ul className={styles.criteria}>
             {entry.criteria.map((c) => (
               <li key={c.id}>
-                <Link to={href("evaluations", { criterion: c.id })} className="u-marker"><code>{c.id}</code></Link>
+                <Link to={href("evaluations", { criterion: c.id })}><code>{c.id}</code></Link>
                 <VerdictBadge verdict={c.before} label={`before ${c.before}`} />
-                <span aria-hidden="true">→</span>
+                <ArrowRightIcon aria-hidden="true" />
                 <VerdictBadge verdict={c.after} label={`after ${c.after}`} />
               </li>
             ))}
           </ul>
-        ) : <p className={styles.muted}>No criteria affected.</p>}
-      </Section>
-      <Section title="Evaluations">
-        {evaluations.length ? (
+        </Section>
+      )}
+      {evaluations.length > 0 && (
+        <Section title="Evaluations">
           <ul className={styles.inlineList}>
             {evaluations.map((id) => (
-              <li key={id}><Link to={href("evaluations", { evaluation: id })} className="u-marker"><code>{id}</code></Link></li>
+              <li key={id}><Link to={href("evaluations", { evaluation: id })}><code>{id}</code></Link></li>
             ))}
           </ul>
-        ) : <p className={styles.muted}>No evaluations linked.</p>}
-      </Section>
-      <Section title="Builds and deployment">
-        {row.builds.length || row.deployment ? (
+        </Section>
+      )}
+      {hasBuilds && (
+        <Section title="Builds and deployment">
           <ul className={styles.inlineList}>
             {row.builds.map((b) => (
               <li key={b.id}>
-                <Link to={href("phenome", { build: b.id })} className="u-marker">{b.id}</Link>{" "}
-                <StatusChip status={b.status} label={`${b.kind} ${b.status}`} tone={buildTone(b.status)} />
+                <Link to={href("phenome", { build: b.id })}><code>{b.id}</code></Link>
+                <StatusText status={b.status} label={`${b.kind} ${b.status}`} tone={buildTone(b.status)} />
               </li>
             ))}
             {row.deployment && (
               <li>
-                <Link to={href("phenome", { deployment: row.deployment.id })} className="u-marker">{row.deployment.id}</Link>{" "}
-                <StatusChip status={row.deployment.status} label={`${row.deployment.kind} ${row.deployment.status}`} tone={row.deployment.status === "failed" ? "fail" : "neutral"} />
+                <Link to={href("phenome", { deployment: row.deployment.id })}><code>{row.deployment.id}</code></Link>
+                <StatusText status={row.deployment.status} label={`${row.deployment.kind} ${row.deployment.status}`} tone={row.deployment.status === "failed" ? "fail" : "neutral"} />
               </li>
             )}
           </ul>
-        ) : <p className={styles.muted}>No builds or deployments recorded.</p>}
-      </Section>
+        </Section>
+      )}
+      {empty.length > 0 && <p className={styles.muted}>No {empty.length > 1 ? `${empty.slice(0, -1).join(", ")} or ${empty.at(-1)}` : empty[0]} yet.</p>}
       <Section title="Provenance">
         <dl className={styles.facts}>
           <dt>Rationale</dt>
@@ -126,11 +135,6 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
           <dd>{row.candidates.length ? row.candidates.map((c) => <code key={c.id} className={styles.inline}>{c.id} ({c.agent})</code>) : "none"}</dd>
         </dl>
       </Section>
-      {row.parent && (
-        <p>
-          <Button asChild variant="secondary"><Link to={href("compare", { from: row.parent, to: row.id })}>Compare with parent</Link></Button>
-        </p>
-      )}
     </>
   );
 }

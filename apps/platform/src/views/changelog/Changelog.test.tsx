@@ -27,14 +27,13 @@ describe("Changelog", () => {
     expect(container.querySelector('[data-tone="pass"]')).toBeNull();
   });
 
-  it("lists commits newest first with a summary line, build and deployment chips", async () => {
+  it("lists commits newest first with a summary line and one state", async () => {
     renderApp(URL, undefined, seed());
     const rows = rowsOf(await list());
     expect(rows).toHaveLength(2);
     expect(rows[0]!.textContent).toMatch(/sc-2/);
     expect(rows[0]!.textContent).toMatch("nodes +2 ~1 −0 · 4 files · 3 criteria");
     expect(rows[0]!.textContent).toMatch(/People screen/);
-    expect(rows[0]!.textContent).toMatch(/production build passed/);
     expect(rows[0]!.textContent).toMatch(/production live/);
     expect(rows[1]!.textContent).toMatch(/sc-1/);
     const toggle = within(rows[0]!).getByRole("button", { name: /^sc-2/ });
@@ -54,7 +53,7 @@ describe("Changelog", () => {
     const genome = await expand(/sc-2/);
     expect(within(genome).getByRole("note").textContent).toBe("Genome v1 format — not comparable");
     expect(within(genome).queryByText("Added")).toBeNull();
-    expect(within(genome).queryByRole("link", { name: "Open this revision in the Map" })).toBeNull();
+    expect(within(genome).queryByRole("link", { name: "Open in Map" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Files" })).getByRole("link", { name: "src/screens/People.tsx" })).toBeTruthy();
   });
 
@@ -94,6 +93,7 @@ describe("Changelog", () => {
       .toBe(`/s/${SYSTEM}/r/head/evaluations?criterion=C.webapp.screen.people`);
     expect(within(criteria).getByText("before not-run")).toBeTruthy();
     const deploy = screen.getByRole("region", { name: "Builds and deployment" });
+    expect(within(deploy).getByRole("link", { name: "build.2" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/phenome?build=build.2`);
     expect(within(deploy).getByRole("link", { name: "deploy.2" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/phenome?deployment=deploy.2`);
     expect(screen.getByRole("link", { name: "Compare with parent" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/compare?from=sc-1&to=sc-2`);
   });
@@ -119,7 +119,7 @@ describe("Changelog", () => {
     const trigger = await screen.findByRole("combobox", { name: "Evolution" });
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger.textContent).toContain("evolution.unknown");
-    await chooseSelect(trigger, "All");
+    await chooseSelect(trigger, "All Evolutions");
     await waitFor(() => expect(router.state.location.search).toBe(""));
     expect(rowsOf(await list())).toHaveLength(2);
   });
@@ -142,12 +142,35 @@ describe("Changelog", () => {
     expect(within(rows[1]!).queryByText("System One: fake provider")).toBeNull();
   });
 
-  it("opens the New Evolution panel from + Evolution, disabled on fixture data", async () => {
+  it("opens the New Evolution panel in place of the list, disabled on fixture data", async () => {
     const { router } = renderApp(URL, undefined, seed());
-    fireEvent.click(await screen.findByRole("button", { name: "+ Evolution" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?panel=new"));
     expect(await screen.findByRole("heading", { name: "New Evolution" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "System commits, newest first" })).toBeNull();
     expect((screen.getByRole("button", { name: "Create Evolution" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/needs the platform API/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Changelog" }));
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(await list()).toBeTruthy();
+  });
+
+  it("folds empty sections into one line and lists a long Genome delta summary-first", async () => {
+    const ids = Array.from({ length: 8 }, (_, i) => `node.n${i}`);
+    renderApp(URL, undefined, (qc) => {
+      seed([older, { ...newer, builds: [], deployment: null }])(qc);
+      qc.setQueryData(qk.changelogEntry(SYSTEM, "sc-2"), {
+        ...entry,
+        criteria: [],
+        genome: { ...entry.genome, delta: { added: ids, removed: [], changed: [], affectedCriteria: [], affectedJourneys: [] } },
+      });
+    });
+    const genome = await expand(/sc-2/);
+    expect(screen.queryByRole("region", { name: "Evaluations" })).toBeNull();
+    expect(screen.getByText("No criteria, evaluations, builds or deployments yet.")).toBeTruthy();
+    expect(within(genome).getByText("8 added, 0 changed, 0 removed")).toBeTruthy();
+    expect(within(genome).queryByText("node.n0")).toBeNull();
+    fireEvent.click(within(genome).getByRole("button", { name: "Show all added (8)" }));
+    expect(await within(genome).findAllByText("node.n0")).not.toHaveLength(0);
   });
 });

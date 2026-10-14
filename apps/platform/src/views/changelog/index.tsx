@@ -1,7 +1,9 @@
 import { Select, Button } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useChangelog } from "@/api/queries";
+import { ArrowLeftIcon, PlusIcon } from "@radix-ui/react-icons";
+import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { useFxOnArrival } from "@/effects/fx";
 import { useKeepParams } from "@/model/useSelection";
@@ -51,25 +53,31 @@ export default function ChangelogView() {
 
   return (
     <section aria-labelledby="view-title" className={styles.view}>
-      <h1 id="view-title">Changelog</h1>
+      <PageHeader
+        title="Changelog"
+        purpose="Every System commit, newest first."
+        secondary={creating ? undefined : (
+          <Button type="button" variant="secondary" onClick={() => setParam("panel", "new")}>
+            <PlusIcon aria-hidden="true" />Evolution
+          </Button>
+        )}
+      />
+      {creating ? (
+        <>
+          <Button type="button" variant="ghost" size="compact" onClick={() => setParam("panel", null)}>
+            <ArrowLeftIcon aria-hidden="true" />Back to Changelog
+          </Button>
+          <NewEvolutionPanel
+            onCreated={(e) => void navigate(href("work", { evolution: e.id }))}
+            onCancel={() => setParam("panel", null)}
+          />
+        </>
+      ) : (
+        <>
       <div className={styles.toolbar}>
         <label htmlFor="changelog-evolution">Evolution</label>
-        <Select id="changelog-evolution" value={evolution} onChange={(value) => setParam("evolution", value || null)} options={[{ value: "", label: "All" }, ...evolutions.map((e) => ({ value: e.id, label: e.title ? `${e.title} (${e.id})` : e.id }))]} />
-        <Button
-          type="button"
-          variant="secondary" className={styles.push}
-          aria-pressed={creating}
-          onClick={() => setParam("panel", creating ? null : "new")}
-        >
-          + Evolution
-        </Button>
+        <Select id="changelog-evolution" value={evolution} onChange={(value) => setParam("evolution", value || null)} options={[{ value: "", label: "All Evolutions" }, ...evolutions.map((e) => ({ value: e.id, label: e.title ? `${e.title} (${e.id})` : e.id }))]} />
       </div>
-      {creating && (
-        <NewEvolutionPanel
-          onCreated={(e) => void navigate(href("work", { evolution: e.id }))}
-          onCancel={() => setParam("panel", null)}
-        />
-      )}
       {q.isLoading ? (
         <p role="status">Loading the changelog…</p>
       ) : q.isError ? (
@@ -80,7 +88,7 @@ export default function ChangelogView() {
           The System commits could not be fetched. This is not the same as having none.
         </EmptyState>
       ) : rows.length === 0 ? (
-        <EmptyState surface="dusk" title="No System commits yet: nothing has been promoted.">
+        <EmptyState surface="dusk" title="No System commits yet." action={<Button asChild variant="secondary"><Link to={href("review")}>Open Review</Link></Button>}>
           A System commit is created when a System is imported or candidates are promoted with a recorded rationale.
         </EmptyState>
       ) : shown.length === 0 ? (
@@ -97,6 +105,8 @@ export default function ChangelogView() {
               {q.isFetchingNextPage ? "Loading…" : "Load older commits"}
             </Button>
           )}
+        </>
+      )}
         </>
       )}
     </section>
