@@ -66,12 +66,13 @@ let code = null; // changed code files, when --changed found a base
 if (changedOnly) {
   const files = changedFiles();
   if (files === null) {
-    console.log("ci: no base to compare with, running everything");
+    (plan ? console.error : console.log)("ci: no base to compare with, running everything");
   } else {
     code = files.filter((f) => !isDoc(f));
     site = code.some(isSite);
     platform = code.some((f) => !isSiteOnly(f));
-    console.log(`ci: ${files.length} changed file(s): platform ${platform ? "run" : "skip"}, site ${site ? "run" : "skip"}`);
+    // --plan is piped into $GITHUB_OUTPUT, which accepts only key=value lines, so the note goes to stderr there.
+    (plan ? console.error : console.log)(`ci: ${files.length} changed file(s): platform ${platform ? "run" : "skip"}, site ${site ? "run" : "skip"}`);
     if (!platform && !site && !plan) {
       console.log("ci: no code changes, nothing to run");
       process.exit(0);
