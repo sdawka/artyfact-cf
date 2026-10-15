@@ -3,6 +3,7 @@
 
 ## Now
 
+- Production evidence backfill: two builds, two scoped live deployments and six labelled observations now cover platform/site and four recorded releases. Source registration refreshed; Genome and pending integrity review preserved. API, idempotence and six desktop/mobile checks pass. Evidence: [[journals/2026-10-14-proteome-phenome-backfill]]. Updated 2026-10-14T23:17:48-04:00.
 - Current: local bootstrap foundation implemented on `feat/local-bootstrap`, based on merged #84 / `c2252821`. [[roadmap]] carries acceptance; evidence in [[journals/2026-10-14-local-bootstrap]].
 - Verified: full local CI passed (402s); final operator/UI and source-model regressions passed. Independent verifier/operator reviews clear. Cloud verifier deployed and authenticated health smoke passed.
 - Next: ship [PR #85](https://github.com/sdawka/artyfact-cf/pull/85) to main after every CI check passes. Live testing also exposed the SDK's missing Git index; the verifier reconstructs it before installation. Rerun the cloud candidate, then resume the local review/analytics Task.
