@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { EVOLUTIONS_DIR, NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
 import { parseTree } from "@artyfact/ontology";
-import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
+import { cloudCli, spawnExec, wranglerCommand, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
 import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
@@ -322,7 +322,7 @@ function namespaceOf(values: Record<string, unknown>, io: InitIo): string {
 }
 
 function connect(io: InitIo, ns: string): Cloud {
-  const cloud = io.cloud ?? cloudCli(spawnExec(io.root ?? defaultRoot()), io.env);
+  const cloud = io.cloud ?? cloudCli(spawnExec(io.root ?? defaultRoot()), io.env, wranglerCommand(io.root ?? defaultRoot()));
   const account = cloud.account();
   io.out(`account ${account.slice(0, 8)}… (wrangler and cf agree)`);
   io.out(`namespace ${ns}: ${cloud.ensureNamespace(ns)}`);

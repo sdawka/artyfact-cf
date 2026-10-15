@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
-import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
+import { cloudCli, spawnExec, wranglerCommand, type Cloud } from "./cloud.ts";
 import { canonicalJson, normalizeVerificationRequest, type VerificationOutput, type VerificationRequest, type VerificationResult } from "@artyfact/model";
 import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
@@ -207,7 +207,7 @@ interface VerifiedManifest {
 }
 
 export function publishVerifiedRelease(stage: string, activation: Activation, io: OperatorIo, ns = DEFAULT_NS): { version: string; buildsCommit: string; action: "created" | "reused" } {
-  const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env);
+  const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env, wranglerCommand(io.cwd));
   cloud.account();
   const namespace = assertName("namespace", ns);
   const identity = verifiedReleaseIdentity(activation);
@@ -406,7 +406,7 @@ export function prepareActivation(activation: Activation, opts: { dir: string; s
   let prepared = false;
   try {
     git(checkout, ["init", "-q"]);
-    const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env);
+    const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env, wranglerCommand(io.cwd));
     cloud.account();
     const ns = assertName("namespace", opts.namespace ?? io.env.ARTYFACT_NAMESPACE ?? DEFAULT_NS);
     const token = cloud.token(ns, activation.source.repo, "read");
