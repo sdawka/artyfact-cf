@@ -20,7 +20,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `npm run dev` adds both; the deployed hosted demo has neither |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
 | Queue `artyfact-site-deploys` (consumer `artyfact-ci`) and Workflow `artyfact-site-deploy` | public site deploys from `platform.builds` | `npx wrangler queues create artyfact-site-deploys`, then deploy `artyfact-ci` |
-| Event subscription `artyfact-platform.builds-site-deploy` | `pushed` on `artyfact/platform.builds` → `artyfact-site-deploys` | `node scripts/site-deploy-subscription.mjs` (idempotent; `--dry-run` previews) |
+| Event subscription `artyfact-platform.builds-site-deploy` | `pushed` on `artyfact/platform.builds` → `artyfact-site-deploys` | `node scripts/site-deploy-subscription.mjs` (idempotent; `--dry-run` previews), or `npx cf queues subscriptions create --body '<same JSON>'` (the typed flags cannot name an `artifacts.repo` source). Created 2026-10-14 |
 
 There is no D1. R2 holds only evidence images. The deployed Worker is the hosted demo (`HOSTED_DEMO=1` in `wrangler.jsonc`): System One, visual checks, intent translation and plan drafting are simulated, and no model key or binding is read, so a hosted run spends nothing on models. To judge with Clef or Jev, run the platform locally (`npm run dev`) on your own account with keys in `.dev.vars`; see the platform README for `S1_PROVIDER`. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
