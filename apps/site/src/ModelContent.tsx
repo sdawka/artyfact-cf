@@ -13,7 +13,7 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
       <div className="theory-hero-text">
         <h1>Theory Driven Development</h1>
         <p className="theory-lede">Every product is a theory.</p>
-        <p>You build something for some people because you believe it will change something for them, and you know what would show it. Most teams keep that theory in their heads. Artyfact writes it down as part of a multi-level model, builds against it, checks the work and watches what happens.</p>
+        <p>You build something for some people because you believe it will change something for them, and you know what would show it. Most teams keep that theory in their heads while the product keeps evolving around it. Artyfact writes it down as part of a multi-level model, builds against it, checks the work and watches what happens. A spec describes information; a theory carries meaning.</p>
       </div>
       <TheoryCard />
     </section>
@@ -56,12 +56,12 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
       <p className="model-story-bridge">These subjects and criteria are declared in the repository’s <code>genome/</code> tree, and the component serves <code>purpose.explain-artyfact</code>. Declaring a criterion does not show that readers’ needs were met.</p>
     </section>
 
-    <section className="section model-story-views" id="model-parallel-views" aria-labelledby="model-views-heading" tabIndex={-1}><div className="section-heading"><h2 id="model-views-heading">Three views of the same model.</h2><p>Genome is what it should be, Proteome is what is being made, and Phenome is what it does. They are views you can open at any time, not stages one after another. The loop is how a change moves through them.</p></div><Explorer html={explorerHtml} /></section>
+    <section className="section model-story-views" id="model-parallel-views" aria-labelledby="model-views-heading" tabIndex={-1}><div className="section-heading"><h2 id="model-views-heading">Three views of the same model.</h2><p>Genome is what it should be: the theory and ontology. Proteome is what is being made: your agents and the code they write. Phenome is what it does: the running product you observe and measure. They are views you can open at any time, not stages one after another. The loop is how a change moves through them.</p></div><Explorer html={explorerHtml} /></section>
 
     <section id="benefits" className="section model-story-benefits" aria-labelledby="benefits-heading" tabIndex={-1}>
       <div className="section-heading"><h2 id="benefits-heading">Why write the theory down?</h2><p>People and agents work from the same reasons instead of guessing them.</p></div>
       <div className="model-benefits-grid">
-        <article><details><summary><strong>Context agents can use</strong><span>Each Task arrives with its scope.</span></summary><p>A Task Packet carries the pinned Genome version, the model nodes the Task reads and writes, the paths it may change, its steps, its checks and its dependencies. The agent does not have to rebuild that from source files.</p></details></article>
+        <article><details><summary><strong>Context agents can use</strong><span>Each Task arrives with its scope.</span></summary><p>A Task Packet carries the pinned Genome version, the model nodes the Task reads and writes, the paths it may change, its steps, its checks and its dependencies. The agent does not have to rebuild that from source files. Once the model says where and what to change, the code is mostly translation, so a simple Task can go to a cheaper model.</p></details></article>
         <article><details><summary><strong>Changes keep their reason</strong><span>An Evolution names the claims it affects.</span></summary><p>A change moves from request to code to review with its reason attached. When the theory changes, you can see which work it touched.</p></details></article>
         <article><details><summary><strong>Gaps show early</strong><span>Rule Packs flag a claim with nothing to measure.</span></summary><p>A claim with no indicator, no method or no beneficiary is flagged before anyone builds it. Every agent and reviewer checks against the same modeled rules.</p></details></article>
         <article><details><summary><strong>Evidence stays honest</strong><span>Unknown is a real answer.</span></summary><p>Checks give verdicts and claims carry a status. Only a pass is green. A deployment is not an outcome, and a passing check establishes only what that check measured.</p></details></article>

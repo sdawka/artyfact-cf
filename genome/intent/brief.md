@@ -95,8 +95,9 @@ Copy deck (exact strings; Tasks translate them into the pages):
   continuously. Artyfact keeps the practices each of them already uses and
   ties every one to the same model of your product. Some are built in, some
   are extended, and some connect what you already write."
-- Home agent environment Freedom zone, first item: "Any agent harness or LLM
-  you run, including a cheaper or local model for simple Tasks."
+- Home agent environment Context note: "With the whole model and an exact
+  brief, the code is mostly translation, so a simple Task can go to a cheaper
+  or local model; its result is still checked against the whole model."
 - Home closing, step 2: "It gets its own fork, holding the code and the
   pinned model, with a brief naming what to realize. From there, the code is
   mostly translation."

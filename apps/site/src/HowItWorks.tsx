@@ -104,7 +104,7 @@ export function HowItWorks({ workflow }: { workflow: Workflow }) {
     <section className="page-intro how-intro">
       <h1>How it works</h1>
       <p className="lead">How one change moves through Artyfact: from a description of the product to code running in production, and back again.</p>
-      <p className="intro-text">People decide what changes. Agents build it, each in a private fork. Artyfact checks the work against the model and refuses anything stale. Open a phase to see who acts, what they run and what keeps the change safe.</p>
+      <p className="intro-text">People decide what changes. Agents build it, each in a private fork; with the change already pinned in the model, the build is mostly translation. Artyfact checks the work against the model and refuses anything stale. Open a phase to see who acts, what they run and what keeps the change safe.</p>
     </section>
     <section className="how-source" aria-labelledby="how-source-heading">
       <h2 id="how-source-heading">Drawn from Artyfact’s own model.</h2>

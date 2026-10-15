@@ -12,7 +12,7 @@ const steps = [
   { name: 'Observe', title: 'Watch what happens', term: 'Phenome', line: 'See what each deployment did.',
     body: 'The Phenome links runtime events and deployments to the commit that produced them. A deployment or an event alone does not prove an outcome. Measuring claim indicators is in progress.' },
   { name: 'Revise', title: 'Revise the theory', term: 'claim status', line: 'Update what you believe, then start the next change.',
-    body: 'Record whether the evidence supports or challenges the claim, or leaves it inconclusive. The next Evolution names the claims it affects, so the theory and the product move together.' },
+    body: 'Record whether the evidence supports or challenges the claim, or leaves it inconclusive. The next Evolution names the claims it affects, so the theory and the product move together. A product keeps evolving with the people who build and use it, so the theory does too.' },
 ] as const;
 
 const R = 112, C = 160;

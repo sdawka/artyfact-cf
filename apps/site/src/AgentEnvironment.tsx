@@ -8,7 +8,7 @@ const zones: Zone[] = [
     'A brief naming the exact parts of that model each Task realizes, with the steps and checks that come from them.',
     'Which finished Tasks it builds on, and which open ones it must not overlap.',
     'What other agents are working on.',
-  ], note: 'With the whole model and an exact brief, even a small change can go to a cheaper, weaker model; its result is still validated against the entire model.' },
+  ], note: 'With the whole model and an exact brief, the code is mostly translation, so a simple Task can go to a cheaper or local model; its result is still checked against the whole model.' },
   { id: 'guardrails', title: 'Guardrails', label: 'Hard to do the wrong thing', items: [
     'A private fork for each Task, with a short-lived token.',
     'Paths they may write, and paths that stay protected. The model in the fork is read-only by default.',

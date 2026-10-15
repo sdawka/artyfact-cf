@@ -4,8 +4,8 @@ import { disciplines, practices, relationLabels } from './practiceStackData';
 /** Static: every row is readable without CSS or JavaScript. Each discipline is a native disclosure, open in the markup;
  * the client closes all but the first on narrow screens. Labels and words carry the meaning, never colour. */
 export function PracticeStack() {
-  return <section className="section practice-stack" aria-labelledby="practice-stack-heading">
-    <div className="section-heading"><h2 id="practice-stack-heading">The practices you already use, connected and taken further.</h2><p>Artyfact keeps these practices and ties each one to the same model of your product. Some are built in, some are extended, and some connect what you already write.</p></div>
+  return <section className="section practice-stack" id="practices" aria-labelledby="practice-stack-heading">
+    <div className="section-heading"><h2 id="practice-stack-heading">The practices you already use, connected and taken further.</h2><p>A product is shaped by many roles, continuously. Artyfact keeps the practices each of them already uses and ties every one to the same model of your product. Some are built in, some are extended, and some connect what you already write.</p></div>
     {disciplines.map((discipline, index) => {
       const rows = practices.filter(practice => practice.discipline === discipline);
       return <details key={discipline} className="practice-group" open data-collapse-below="780" data-keep-open={index === 0 ? '' : undefined}>

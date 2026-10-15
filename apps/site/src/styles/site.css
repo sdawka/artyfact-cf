@@ -151,6 +151,19 @@ html, body { overflow-x: clip; }
 .model-nesting-terms dd { font: var(--type-ui); }
 .model-nesting-note { margin: 12px 0 0; max-width: 80ch; }
 
+/* Thesis: four beats as cards in the environment zones' look (a 2x2 grid), then the three views of one model in a row. */
+.thesis-beats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
+.thesis-beats > li { min-width: 0; display: flex; }
+.thesis-beats article { flex: 1; min-width: 0; padding: 20px 22px; border-radius: var(--border-radius-lg); background: var(--surface-well); border-top: 2px solid var(--color-brand-primary); }
+.thesis-beats h3 { font: var(--type-h2); margin-bottom: 8px; }
+.thesis-beats p { color: var(--color-text-secondary); font: var(--type-ui); max-width: 52ch; margin-bottom: 12px; }
+.thesis-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 36px 0 0; padding: 28px 0 0; list-style: none; border-top: 1px solid var(--color-border-faint); }
+.thesis-views > li { min-width: 0; padding: 16px 18px; border: 1px dashed var(--color-border); border-radius: var(--border-radius-lg); }
+.thesis-views h3 { font: var(--type-control); color: var(--color-text-primary); margin-bottom: 6px; }
+.thesis-views h3 .term-label { display: block; margin-bottom: 2px; }
+.thesis-views p { color: var(--color-text-secondary); font: var(--type-ui); margin: 0; }
+.thesis-links { margin: 16px 0 0; }
+
 /* Environment: three zones of one Task. The brief is a sheet (a well), the guardrails are the dashed frame the Task
    forks use elsewhere on the page, and freedom is open space. Then the one sentence about parallel agents, pulled out. */
 .environment-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
@@ -349,6 +362,8 @@ blockquote { margin: 20px 0; padding-left: 20px; border-left: 1px solid var(--co
   .footer-links { justify-content: flex-start; }
   .footer-links > span { padding-inline: 0; }
   .environment-columns { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .thesis-beats, .thesis-views { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .thesis-beats article { padding: 16px 18px; }
   .environment-columns article { padding: 16px 18px; }
   .environment-columns [data-zone="freedom"] { padding: 16px 0 0; border-top: 1px solid var(--color-border-faint); border-radius: 0; }
   .environment-parallel { grid-template-columns: minmax(0, 1fr); }

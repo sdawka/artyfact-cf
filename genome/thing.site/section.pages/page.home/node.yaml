@@ -12,3 +12,4 @@ files:
   - src/PracticeStack.tsx
   - src/practiceStackData.ts
   - src/AgentEnvironment.tsx
+  - src/Thesis.tsx
