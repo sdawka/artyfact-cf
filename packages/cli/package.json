@@ -1,29 +1,43 @@
 {
-  "name": "@artyfact/cli",
-  "version": "0.0.0",
-  "private": true,
+  "name": "artyfact",
+  "version": "0.1.0",
+  "description": "Command-line client for Artyfact: validate and evolve Genomes, claim and submit Tasks, and install the Genome agent skill.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sdawka/artyfact-cf.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/sdawka/artyfact-cf/tree/main/packages/cli#readme",
   "type": "module",
-  "main": "src/index.ts",
+  "engines": {
+    "node": ">=22.19"
+  },
   "exports": {
-    ".": "./src/index.ts",
     "./naming": "./src/naming.ts",
     "./ignore": "./src/ignore.ts"
   },
   "bin": {
     "artyfact": "bin/artyfact.js"
   },
+  "files": [
+    "dist",
+    "skills",
+    "bin",
+    "README.md"
+  ],
   "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "prepack": "node scripts/bundle.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
+  "devDependencies": {
     "@artyfact/model": "*",
     "@artyfact/ontology": "*",
     "@artyfact/templates": "*",
     "picomatch": "^4.0.7",
     "undici": "^8.11.2",
-    "yaml": "^2.9.1"
-  },
-  "devDependencies": {
+    "yaml": "^2.9.1",
     "@types/node": "^26.6.5",
     "@types/picomatch": "^4.0.3"
   }

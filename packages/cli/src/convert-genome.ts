@@ -10,10 +10,16 @@ import type { Io } from "./main.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+/** Templates shipped beside the published bundle (dist/templates), else the monorepo checkout's packages/templates. */
+function defaultTemplates(root: string | undefined): string {
+  const bundled = join(here, "templates");
+  return root === undefined && existsSync(bundled) ? bundled : join(root ?? resolve(here, "../../.."), "packages", "templates");
+}
+
 /**
  * `artyfact convert-genome <src> <dst> [--templates dir] [--source-map file]`: writes the v2 node tree for the v1
  * Genome in `src` into `dst`, which must not exist or be empty. Only the Genome's YAML is read; `src` is never changed.
- * Templates come from `--templates`, else the checkout's `packages/templates`. `--source-map` is the app repo's v1
+ * Templates come from `--templates`, else the published package's bundled copy, else the checkout's `packages/templates`. `--source-map` is the app repo's v1
  * `source-map.yaml`: its globs become the named nodes' `files`.
  */
 export function convertGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out" | "root">): number {
@@ -25,7 +31,7 @@ export function convertGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out" 
   }
   const args = parsed.positionals;
   if (args.length !== 2) throw new CliError("usage: artyfact convert-genome <src> <dst> [--templates dir] [--source-map file]");
-  const tplDir = parsed.values.templates ? resolve(io.cwd, parsed.values.templates) : join(io.root ?? resolve(here, "../../.."), "packages", "templates");
+  const tplDir = parsed.values.templates ? resolve(io.cwd, parsed.values.templates) : defaultTemplates(io.root);
   if (!existsSync(tplDir)) throw new CliError(`templates directory ${tplDir} not found; pass --templates`);
   const src = resolve(io.cwd, args[0]!), dst = resolve(io.cwd, args[1]!);
   if (!existsSync(src) || !lstatSync(src).isDirectory()) throw new CliError(`${args[0]} is not a directory`);

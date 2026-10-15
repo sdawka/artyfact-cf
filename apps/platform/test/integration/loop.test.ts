@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ITEST_NAMESPACE, itestPrefix, systemRepoNames } from "@artyfact/cli/naming";
+import { ITEST_NAMESPACE, itestPrefix, systemRepoNames } from "artyfact/naming";
 
 const run = promisify(execFile);
 // The worker tsconfig types process.env as the Worker Env (literal var values); the child processes get plain strings.

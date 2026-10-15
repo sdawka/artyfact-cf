@@ -9,7 +9,7 @@
  * State lives in the isolate, so a restart starts over (the Vite config turns off state persistence in this mode to
  * keep the Durable Objects in step).
  */
-import { PLATFORM_REPO, systemRepoNames } from "@artyfact/cli/naming";
+import { PLATFORM_REPO, systemRepoNames } from "artyfact/naming";
 import { reportBuild } from "../deployments";
 import { setEditorTransport } from "../editor";
 import { manifestExists } from "../hooks/manifest-exists";

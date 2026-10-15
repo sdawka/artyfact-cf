@@ -1,0 +1,11 @@
+{
+  "name": "artyfact",
+  "version": "0.1.0",
+  "description": "Teaches your agent to read, validate and evolve an Artyfact Genome with the artyfact CLI.",
+  "author": { "name": "Sahil Dawka" },
+  "homepage": "https://github.com/sdawka/artyfact-cf",
+  "repository": "https://github.com/sdawka/artyfact-cf",
+  "license": "Apache-2.0",
+  "keywords": ["artyfact", "genome", "ontology"],
+  "skills": ["./packages/cli/skills/artyfact-genome"]
+}

@@ -1,4 +1,6 @@
-# @artyfact/cli
+# artyfact
+
+Once published, `npm i -g artyfact` or `npx artyfact@latest --help` works without a clone; in the monorepo, `npx artyfact` runs the source. Claude Code can load the Genome skill as a plugin with `/plugin install artyfact --marketplace sdawka/artyfact-cf`.
 
 `artyfact init|platform-sync|evolution|plan|task|ontology|operations|skill|validate-genome`
 plus compatible historical `start|checkpoint|submit|build-report|status|compose|parts` commands. Platform URL from `--platform`, else

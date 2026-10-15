@@ -12,7 +12,7 @@ import type {
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
-import { isName, systemRepoNames } from "@artyfact/cli/naming";
+import { isName, systemRepoNames } from "artyfact/naming";
 import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";

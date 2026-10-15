@@ -2,6 +2,8 @@ id: thing.cli
 kind: thing
 template: template.thing.cli@1
 root: packages/cli
+files:
+  - scripts/bundle.mjs
 fields:
   name: artyfact CLI
   description: "The artyfact command-line tool: sets up a System's repos, starts and submits realizations for agents, manages Parts, converts Genomes and releases the platform's own builds through Artifacts."
@@ -23,7 +25,7 @@ links:
   - { rel: exposes, to: command.ontology-materialize }
 criteria:
   - id: C.cli.unit
-    title: "@artyfact/cli tests pass"
+    title: "artyfact CLI tests pass"
     claim: Init, naming, platform discovery, Parts and convert-genome suites pass against local bare repos.
     target: artifact
     gates:
@@ -38,7 +40,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/cli
+          command: npm test -w artyfact
   - id: C.thing.cli.checks
     title: Changed nodes meet their checks
     claim: Changed nodes meet the checks their kinds declare.

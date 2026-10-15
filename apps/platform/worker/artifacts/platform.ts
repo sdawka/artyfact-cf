@@ -2,7 +2,7 @@
  * The namespace's `platform` meta repo (pushed by `artyfact platform-sync`). Read on import for provenance only:
  * template and rule-pack evaluation still uses the packages bundled into the Worker.
  */
-import { PLATFORM_REPO, platformPackFile, platformTemplateDir } from "@artyfact/cli/naming";
+import { PLATFORM_REPO, platformPackFile, platformTemplateDir } from "artyfact/naming";
 import type { Finding, SystemModel } from "@artyfact/model";
 import type { PlatformRef } from "../../shared/api";
 import { artifactsErrorCode, withRepo, type ArtifactsNamespaceLike } from "./client";
