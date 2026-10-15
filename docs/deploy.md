@@ -10,7 +10,8 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 
 | Resource | Name | Created by |
 |---|---|---|
-| Worker + static assets | `artyfact-platform` | `npm run deploy` |
+| Worker + static assets | `artyfact-platform` | `npm run release` (or `npm run deploy`) |
+| Artifacts repo `artyfact/platform.builds` | build outputs and `release.json` per release | `npm run release` |
 | Durable Object `SystemAuthority` (SQLite) | migration in `wrangler.jsonc` `exports` | first deploy |
 | Queue consumer | `artyfact-artifacts-events` | `npx wrangler queues create artyfact-artifacts-events` before the first deploy |
 | Artifacts namespace `artyfact` | `platform`, `peopling.genome`, `peopling.app` repos | `artyfact init` (runbook step 2), not this doc |
@@ -32,7 +33,9 @@ There is no D1. R2 holds only evidence images. The deployed Worker is the hosted
 
 ## Redeploy
 
-`npm run deploy` (builds the platform, then `wrangler deploy`). Secrets and the Queue persist.
+`npm run release` is the intended path: it builds the platform and the site, commits the outputs and a `release.json` to the Artifacts repo `artyfact/platform.builds` (tag `v<yyyymmdd>-<sha7>`, one per source commit, reused when it exists) and runs `wrangler deploy` for both Workers from that checkout, so the deployed version always comes from Artifacts. It refuses a dirty tree, prints no tokens, and `--dry-run` writes nothing remote. Needs `npx wrangler login` and `cf auth login` on the same account. Design and the optional Workers Builds hookup: [design/release-artifacts.md](design/release-artifacts.md).
+
+`npm run deploy` (builds the platform, then `wrangler deploy` from the worktree) still works as the fallback. Secrets and the Queue persist either way.
 
 The deployed build keeps `wrangler.jsonc` as is: `HOSTED_DEMO=1`, no `AI` or `BROWSER`, and no model secrets needed. A self-hosted Worker that should judge for real removes `HOSTED_DEMO` and adds `"ai": { "binding": "AI" }` and `"browser": { "binding": "BROWSER" }` before deploying; then `S1_PROVIDER` and the keys apply as locally. `wrangler deploy` replaces `vars`.
 
