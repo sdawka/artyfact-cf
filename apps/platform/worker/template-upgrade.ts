@@ -7,8 +7,8 @@ import { remoteUrl } from './artifacts/client';
  * template shipped last time). Applying it is an ordinary gated change: a new Evolution, an editor-origin realization
  * and a commit through `commitEdit`, so the result is a candidate with hooks and a CI preview, promoted like any other.
  */
-import { isSecretFile, neverStaged } from "@artyfact/cli/ignore";
-import { PLATFORM_REPO, isName, platformTemplateDir } from "@artyfact/cli/naming";
+import { isSecretFile, neverStaged } from "artyfact/ignore";
+import { PLATFORM_REPO, isName, platformTemplateDir } from "artyfact/naming";
 import { parse as parseYaml } from "yaml";
 import type {
   TemplateLock, TemplateUpgradeFile, TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse,

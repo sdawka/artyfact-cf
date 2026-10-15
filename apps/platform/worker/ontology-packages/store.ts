@@ -1,4 +1,4 @@
-import { systemRepoNames } from "@artyfact/cli/naming";
+import { systemRepoNames } from "artyfact/naming";
 import { hashOf, type TemplateStore } from "@artyfact/ontology";
 import { metaTemplates } from "@artyfact/templates";
 import { inspectOntologyPackage, ontologyPackagePin, ontologyPackageStore, type NativeOntologyPackage } from "@artyfact/model";

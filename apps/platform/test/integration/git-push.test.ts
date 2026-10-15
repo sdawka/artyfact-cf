@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ITEST_NAMESPACE } from "@artyfact/cli/naming";
+import { ITEST_NAMESPACE } from "artyfact/naming";
 import type { ArtifactsRepoLike, CommitMeta, TreeEntry } from "../../worker/artifacts/client";
 import { concatBytes, parseCommit, parseTree } from "../../worker/git/objects";
 import { buildPack } from "../../worker/git/pack";

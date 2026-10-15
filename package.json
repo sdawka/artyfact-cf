@@ -1,5 +1,5 @@
 {
-  "name": "artyfact",
+  "name": "artyfact-monorepo",
   "private": true,
   "version": "0.0.0",
   "license": "Apache-2.0",
@@ -20,6 +20,7 @@
     "release": "artyfact release"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   }
