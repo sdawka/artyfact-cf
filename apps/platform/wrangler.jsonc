@@ -32,6 +32,7 @@
   // PUBLIC_URL records the deployed origin. Start lines and task packets use the request origin, so local dev (http://localhost:1337) needs no override.
   // WORKERS_SUBDOMAIN: the account's workers.dev subdomain; CI deploys previews to https://<worker>.<WORKERS_SUBDOMAIN>.workers.dev.
   // ALLOW_LOCAL_PREVIEW=1 (http://localhost / 127.0.0.1 previews) belongs in .dev.vars only, never in deployed vars.
-  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "https://artyfact-platform.dawka.workers.dev", "ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f", "PREVIEW_HOST_ALLOWLIST": "", "WORKERS_SUBDOMAIN": "dawka", "HOSTED_DEMO": "1" },
+  // EVENTS_QUEUE_ID: artyfact-artifacts-events, where per-fork push subscriptions deliver (only with the CF_API_TOKEN secret).
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "https://artyfact-platform.dawka.workers.dev", "ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f", "PREVIEW_HOST_ALLOWLIST": "", "WORKERS_SUBDOMAIN": "dawka", "HOSTED_DEMO": "1", "EVENTS_QUEUE_ID": "feb24d18d3f347be8c5cb00193969406" },
   "observability": { "enabled": true }
 }

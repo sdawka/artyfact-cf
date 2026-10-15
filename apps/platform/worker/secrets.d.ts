@@ -27,14 +27,12 @@ interface Secrets {
   ALLOW_LOCAL_PREVIEW?: string;
   /** Bearer the artyfact-ci Workflow sends with build reports. */
   CI_REPORT_TOKEN?: string;
-  /** Cloudflare API token CI passes to `wrangler deploy` for app Workers and the platform uses for event subscriptions. */
+  /** Account API token (Event Subscriptions edit) for per-fork push subscriptions; CI deploys with its own CF_TOKEN. */
   CF_API_TOKEN?: string;
   /** JSON allowlist of System/artifact bindings to Cloudflare runtime and Flagship resources. */
   OPERATIONS_BINDINGS?: string;
   /** Server-only token for configured metrics and Flagship management. Never returned to clients. */
   OPERATIONS_API_TOKEN?: string;
-  /** Queue id of artyfact-artifacts-events, the target of per-fork Artifacts event subscriptions. */
-  EVENTS_QUEUE_ID?: string;
   /** "1" runs the backend on in-memory Artifacts seeded from examples/ (see worker/artifacts/fake-platform.ts). Local only. */
   FAKE_ARTIFACTS?: string;
   /** With FAKE_ARTIFACTS=1: `peopling` (default), `artyfact` (the repo-root genome/) or `both`. */
