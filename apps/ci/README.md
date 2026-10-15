@@ -27,6 +27,7 @@ npx wrangler r2 bucket create artyfact-ci-cache
 cd apps/ci
 openssl rand -hex 32                      # use this value as CI_REPORT_TOKEN here and on the platform
 npx wrangler secret put CI_REPORT_TOKEN
+npx wrangler secret put VERIFICATION_TOKEN  # bearer for /verify and /site-deploys; same value as the platform's VERIFICATION_TOKEN
 npx wrangler secret put CF_TOKEN          # API token for `wrangler deploy` of app Workers (see below)
 npx wrangler secret put R2_ACCESS_KEY_ID  # R2 API token scoped to artyfact-ci-cache, Object Read & Write
 npx wrangler secret put R2_SECRET_ACCESS_KEY
