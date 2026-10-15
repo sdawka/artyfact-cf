@@ -292,6 +292,13 @@ h1 {
   letter-spacing: var(--type-h1-tracking);
 }
 
+/* Cat mode (Flagship `cat-mode`): the resting ambient room drifts a few degrees warmer. Only while health is pending and
+   no ripple accent shows, so pass, fail and blocked colours are never shifted; the global reduced-motion rule drops the ease. */
+:root[data-cat-mode="on"] [data-shell-ambient][data-health="pending"]:not([data-accent]) [data-effect="ambient"] {
+  filter: hue-rotate(-14deg);
+  transition: filter var(--motion-duration-ambient) var(--motion-easing-ambient);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

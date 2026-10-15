@@ -10,6 +10,7 @@ export async function scopedRequest<T>(path:string,token:string,method='GET',bod
 }
 const imports=(s:string)=>`/api/systems/${encodeURIComponent(s)}/ontology-imports`;
 export const lifecycleApi={
+ verify:(s:string,p:string,action:'start'|'poll',body:{artifactId:string;retry?:boolean},token:string)=>scopedRequest<import('@artyfact/model').VerificationResult>(`${lifecyclePaths.plan(s,p)}/verification/${action}`,token,'POST',body),
  initial:(body:CreateInitialSystemRequest,token:string)=>scopedRequest<CreateInitialSystemResponse>('/api/systems/initial',token,'POST',body),
  preview:(s:string,body:OntologyImportPreviewRequest,token:string)=>scopedRequest<OntologyImportReview>(`${imports(s)}/preview`,token,'POST',body),
  importReview:(s:string,id:string,token:string)=>scopedRequest<OntologyImportReview>(`${imports(s)}/${encodeURIComponent(id)}`,token),

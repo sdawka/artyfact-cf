@@ -27,3 +27,5 @@ export * from './intent.ts';
 export * from './integrity.ts';
 export { layerOf } from './layers.ts';
 export type { CriterionLayer } from './layers.ts';
+
+export * from './verification.ts';

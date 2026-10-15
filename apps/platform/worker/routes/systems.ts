@@ -3,12 +3,16 @@ import type { DeleteSystemResponse, ImportSystemRequest, PlatformResponse, Syste
 import { requireAdmin } from "../auth";
 import { HOSTED_DEMO_NOTICE, isHostedDemo } from "../demo";
 import { notFound } from "../errors";
+import { catMode } from "../flags";
 import { acceptImportReview, importReview } from "../import-review";
 import { deleteSystem, importSystem, listSystems, modelBundle, readiness, systemStub } from "../service";
 import { body, origin, type AppEnv } from "./app";
 
 export const systems = new Hono<AppEnv>()
-  .get("/platform", (c) => c.json<PlatformResponse>(isHostedDemo(c.env) ? { hostedDemo: true, notice: HOSTED_DEMO_NOTICE } : { hostedDemo: false }))
+  .get("/platform", async (c) => {
+    const cat = await catMode(c.env);
+    return c.json<PlatformResponse>(isHostedDemo(c.env) ? { hostedDemo: true, notice: HOSTED_DEMO_NOTICE, catMode: cat } : { hostedDemo: false, catMode: cat });
+  })
   .get("/systems", async (c) => c.json<SystemsResponse>({ systems: await listSystems(c.env) }))
   .post("/systems/import", requireAdmin, async (c) => c.json(await importSystem(c.env, (await body(c)) as Partial<ImportSystemRequest>), 201))
   .delete("/systems/:id", requireAdmin, async (c) => c.json<DeleteSystemResponse>(await deleteSystem(c.env, c.req.param("id"))))

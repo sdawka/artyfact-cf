@@ -108,3 +108,13 @@ Left for later: cross-System dependencies. A Thing template's `scaffold.repo` ma
 - `test/` Worker tests; `src/**/*.test.ts` UI tests.
 
 Amendment review panel fixtures (no backend): `npm run dev:amendment -w @artyfact/platform`, then open `http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings`. It uses its own Vite config because the Cloudflare plugin's SPA fallback hides extra html pages.
+
+## Local self-development operator
+
+Use a private external operator vars file (mode 0600) and a stable state directory outside source checkouts. The local Vite server uses real Artifacts, model providers and Browser Run, with `HOSTED_DEMO=0`. `ARTYFACT_PERSIST_STATE_DIR` selects its persistent state directory. Keep the operator on loopback.
+
+After all Task candidates are selected and integrated, start **Cloud verification** in Review. The operator calls its configured `VERIFICATION_URL` using server-only `VERIFICATION_TOKEN` and polls the result; it needs no public callback. The matching CI Worker exposes an authenticated `/verify` API. The self System (`system.artyfact`) cannot promote without passing evidence for every integrated binding. Other Systems that request verification are also gated.
+
+The verifier runs the fixed full CI profile and exact execution hooks from the pinned model. A full build pass does not become a runtime verdict or a visual judgment. Review shows the exact source/model refs, commands, run status and output digest. Changed models still need explicit approval.
+
+After human promotion, `artyfact operator publish` publishes those exact verified outputs without rebuilding; `artyfact operator activate` prepares the approved source and starts it with the same external state. Both recheck the current approval; failed, changed and stale evidence stays blocked. See CLI help for required System/plan/artifact and directory flags. Hosting the operator is separate follow-up work.

@@ -11,7 +11,8 @@ Context: [[../goals]], [[../execution]]. Approved work: audit opportunities 1–
 ## Validation and handoff
 
 - Baseline root typecheck and 129 focused tests passed. Route characterization passed before refactoring; the nine new RPC cases first failed because the helper was absent, then passed with implementation.
-- Final focused check: 18 files, 138 tests passed; covers client URLs, atlas/graph behavior, RPC outcomes, lifecycle, Parts, integrity and ontology routes. `git diff --check` passes.
+- Initial focused check: 18 files, 138 tests passed; covers client URLs, atlas/graph behavior, RPC outcomes, lifecycle, Parts, integrity and ontology routes. `git diff --check` passes.
 - Independent review found no actionable issues. All ten steps of `npm run ci -- --ultra-compact` passed in 331.9s, including root tests, typechecks/builds, platform fixture/fake browser suites, and site checks. PR and exact-head hosted checks remain pending.
 - Versioned RPC preview returned `pending: missing_credentials`, applied 0; no sync records were sent. Preserve the unconfirmed separate Artyfact destination and earlier conflict history.
-- Updated: 2026-10-14T22:11:37-04:00.
+- Integration: main advanced to `b456235da390fa39236a00717a8461679d6b4c75` while verification ran. Its code merged cleanly; the canonical bootstrap Now section is preserved, with this refactor linked alongside it. The added `verification-required` RPC code has a regression case. Integrated root typecheck and 139 focused tests pass; independent integration review found no actionable issues. The required final pre-push gate is next.
+- Updated: 2026-10-14T22:19:22-04:00.

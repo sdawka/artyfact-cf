@@ -14,6 +14,7 @@ describe("rpc", () => {
 
   it.each([
     ["not-found", 404], ["invalid-state", 409], ["stale-base", 409],
+    ["verification-required", 409],
   ] as const)("maps %s RPC failures to HTTP %i", async (code, status) => {
     const result = rpc(Promise.reject(new Error(`[${code}] first line\nsecond line`)));
     await expect(result).rejects.toBeInstanceOf(HttpError);

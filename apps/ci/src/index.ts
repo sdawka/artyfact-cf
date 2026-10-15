@@ -6,8 +6,18 @@ import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
 import { CiSandbox, type CiBindings } from "@cloudflare/ci/worker";
 import type { CiBuildParams } from "./contract";
+import type { VerificationRequest, VerificationResult } from "@artyfact/model";
 import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
 import { runPipeline, type CiLike, type DoStep, type FetchLike } from "./pipeline";
+import { readVerificationGenome } from "./verification-artifacts";
+import {
+  authorizeVerification,
+  handleVerificationHttp,
+  runVerificationPipeline,
+  storeVerificationOutput,
+  verificationResultKey,
+  type VerificationBucketLike,
+} from "./verification";
 
 export { CiSandbox };
 
@@ -16,6 +26,10 @@ export interface CiEnv extends CiBindings {
   WORKERS_SUBDOMAIN: string;
   /** Bearer for build reports; the platform holds the same value. */
   CI_REPORT_TOKEN: string;
+  /** Dedicated bearer for POST/GET /verify; never shared with CI reports. */
+  VERIFICATION_TOKEN: string;
+  /** Separate Workflow class for credentialless, non-deploying self verification. */
+  VERIFICATION_WORKFLOW: Workflow<VerificationRequest>;
   /** App D1 databases: `systemId` -> `database_name` -> account id (a JSON var; see deploy-config `parseD1DatabaseIds`). */
   D1_DATABASE_IDS?: unknown;
   /** systemId -> native binding name -> allowed Flagship app ID. */
@@ -24,6 +38,7 @@ export interface CiEnv extends CiBindings {
 
 /** The engine's payload with the platform's params riding along (the engine ignores extra fields). */
 type Payload = CiParams<CloudflareArtifacts> & { artyfact: CiBuildParams };
+type VerificationPayload = CiParams<CloudflareArtifacts> & { verification: VerificationRequest };
 
 /** Map the platform's params onto the engine's `CiParams` (Artifacts provider, push of `refs/heads/main`). */
 export function toCiParams(p: CiBuildParams): Payload {
@@ -34,7 +49,16 @@ export function toCiParams(p: CiBuildParams): Payload {
   };
 }
 
+export function toVerificationCiParams(p: VerificationRequest): VerificationPayload {
+  return {
+    provider: "cloudflare-artifacts", providerData: { namespace: "artyfact" }, event: { type: "push" },
+    owner: "artyfact", repo: p.source.repo, sha: p.source.commit, remote: "cloudflare", trigger: "push", ref: p.source.commit,
+    verification: p,
+  };
+}
+
 const isPlatformParams = (v: unknown): v is CiBuildParams => !!v && typeof v === "object" && "buildId" in v && "workerName" in v;
+const isVerificationParams = (v: unknown): v is VerificationRequest => !!v && typeof v === "object" && "profile" in v && "source" in v && "genome" in v;
 
 export class ArtyfactCI extends CIWorkflow<CloudflareArtifacts, CiEnv> {
   override async run(event: WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step: WorkflowStep) {
@@ -62,7 +86,79 @@ export class ArtyfactCI extends CIWorkflow<CloudflareArtifacts, CiEnv> {
   }
 }
 
+async function getVerificationResult(bucket: R2Bucket, id: string): Promise<VerificationResult | null> {
+  const object = await bucket.get(verificationResultKey(id));
+  if (!object) return null;
+  return JSON.parse(await object.text()) as VerificationResult;
+}
+
+const terminal = (status: VerificationResult["status"]) => status === "passed" || status === "failed" || status === "error";
+const canonical = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+async function persistVerificationResult(bucket: R2Bucket, result: VerificationResult): Promise<void> {
+  const existing = await getVerificationResult(bucket, result.request.id);
+  if (existing && terminal(existing.status)) {
+    if (canonical(existing) !== canonical(result)) throw new Error(`terminal verification ${result.request.id} is immutable`);
+    return;
+  }
+  await bucket.put(verificationResultKey(result.request.id), JSON.stringify(result), {
+    httpMetadata: { contentType: "application/json", cacheControl: "private, no-store" },
+  });
+}
+
+async function authorizeFromArtifacts(env: CiEnv, request: VerificationRequest): Promise<void> {
+  const effective = await readVerificationGenome(env.ARTIFACTS, request.genome);
+  const pinnedRef = request.pinnedGenome ?? request.genome;
+  const same = pinnedRef.repo === request.genome.repo && pinnedRef.commit === request.genome.commit && pinnedRef.prefix === request.genome.prefix;
+  const pinned = same ? effective : await readVerificationGenome(env.ARTIFACTS, pinnedRef);
+  authorizeVerification(request, effective, pinned);
+}
+
+export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv> {
+  override async run(event: WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step: WorkflowStep) {
+    const raw: unknown = event.payload;
+    const payload = isVerificationParams(raw) ? toVerificationCiParams(raw) : event.payload;
+    return super.run({ ...event, payload } as WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step);
+  }
+
+  protected async pipeline(event: WorkflowEvent<CiParams<CloudflareArtifacts>>, step: WorkflowStep, ci: CiContext): Promise<void> {
+    const request = (event.payload as Partial<VerificationPayload>).verification;
+    if (!request) throw new Error("artyfact verification only runs requests accepted by POST /verify");
+    await runVerificationPipeline({
+      request,
+      authorize: () => step.do("authorize verification", () => authorizeFromArtifacts(this.env, request)),
+      ci,
+      now: (name) => step.do(name, async () => new Date().toISOString()),
+      persist: (result, checkpoint) => step.do(checkpoint, () => persistVerificationResult(this.env.BACKUP_BUCKET, result)),
+      storeOutput: (bytes) => step.do("store output", () => storeVerificationOutput(this.env.BACKUP_BUCKET as unknown as VerificationBucketLike, request.id, bytes)),
+    });
+  }
+}
+
 export default {
-  fetch: (request: Request) =>
-    new URL(request.url).pathname === "/health" ? Response.json({ ok: true, service: "artyfact-ci" }) : new Response("not found", { status: 404 }),
+  async fetch(request: Request, env: CiEnv): Promise<Response> {
+    if (new URL(request.url).pathname === "/health") return Response.json({ ok: true, service: "artyfact-ci" });
+    return handleVerificationHttp(request, {
+      token: env.VERIFICATION_TOKEN,
+      authorize: (verification) => authorizeFromArtifacts(env, verification),
+      getResult: (id) => getVerificationResult(env.BACKUP_BUCKET, id),
+      createQueued: async (result) => !!await env.BACKUP_BUCKET.put(verificationResultKey(result.request.id), JSON.stringify(result), {
+        onlyIf: { etagDoesNotMatch: "*" },
+        httpMetadata: { contentType: "application/json", cacheControl: "private, no-store" },
+      }),
+      replaceResult: (result) => persistVerificationResult(env.BACKUP_BUCKET, result),
+      start: async (verification) => { await env.VERIFICATION_WORKFLOW.create({ id: verification.id, params: verification }); },
+      getOutput: async (key) => {
+        const object = await env.BACKUP_BUCKET.get(key);
+        return object ? new Response(object.body) : null;
+      },
+    });
+  },
 } satisfies ExportedHandler<CiEnv>;

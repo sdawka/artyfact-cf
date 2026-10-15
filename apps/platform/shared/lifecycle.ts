@@ -65,7 +65,7 @@ export interface TaskSubmitResponse { plan:RealizationPlan; task:Task; candidate
 export interface IntegratedBinding { artifactId:string; source:ArtifactBinding; candidateId:string; taskCandidates:string[]; realizedGenome:string;
   /** The integrated model delta (the integrated commit's `system/` vs the pinned Genome); absent when no task changed the model. */
   model?:CandidateModel }
-export interface ImplementationReview { plan:RealizationPlan; bindings:IntegratedBinding[]; candidates:Candidate[]; evaluations:Evaluation[]; ready:boolean; blockers:string[]; expectedHead:string|null;
+export interface ImplementationReview { verifications?:import("@artyfact/model").VerificationResult[]; verificationRequired?:boolean; plan:RealizationPlan; bindings:IntegratedBinding[]; candidates:Candidate[]; evaluations:Evaluation[]; ready:boolean; blockers:string[]; expectedHead:string|null;
   /** Layer of every criterion the evaluations name. */
   layers?:Record<string,CriterionLayer>;
   /** Set when an integrated binding carries a model delta: promotion needs `acceptModelDelta` and moves the Genome to `source`. */

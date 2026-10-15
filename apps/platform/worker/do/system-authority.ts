@@ -1,3 +1,5 @@
+import { VerificationStore, needsCloudVerification } from './verification-store';
+import type { VerificationRequest, VerificationResult } from '@artyfact/model';
 import { LifecycleStore, type ClaimReservation } from './lifecycle-store';
 import type { RealizationPlan, TaskClaimRequest, IntegratedBinding } from '../../shared/lifecycle';
 import { createIntegritySnapshot, type TaskDefinition } from '@artyfact/model';
@@ -329,6 +331,11 @@ export class SystemAuthority extends DurableObject<Env> {
   lifecycleCheckpoint(pid:string,tid:string,aid:string,generation:number,input:{message:string;commit?:string}) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const seq=Number(this.one('SELECT COALESCE(MAX(seq),0)+1 AS n FROM checkpoints WHERE realization_id=?',f.attempt.realizationId)!.n);this.sql.exec('INSERT INTO checkpoints (realization_id,seq,message,commit_hash,created_at) VALUES (?,?,?,?,?)',f.attempt.realizationId,seq,input.message,input.commit??null,nowIso());const plan=this.lifecycle().heartbeat(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid)};}); }
   lifecycleCandidate(pid:string,tid:string,aid:string,generation:number,input:Omit<CandidateInput,'realizationId'>) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const out=this.recordCandidate({...input,realizationId:f.attempt.realizationId});const plan=this.lifecycle().submitted(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid),...out};}); }
   lifecycleSelect(pid:string,tid:string,cid:string):RealizationPlan {return this.ctx.storage.transactionSync(()=>this.lifecycle().select(pid,tid,cid));}
+  verification(pid:string,artifactId:string):VerificationResult|null {return new VerificationStore(this.sql).get(pid,artifactId);}
+  verifications(pid:string):VerificationResult[] {return new VerificationStore(this.sql).list(pid);}
+  reserveVerification(request:VerificationRequest,retry=false):VerificationResult {return this.ctx.storage.transactionSync(()=>new VerificationStore(this.sql).reserve(this.lifecycle().get(request.planId),request,retry));}
+  recordVerification(result:VerificationResult):VerificationResult {return this.ctx.storage.transactionSync(()=>new VerificationStore(this.sql).record(this.lifecycle().get(result.request.planId),result));}
+  assertPlanVerified(pid:string):VerificationResult[] {return new VerificationStore(this.sql).assertPassed(this.lifecycle().get(pid));}
   lifecycleIntegrate(pid:string,bindings:IntegratedBinding[],selections:string[]):RealizationPlan {return this.ctx.storage.transactionSync(()=>this.lifecycle().integrate(pid,bindings,selections));}
   lifecycleReserveIntegration(pid:string,artifactId:string,forkRepo:string):RealizationRecord {
     const p=this.lifecycle().get(pid),base=p.baseManifest.artifacts[artifactId];if(!base)throw new ConflictError('invalid-state','artifact not bound');
@@ -359,8 +366,10 @@ export class SystemAuthority extends DurableObject<Env> {
       for(const b of p.integration){const base=p.baseManifest.artifacts[b.artifactId],now=this.readManifest(prep.head)!.artifacts[b.artifactId];if(base.repo!==now?.repo||base.commit!==now.commit)throw new StaleBaseRefusal(`binding ${b.artifactId} changed; replan required`);}
       for(const task of p.tasks){const candidate=task.selectedCandidate?this.candidate(task.selectedCandidate):null;if(!candidate||this.latestCandidate(candidate.realization)?.id!==candidate.id)throw new ConflictError('invalid-state','selected task candidate was superseded; integrate the reviewed latest selection');}
       const cands=p.integration.map(b=>{const c=this.one('SELECT * FROM candidates WHERE id=?',b.candidateId);if(c&&this.latestCandidate(String(c.realization_id))?.id!==c.id)throw new ConflictError('invalid-state','integrated candidate was superseded');if(!c||!['submitted','evaluated','selected'].includes(String(c.state)))throw new ConflictError('invalid-state','integrated candidate unavailable');return {...c,evolution_id:''};});
+      const verification=needsCloudVerification(p)||new VerificationStore(this.sql).list(pid).length?this.assertPlanVerified(pid):[];
+      if(verification.length&&this.kv('genome_commit')!==p.genome.commit)throw new StaleBaseRefusal('verified model changed; replan before promotion');
       const gate=this.checkGate(cands,input.gates,input.rationale);
-      const commit=this.writeCommit(prep,[],{by:input.by,policy:'realization-plan',rationale:input.rationale,candidates:ids,realizationPlan:pid,realizedGenome,...(input.genome&&{modelDelta:input.genome}),acknowledged:gate.advisories.map(a=>a.criterion),evidenceProviders:gate.evidenceProviders});
+      const commit=this.writeCommit(prep,[],{by:input.by,policy:'realization-plan',rationale:input.rationale,candidates:ids,realizationPlan:pid,realizedGenome,verification:verification.map(v=>({artifactId:v.request.artifactId,runId:v.request.id,output:v.output})),...(input.genome&&{modelDelta:input.genome}),acknowledged:gate.advisories.map(a=>a.criterion),evidenceProviders:gate.evidenceProviders});
       if(input.genome){this.setKv('genome_commit',input.genome.commit);this.setKv('genome_source',input.genome.repo);}
       for(const b of p.integration){this.sql.exec("UPDATE candidates SET state='promoted' WHERE id=?",b.candidateId);this.setRealizationStatus(String(this.one('SELECT realization_id FROM candidates WHERE id=?',b.candidateId)!.realization_id),'promoted');}
       const ended=this.endCredentials(p.tasks.flatMap(t=>t.attempts.map(a=>a.realizationId)));

@@ -35,3 +35,7 @@ unknown without authoritative lineage and evaluation.
 Local-agent authoring is sufficient. No hosted agent runner, automatic
 implementation, mandatory source repository, mandatory Part, or automatic
 semantic approval is introduced by this intent.
+
+## local-self-development
+
+The first bootstrap milestone is one improvement planned in local Artyfact, implemented by a local agent, tested on Cloudflare, approved in Artyfact, and run by the local instance. Use real Cloudflare Artifacts and retain local operator state across approved source checkouts. Hosted operation follows later. Development events and analytics are the first improvement; runtime application analytics remains separate.

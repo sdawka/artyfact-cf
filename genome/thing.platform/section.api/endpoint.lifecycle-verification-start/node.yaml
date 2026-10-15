@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-verification-start
+kind: endpoint
+fields:
+  name: Verification start
+  description: "Reserve an exact integrated source and model, then start its authenticated cloud verification."
+  route: POST /api/systems/:id/realization-plans/:pid/verification/start
+  auth: Admin bearer token (ADMIN_TOKEN).

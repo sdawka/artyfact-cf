@@ -223,10 +223,12 @@ export interface PlanCounts {
   integrated: number;
 }
 
-/** `GET /api/platform`: whether this Worker is the hosted demo, whose judgments are simulated. */
+/** `GET /api/platform`: whether this Worker is the hosted demo, whose judgments are simulated, and its Flagship flags. */
 export interface PlatformResponse {
   hostedDemo: boolean;
   notice?: string;
+  /** The `cat-mode` Flagship flag; false when the binding is absent or evaluation fails. */
+  catMode: boolean;
 }
 
 /** `GET /api/systems`. */

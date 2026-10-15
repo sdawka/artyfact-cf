@@ -20,6 +20,31 @@ export interface WorkersAiOptions {
 
 interface ClefBody { model?: unknown; answers?: unknown; usage?: { input_tokens?: unknown; output_tokens?: unknown } }
 
+/** Clef validates question object keys more narrowly than the ontology's internal question ids. */
+const CLEF_QUESTION_KEY = /^[A-Za-z0-9_.-]{1,100}$/;
+
+/**
+ * Keeps valid ids readable on the wire and gives every other id a local, collision-free transport alias.
+ * The alias map is request-local: callers and returned answers always use the original ontology ids.
+ */
+function clefQuestions(questions: S1Questions): { questions: S1Questions; wireIdFor: Map<string, string> } {
+  const source = wireQuestions(questions);
+  const used = new Set(Object.keys(source).filter((id) => CLEF_QUESTION_KEY.test(id)));
+  const mapped: S1Questions = Object.create(null);
+  const wireIdFor = new Map<string, string>();
+  let next = 0;
+  for (const [id, question] of Object.entries(source)) {
+    let wireId = id;
+    if (!CLEF_QUESTION_KEY.test(id)) {
+      do { wireId = `s1.transport.${next++}`; } while (used.has(wireId));
+    }
+    used.add(wireId);
+    wireIdFor.set(id, wireId);
+    mapped[wireId] = question;
+  }
+  return { questions: mapped, wireIdFor };
+}
+
 const num = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 /** The request's `model` selector: the id's last segment (`clef`, `clef-flash`). */
 const selectorOf = (model: string) => model.split("/").pop() || "clef";
@@ -37,7 +62,8 @@ export function workersAiProvider(ai: AiBinding, model: string = CLEF_MODEL, o: 
   const run = limiter(o.concurrency ?? 4);
 
   async function attempt(state: unknown, questions: S1Questions, opts: AskOptions, timeoutMs: number): Promise<Omit<S1Reply, "ms">> {
-    const body: Record<string, unknown> = { model: selectorOf(model), state: stripDirectives(state), questions: wireQuestions(questions) };
+    const transport = clefQuestions(questions);
+    const body: Record<string, unknown> = { model: selectorOf(model), state: stripDirectives(state), questions: transport.questions };
     if (opts.images?.length) body.images = opts.images.map((i) => ({ content_type: i.mediaType, base64: i.base64 }));
     let timer: ReturnType<typeof setTimeout> | undefined;
     let raw: unknown;
@@ -56,9 +82,9 @@ export function workersAiProvider(ai: AiBinding, model: string = CLEF_MODEL, o: 
     const res = raw as ClefBody | null;
     if (!res || !res.answers || typeof res.answers !== "object" || Array.isArray(res.answers)) throw new S1Error("Clef: malformed response", "bad-response");
     const wire = res.answers as Record<string, unknown>;
-    const answers: Record<string, Answer> = {};
+    const answers: Record<string, Answer> = Object.create(null);
     for (const [id, q] of Object.entries(questions)) {
-      const a = readDecision(q.type, wire[id]);
+      const a = readDecision(q.type, wire[transport.wireIdFor.get(id)!]);
       if (!a) throw new S1Error(`Clef: malformed ${q.type} answer for ${id}`, "bad-response");
       answers[id] = a;
     }

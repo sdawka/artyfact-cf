@@ -91,3 +91,7 @@ Prioritize a reliable intent-to-ontology flow, including authoring through an ex
 ## 2026-10-14T15:29:14-04:00 — Artyfact as a real ontology example
 
 Repair Artyfact’s own ontology in the app System map and enrich its canonical Genome from the agreed direction and canonical documentation. Use it alongside real examples to validate the intent-authoring and integrity foundations.
+
+## 2026-10-14T20:37:38-04:00 — Bootstrap with a local operator
+
+First prove one improvement planned in local Artyfact, implemented by a local agent, tested on Cloudflare, approved in Artyfact and run by the local instance. Use real Cloudflare Artifacts; hosting the operator follows later. Development analytics is the first self-developed improvement, with K2 for durable events and a separate analytics consumer; runtime application analytics is deferred.
