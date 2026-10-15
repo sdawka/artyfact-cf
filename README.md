@@ -122,67 +122,124 @@ The exact commands and output for both are in [docs/demo-runbook.md](docs/demo-r
 
 ## Run it locally
 
-No Cloudflare login is needed to try the interface. In fixture mode the SPA uses a bundled copy of the Peopling System and nothing talks to Cloudflare.
+### Prerequisites
+
+- Node 24 (`.nvmrc`) and npm. The repo is one npm workspace: run `npm install` once at the root.
+- A Playwright browser for the end-to-end suites: `npx playwright install chromium`.
+- For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `npx wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. Wrangler and `cf` log in separately; `npx wrangler whoami` and `cf auth whoami` must show the same account. `artyfact init` and `npm run release` check this.
+- Cost. Fixture and fake mode are free and talk to no Cloudflare service. The real backend uses Artifacts, which has a free tier of operations, and adds Workers AI (`AI`, for Clef) and Browser Run (`BROWSER`, for preview screenshots), both billed to the logged-in account. [docs/costs.md](docs/costs.md) has the numbers.
+
+### Three ways to run, cheapest first
+
+**Fixture mode** needs no backend and no login. The SPA uses a bundled copy of the Peopling System.
 
 ```sh
-npm install
-npm test               # unit tests; the live System One smoke test is skipped without a key
+npm test                                          # unit tests; the live System One smoke test is skipped without a key
 npm run typecheck
-npm run e2e            # builds the SPA and runs the Playwright suite
-npm run preview:fixture -w @artyfact/platform
-```
-
-`npm run e2e` drives a real browser. If Playwright reports a missing browser, run `npx playwright install chromium` once. `npm run e2e:fake -w @artyfact/platform` runs the use-case specs against the whole backend on in-memory Artifacts (`FAKE_ARTIFACTS=1`, port 1339), also without a login.
-
-The real backend needs a login, because the `ARTIFACTS` binding is remote even in development. Run `npx wrangler login` or set `CLOUDFLARE_API_TOKEN`. The same applies to deploying.
-
-```sh
-cp apps/platform/.dev.vars.example apps/platform/.dev.vars
-npm run dev -w @artyfact/platform   # http://localhost:1337
-```
-
-The amendment review has its own fixture page and needs no login:
-
-```sh
-npm run dev:amendment -w @artyfact/platform
+npm run e2e                                       # builds the SPA and runs the Playwright suite on port 1338
+npm run preview:fixture -w @artyfact/platform     # http://localhost:1338
+npm run dev:amendment -w @artyfact/platform       # amendment review fixture page:
 # http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings
 ```
 
-Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. Read routes are unauthenticated. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
+**Fake platform** runs the whole backend on in-memory Artifacts seeded from `examples/`, with the fake System One and no AI or Browser Run. It needs no login and keeps no state between runs. The variables go in the shell, not in `.dev.vars`, because the Vite config reads them to drop the remote binding.
 
-**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
-
-- **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.peopling` gives `peopling.genome` and `peopling.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
-- **The `platform` repository.** It holds the Thing and System templates and the Rule Packs. `init` creates it when it is missing or empty, and `npx artyfact platform-sync` is the way to update it. The import records its commit on the System head and on every System commit. Evaluation still uses the packages bundled into the Worker. `platform` is provenance only.
-- **Pushes.** `init` checks that Wrangler and `cf` use the same account and prints only its first eight characters. It never rewrites history: it fast-forwards a repository only from the head it last pushed, and `--adopt` commits on top of history it did not push. Secret files (`.dev.vars`, `.env` and their variants, except `*.example`), `node_modules`, `.wrangler` and `dist` are never pushed, even when tracked.
-- **Import.** It then calls the import API with `ARTYFACT_ADMIN_TOKEN`. Without the token it prints the `curl` line and exits 0. `--from-template template.thing.<id>@<version>` (for example `template.thing.cloudflare-worker-webapp@1`) seeds a new app from a scaffold named in `platform`.
-
-The CLI finds the platform from `--platform`, then `ARTYFACT_PLATFORM`, then `ARTYFACT_URL`, then a local server on port 1337 to 1346 that identifies as artyfact. If none does it stops with an error and sends no credential. The platform's default local port is 1337, so `http://localhost:1337` is its URL unless you pass another. This is a real run, with the account shortened by `init` itself. The first call stopped on history it did not push. `--adopt` fast-forwarded over it. The run predates the 1337 default, so its last line was edited from the old port:
-
-```text
-$ ./scripts/bootstrap.sh
-system.peopling -> peopling.genome, peopling.app (namespace artyfact)
-account 1bae12d5… (wrangler and cf agree)
-namespace artyfact: exists
-  created repo platform
-platform: created at 6bd3603921dc
-artyfact: peopling.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/peopling-system.
-init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ffb68c7 (a fast-forward).
-
-$ ./scripts/bootstrap.sh --adopt
-system.peopling -> peopling.genome, peopling.app (namespace artyfact)
-account 1bae12d5… (wrangler and cf agree)
-namespace artyfact: exists
-platform: unchanged at 6bd3603921dc
-peopling.genome: pushed at 18374568e231
-peopling.app: unchanged at c945510ffdf5
-imported system.peopling at sc-1-b11cb27a
-System: http://localhost:1337/s/system.peopling/r/head/overview
+```sh
+FAKE_ARTIFACTS=1 npm run dev -w @artyfact/platform               # http://localhost:1337, Peopling imported
+FAKE_ARTIFACTS=1 FAKE_SEED=both npm run dev -w @artyfact/platform  # also Artyfact's own genome/
+npm run e2e:fake -w @artyfact/platform                           # use-case specs on port 1339 (self-model on 1340)
 ```
 
-A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/cli/README.md](packages/cli/README.md). Step 2 of the runbook has the same transcript and a later run.
+`FAKE_SEED` is `peopling` (default), `artyfact` or `both`. `FAKE_MODEL_DELTA=1` also seeds Task candidates that change the pinned model, for the Review view. The admin token is `fake-admin-token` unless `ADMIN_TOKEN` is set in the shell. Driving it with the real CLI and a local git transport is in [the runbook](docs/demo-runbook.md#the-fake-platform).
 
-The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
+**Real backend** uses the `ARTIFACTS` binding, which is remote even in development, plus `AI` and `BROWSER` on your account. `npm run dev` sets `HOSTED_DEMO=0`, so judgments are real.
+
+```sh
+cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # set ADMIN_TOKEN=$(openssl rand -hex 32) and ACCOUNT_ID
+npm run dev -w @artyfact/platform                            # http://localhost:1337 (Vite moves to the next free port)
+```
+
+`apps/platform/wrangler.jsonc` carries the maintainer's account values (`ACCOUNT_ID`, `PUBLIC_URL`, `WORKERS_SUBDOMAIN`, the Flagship `app_id`). `ACCOUNT_ID` in `.dev.vars` overrides the first locally; change the rest before deploying to your own account. Read routes are unauthenticated; admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`.
+
+### Platform Worker variables
+
+Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed secret (`npx wrangler secret put` in `apps/platform`), or the shell that starts Vite.
+
+| Variable | Needed for | Set in | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `ADMIN_TOKEN` | admin routes | `.dev.vars`, secret | unset: admin routes return 503 | Bearer for import, start, accept, reject and promote. |
+| `ACCOUNT_ID` | real backend | `.dev.vars` or vars | the maintainer's id | Builds fork remotes `https://<id>.artifacts.cloudflare.net/git/<ns>/<repo>.git`. |
+| `ARTIFACTS_NAMESPACE` | always | vars | `artyfact` | Artifacts namespace of the deployment. |
+| `PUBLIC_URL` | CI builds | vars | the hosted origin | Deployed origin, used in CI report URLs and app vars. Local pages use the request origin. |
+| `WORKERS_SUBDOMAIN` | nothing in the Worker | vars | `dawka` | Recorded only; the CI Worker's own copy builds preview URLs. |
+| `HOSTED_DEMO` | deployed demo | vars | `1`; `npm run dev` forces `0` | `1` simulates System One, visual checks, translation and plan drafts and reads no model key. |
+| `S1_PROVIDER` | System One | `.dev.vars`, secret | `auto` | `auto` tries TypeSafe, then Clef, then OpenRouter; `clef`, `jev`, `openrouter`, `fake` or `off` pick one and never fall through. |
+| `FAKE_S1` | gate without keys | `.dev.vars` only | `1` in the example | Answers from the fake provider; the UI labels those judgments fake. Never deployed. |
+| `TYPESAFE_API_KEY` | Jev | `.dev.vars`, secret | unset | TypeSafe key; Jev model `jev-latest`. |
+| `OPENROUTER_API_KEY` | OpenRouter, Jev, translator, planner | `.dev.vars`, secret | unset | OpenRouter key. |
+| `OPENROUTER_MODEL` | OpenRouter | `.dev.vars`, secret | `perplexity/pplx-decider-v1.1-27b` | Decisions API model. |
+| `CLEF_MODEL` | Clef | `.dev.vars`, secret | `@cf/cloudflare/clef` | Workers AI model; `@cf/cloudflare/clef-flash` is the 9B one. |
+| `JEV_MODEL` | Jev | `.dev.vars`, secret | `jev-latest` or `typesafe/jev-1.13` | Overrides the Jev model. |
+| `TRANSLATE` | intents, plans | `.dev.vars`, secret | on | `0` turns off the LLM intent translator and plan draft planner. |
+| `OPENROUTER_TRANSLATE_MODEL`, `OPENROUTER_PLAN_MODEL` | intents, plans | `.dev.vars`, secret | provider default | Translator model, and planner model (falls back to the translator's). |
+| `CI_REPORT_TOKEN` | CI | `.dev.vars`, secret | unset: no CI | Bearer the `artyfact-ci` Workflow sends with build reports; same value on both Workers. |
+| `CF_API_TOKEN` | push events | `.dev.vars`, secret | unset | API token for per-fork Artifacts event subscriptions. |
+| `EVENTS_QUEUE_ID` | push events | `.dev.vars`, secret | unset | Queue id of `artyfact-artifacts-events`; subscriptions are skipped without it, `CF_API_TOKEN` and `ACCOUNT_ID`. |
+| `OPERATIONS_BINDINGS` | runtime operations | `.dev.vars`, secret | unset: unavailable | JSON map of System and binding ids to `{accountId, scriptName, environment, flagshipAppId?}`. |
+| `OPERATIONS_API_TOKEN` | runtime operations | `.dev.vars`, secret | unset | Server-only token for metrics and Flagship management. |
+| `VERIFICATION_URL` | cloud verification | `.dev.vars` | the example points at the maintainer's CI | `artyfact-ci` origin the local operator calls; unset returns 503. |
+| `VERIFICATION_TOKEN` | cloud verification | `.dev.vars` | unset | Same value as the CI Worker's `VERIFICATION_TOKEN`. |
+| `ALLOW_LOCAL_PREVIEW` | local previews | `.dev.vars` only | `1` in the example | Lets the health hook fetch `http://localhost` and `127.0.0.1` previews. Never deployed. |
+| `PREVIEW_HOST_ALLOWLIST` | custom preview hosts | vars or `.dev.vars` | empty | Extra hosts, comma-separated; `*.workers.dev` and `*.pages.dev` are always allowed. |
+| `FAKE_ARTIFACTS`, `FAKE_SEED`, `FAKE_MODEL_DELTA` | fake platform | shell | unset | See fake platform above. A build refuses `FAKE_ARTIFACTS=1`. |
+| `ARTYFACT_PERSIST_STATE_DIR` | local state | shell | `.wrangler/state` | Where `npm run dev` keeps Durable Object state. |
+| `ARTYFACT_E2E_PORT` | e2e | shell | 1338, or 1339 fake | Port for the Playwright suites when the default is taken. |
+
+Bindings need no variable. `FLAGS` is the Flagship app that gates the `cat-mode` flag; absent or failing, every flag is off. `EVIDENCE` is the R2 bucket `artyfact-evidence`, `SYSTEMS` the Durable Object, `CI` the cross-script Workflow in `artyfact-ci`.
+
+### CI Worker and site
+
+`apps/ci` has its own configuration. Setup and the token scopes are in [apps/ci/README.md](apps/ci/README.md).
+
+| Variable | Set in | Meaning |
+| --- | --- | --- |
+| `CI_REPORT_TOKEN` | secret | Same value as the platform's. |
+| `CF_TOKEN` | secret | Workers Scripts Edit token (plus D1 Edit) used only by the deploy step. Never the platform's `CF_API_TOKEN`. |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | secret | R2 token for the `artyfact-ci-cache` bucket. |
+| `VERIFICATION_TOKEN` | secret | Operator bearer for `/verify` and `/site-deploys`. |
+| `PLATFORM_URL` | vars | Platform origin; reports elsewhere are refused. |
+| `WORKERS_SUBDOMAIN`, `CLOUDFLARE_ACCOUNT_ID` | vars | Preview URLs, and the account for checkout and deploy. |
+| `BACKUP_BUCKET_NAME` | vars | Equal to the R2 bucket name. |
+| `D1_DATABASE_IDS`, `FLAGSHIP_APP_IDS` | vars (JSON) | Per System, the D1 ids and Flagship app ids an app may bind. |
+
+The site (`apps/site`) has no runtime variables. Its build reads optional `SITE_PLATFORM_URL`, `SITE_PLATFORM_READY` and `SITE_SOURCE_URL` ([apps/site/README.md](apps/site/README.md)).
+
+### CLI variables
+
+| Variable | Meaning |
+| --- | --- |
+| `ARTYFACT_PLATFORM`, `ARTYFACT_URL` | Platform URL, after `--platform`. Without either the CLI probes ports 1337 to 1346 for a server that identifies as artyfact, and sends no credential otherwise. |
+| `ARTYFACT_ADMIN_TOKEN` | Admin bearer. Pass it inline per command; never export it. |
+| `ARTYFACT_TOKEN`, `ARTYFACT_SECRET` | A Task's fork write token and attempt secret; override the copies saved in the workspace. |
+| `ARTYFACT_SYSTEM`, `ARTYFACT_EVOLUTION` | Defaults for `--system` and `--evolution`. |
+| `ARTYFACT_ALLOW_REMOTE_HOST` | One extra git host allowed for local dev, such as the fake platform's. |
+| `ARTIFACTS_NAMESPACE`, `ARTYFACT_NAMESPACE` | Namespace for `init` and `platform-sync`, and for `release` and `operator`; default `artyfact`. |
+| `CLOUDFLARE_ACCOUNT_ID` | Picks the account when Wrangler and `cf` see several. |
+
+### Import a project
+
+`npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. `scripts/bootstrap.sh` runs it on the Peopling example in `examples/`. It needs the real backend and `ARTYFACT_ADMIN_TOKEN`; without the token it prints the `curl` line and exits 0.
+
+- **Names.** One Artifacts namespace per deployment. `system.peopling` gives the repositories `peopling.genome` and `peopling.app`. Task forks are `<repo>--task-<id>` and carry the pinned Genome under `system/` ([task fork model](docs/design/task-fork-model.md)); integration forks are `<repo>--integrate-<id>`.
+- **The `platform` repository** holds the templates and Rule Packs. `init` creates it when missing, `npx artyfact platform-sync` updates it, and imports record its commit as provenance.
+- **Pushes.** `init` never rewrites history. It fast-forwards only from the head it last pushed, and `--adopt` commits on top of history it did not push. Secret files (`.dev.vars`, `.env` and variants, except `*.example`), `node_modules`, `.wrangler` and `dist` are never pushed.
+- **Templates.** `--from-template template.thing.<id>@<version>` seeds a new app from a scaffold in `platform`.
+
+A re-run pushes nothing and re-imports as a no-op. An older recorded run is in step 2 of [the runbook](docs/demo-runbook.md); flags are in [packages/cli/README.md](packages/cli/README.md). The full loop against real Artifacts, with agents, a conflict, a promotion and Genome amendments, is the rest of the runbook.
+
+### Deploy and release
+
+`npm run release`, from a clean checkout of main, builds the platform and the site, commits them to the Artifacts repo `artyfact/platform.builds` and deploys both Workers from there ([design](docs/design/release-artifacts.md)). `npm run deploy` is the manual fallback. Resources, first deploy and the production admin token are in [docs/deploy.md](docs/deploy.md).
 
 ## Artyfact describes itself
 
