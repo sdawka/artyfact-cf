@@ -18,7 +18,7 @@ import type {
 import { ImportReviewStore } from "./import-review-store";
 import { ProposalPlanStore, type StoredProposalPlan } from "./proposal-plan-store";
 import { planCounts } from "./plan-summary";
-import { forkName } from "@artyfact/cli/naming";
+import { forkName } from "artyfact/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalRecoveryRevision, type ProposalTurn, type RecoveryClaimResult, type ReviseResult, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";

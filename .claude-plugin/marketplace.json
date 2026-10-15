@@ -1,0 +1,14 @@
+{
+  "name": "artyfact",
+  "description": "The artyfact Genome skill for Claude Code.",
+  "owner": {
+    "name": "Sahil Dawka"
+  },
+  "plugins": [
+    {
+      "name": "artyfact",
+      "source": "./",
+      "description": "Teaches your agent to read, validate and evolve an Artyfact Genome with the artyfact CLI."
+    }
+  ]
+}

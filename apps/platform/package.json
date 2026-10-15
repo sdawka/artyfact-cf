@@ -20,7 +20,7 @@
     "e2e:live": "npm run build && ARTYFACT_E2E_LIVE=1 playwright test"
   },
   "dependencies": {
-    "@artyfact/cli": "*",
+    "artyfact": "*",
     "@artyfact/effects": "*",
     "@artyfact/model": "*",
     "@artyfact/ontology": "*",

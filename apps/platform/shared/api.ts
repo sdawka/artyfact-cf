@@ -720,7 +720,7 @@ export interface RejectResponse {
 
 /**
  * `POST /api/systems/import` (admin). Re-importing a System from different repos/commits is 409 `already-imported` unless `force`.
- * `genomeRepo`/`appRepo` default to `<slug>.genome` / `<slug>.app` (see `@artyfact/cli/naming`).
+ * `genomeRepo`/`appRepo` default to `<slug>.genome` / `<slug>.app` (see `artyfact/naming`).
  */
 export interface ImportSystemRequest {
   systemId: SystemId;

@@ -1,2 +1,2 @@
-export const name = "@artyfact/cli";
+export const name = "artyfact";
 export { main } from "./main.ts";

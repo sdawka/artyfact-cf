@@ -4,7 +4,7 @@
  * `artyfact-ci` Workflow) is optional: without it nothing is dispatched and builds arrive only as reports.
  */
 import { templateFile } from "@artyfact/templates";
-import { systemRepoNames } from "@artyfact/cli/naming";
+import { systemRepoNames } from "artyfact/naming";
 import { parse as parseYaml } from "yaml";
 import type {
   Build, BuildKind, BuildReport, BuildReportResponse, BuildReporter, BuildStatus, BuildStep, BuildSummary, BuildsResponse, CiBuildParams,
