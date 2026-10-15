@@ -3,6 +3,7 @@ import { useEffectsPreference } from "@/effects/effectsPreference";
 import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
 import { AppHeader } from "./AppHeader";
+import { CatModeBadge } from "./catMode";
 import { HeaderActions, NARROW_MAX } from "./HeaderActions";
 import { PhaseBadge } from "./PhaseBadge";
 import { FixtureCluster, HostedDemoPill, StatePill } from "./StatePill";
@@ -24,7 +25,7 @@ export function TopBar({ onOpenPalette, navigation }: { onOpenPalette(): void; n
   const compact = width < SHELL_COMPACT_MAX;
   // Compact screens keep only the fixture cluster in view; Phase and provider are read-only items in More.
   const info = [`Phase: ${phase ?? "unknown"}`, ...(fakeS1 ? ["System One: fake provider"] : [])];
-  return <AppHeader navigation={navigation} context={<SystemRevisionSelector />} status={!compact || fixture || platform.data?.notice ? <>
+  return <AppHeader navigation={navigation} badge={platform.data?.catMode ? <CatModeBadge /> : undefined} context={<SystemRevisionSelector />} status={!compact || fixture || platform.data?.notice ? <>
     {!compact && <PhaseBadge phase={phase} />}
     {fixture && <FixtureCluster retry={width >= NARROW_MAX ? retry : undefined} />}
     <HostedDemoPill notice={platform.data?.notice} />

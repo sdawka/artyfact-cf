@@ -458,12 +458,29 @@ describe("Shell", () => {
       const notice = "Hosted demo: judgments are simulated. Run it locally on your Cloudflare account for Clef or Jev.";
       renderApp(`${BASE}/overview`, undefined, (qc) => {
         seed(qc);
-        qc.setQueryData(qk.platform(), { hostedDemo: true, notice });
+        qc.setQueryData(qk.platform(), { hostedDemo: true, notice, catMode: false });
         qc.setQueryData(qk.evaluations("system.peopling"), { evaluations: [{ ...evaluation, provenance: { provider: "simulated" } }] });
       });
       const pill = await screen.findByText("Hosted demo: judgments are simulated");
       expect(pill.getAttribute("title")).toBe(notice);
       expect(screen.queryByText("System One: fake provider")).toBeNull();
+    });
+    it("shows the cat-mode badge beside the wordmark only when the flag is on", async () => {
+      const off = renderApp(`${BASE}/overview`, undefined, (qc) => {
+        seed(qc);
+        qc.setQueryData(qk.platform(), { hostedDemo: false, catMode: false });
+      });
+      await screen.findByRole("heading", { level: 1, name: "Peopling" });
+      expect(screen.queryByText("cat mode on")).toBeNull();
+      expect(screen.getByRole("link", { name: "artyfact" }).getAttribute("title")).toBe("Home: all Systems");
+      off.unmount();
+      renderApp(`${BASE}/overview`, undefined, (qc) => {
+        seed(qc);
+        qc.setQueryData(qk.platform(), { hostedDemo: false, catMode: true });
+      });
+      const badge = await screen.findByText("cat mode on");
+      expect(badge.closest("header")).toBeTruthy();
+      expect(screen.getByRole("link", { name: "artyfact" }).getAttribute("title")).toBe("Home: all Systems (cat mode)");
     });
     it("never shows an unpromoted candidate's pass on the canonical view", async () => {
       renderApp(`${BASE}/overview?focus=screen.people`, undefined, seed);

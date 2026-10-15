@@ -13,6 +13,7 @@
 .brand { grid-area: brand; display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
 .wordmark { color: var(--color-text-primary); font-size: var(--font-size-2xl); line-height: 1; text-decoration: none; }
 .wordmark:hover { color: var(--color-text-primary); text-decoration: underline; text-decoration-color: var(--color-link-underline); text-underline-offset: 0.2em; }
+.badge { font: var(--type-ui); line-height: 1; color: var(--color-text-primary); }
 .context { grid-area: context; min-width: 0; }
 .status { grid-area: status; display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); min-width: 0; }
 .actions { grid-area: actions; display: flex; align-items: center; justify-content: flex-end; gap: var(--spacing-2); }

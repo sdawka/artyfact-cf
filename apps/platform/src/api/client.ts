@@ -227,7 +227,7 @@ export async function getSystems(): Promise<SystemSummary[]> {
 }
 
 /** Hosted demo or not; the fixture is neither. */
-export const getPlatform = () => readOrEmpty<PlatformResponse>({ hostedDemo: false }, () => request<PlatformResponse>(paths.platform()));
+export const getPlatform = () => readOrEmpty<PlatformResponse>({ hostedDemo: false, catMode: false }, () => request<PlatformResponse>(paths.platform()));
 
 /** Shared, immutable Part catalog. System-private packages require an explicit System route and are never requested here. */
 export const getParts = () => readOrEmpty<PartsResponse>({ parts: [] }, () => request<PartsResponse>(paths.parts()));
