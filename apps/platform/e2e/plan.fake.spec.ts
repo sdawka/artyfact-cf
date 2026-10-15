@@ -81,6 +81,10 @@ test.describe("realization plan from draft to promotion @fake", () => {
     await page.getByLabel("Promotion rationale").fill("Reviewed every changed binding in the e2e run.");
     await page.getByRole("button", { name: "Promote reviewed implementation" }).click();
     await expect.poll(async () => (await apiPlan(request, planId)).status, { timeout: 30_000 }).toBe("promoted");
+    // In place, without navigation: the promoted state and its System commit, never the review's stale blockers.
+    await expect(page.getByRole("heading", { name: "Promoted" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("list", { name: "Promotion blockers" })).toHaveCount(0);
+    await expect(page.getByText(/^Promoted as sc-\d+/)).toBeVisible({ timeout: 30_000 });
     await checkPage(page, testInfo, "plan-promoted");
   });
 });

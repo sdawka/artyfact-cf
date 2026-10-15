@@ -592,6 +592,19 @@ export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> 
   poll: LIVE_LISTS,
 };
 
+/** Query prefixes a Review plan decision (select, integrate) refreshes. */
+export const PLAN_DECISION_INVALIDATIONS: readonly string[] = ["plans", "plan", "task-review", "implementation-review", "systems", "evolutions", "history"];
+/**
+ * A plan promotion also moves the System head: the plan and review keys plus everything `system.promoted` refreshes
+ * (readiness, revisions behind the header's head, the model, Changelog and Compare), without waiting for the event.
+ */
+export const PLAN_PROMOTE_INVALIDATIONS: readonly string[] = [...new Set([...PLAN_DECISION_INVALIDATIONS, ...SSE_INVALIDATIONS["system.promoted"], "conflicts", "changelogEntry"])];
+
+/** Refreshes what a plan decision changed; awaits the refetch of mounted queries. */
+export async function invalidatePlanDecision(qc: QueryClient, systemId: string, promoted = false): Promise<void> {
+  await Promise.all((promoted ? PLAN_PROMOTE_INVALIDATIONS : PLAN_DECISION_INVALIDATIONS).map((k) => qc.invalidateQueries({ queryKey: k === "systems" ? [k] : [k, systemId] })));
+}
+
 /** Subscribes to System events for the current route and invalidates the affected queries. Mount once (Shell does). */
 export function useSystemEvents() {
   const { systemId } = useSystemRoute();
