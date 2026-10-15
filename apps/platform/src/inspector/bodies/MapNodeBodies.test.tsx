@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
@@ -14,6 +14,24 @@ describe("Map slice Inspector bodies", () => {
     expect(within(box).getByText("empty")).toBeTruthy();
     const inside = within(box).getByRole("region", { name: "Inside" });
     expect(within(inside).getByRole("button", { name: /ContactCollection/ })).toBeTruthy();
+  });
+
+  it("Screen criteria: no green check without a completed pass; the verdict says not-run", async () => {
+    renderApp(at("screen.people"));
+    const box = await inspector();
+    const items = await waitFor(() => {
+      const li = box.querySelectorAll("li[data-criterion]");
+      expect(li.length).toBeGreaterThan(0);
+      return [...li];
+    });
+    for (const li of items) {
+      const verdict = li.querySelector("[data-verdict]")!;
+      expect(verdict.getAttribute("data-verdict")).toBe("not-run");
+      expect(verdict.getAttribute("data-tone")).not.toBe("pass");
+      // Neither the chip's kind glyph nor the verdict shows a check.
+      expect(li.textContent).not.toContain("✓");
+    }
+    expect(within(box).getByText(/0 pass/)).toBeTruthy();
   });
 
   it("Component: cardinality", async () => {

@@ -13,9 +13,10 @@ export interface CachedChangelog { row: string; entry: string | null }
 /**
  * Bump when the cached row/entry shape or what it counts changes: rows stored under another version (or none, before
  * the column existed) are ignored and recomputed on the next read. 2: Genome file changes counted and linked.
- * 3: node deltas from the Genome v2 projection; v1 commits are `legacyFormat`.
+ * 3: node deltas from the Genome v2 projection; v1 commits are `legacyFormat`. 4: the app file count leaves out the
+ * pinned model copy under `system/`, and the entry names the Genome commit that copy pins.
  */
-export const CHANGELOG_CACHE_VERSION = 3;
+export const CHANGELOG_CACHE_VERSION = 4;
 
 /** One SQLite row holds at most 2 MB; an entry above this is not cached (its light row still is). */
 export const CHANGELOG_ENTRY_MAX_BYTES = 1_800_000;

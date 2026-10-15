@@ -4,6 +4,7 @@ import { NodeChip } from "@/components/NodeChip/NodeChip";
 import type { IndexEntry } from "@/model/index";
 import { Count } from "@/components/Count/Count";
 import { Row, RowList } from "@/components/RowList/RowList";
+import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { fieldValue, titleOf, useKindView, useKindViews } from "@/model/kinds";
 import { useSelection } from "@/model/useSelection";
 import { useModel } from "@/model/useModel";
@@ -61,7 +62,8 @@ function Conformance({ id }: { id: string }) {
           <dt>Criteria</dt>
           <dd>
             <ul className={styles.chips}>
-              {criteria.map((c) => <li key={c.id}><NodeChip id={c.id} size="sm" /></li>)}
+              {/* The criterion kind's ✓ glyph reads as a pass: the chip drops it and the verdict says what ran (only pass is green). */}
+              {criteria.map((c) => <li key={c.id} data-criterion={c.id}><NodeChip id={c.id} size="sm" glyph={false} /> <VerdictBadge verdict={m.verdictOf(c.id)} /></li>)}
             </ul>
           </dd>
         </div>

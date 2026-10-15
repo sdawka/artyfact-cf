@@ -1,7 +1,8 @@
+import type {QueryClient} from '@tanstack/react-query';
 import {fireEvent,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,it,expect,vi} from 'vitest';
 import {renderApp} from '@/testing/render';
-import {qk} from '@/api/queries';
+import {PLAN_PROMOTE_INVALIDATIONS,qk} from '@/api/queries';
 import {ADMIN_TOKEN_KEY} from '@/api/adminToken';
 import {seed} from '../work/testSeed';
 import {makePlan,task,attempt} from '../work/plan/testPlan';
@@ -65,4 +66,32 @@ it('disables integrated promotion with explicit stale-head blockers',async()=>{
  renderApp(`${base}/review?plan=plan.one`,undefined,seed({api:true,realizations:[]}));
  fireEvent.change(await screen.findByLabelText('Promotion rationale'),{target:{value:'Review rationale'}});
  expect(screen.getByText('Binding artifact.web changed; replan required.')).toBeTruthy();expect(screen.getByRole('button',{name:'Promote reviewed implementation'}).hasAttribute('disabled')).toBe(true);
+});
+
+it('after Promote shows the promoted state and its System commit, not the stale blockers, and refreshes the head',async()=>{
+ const binding={artifactId:'artifact.web',source:{repo:'fork',commit:'int-commit'},candidateId:'cand.int',taskCandidates:['cand.t1'],realizedGenome:'g'.repeat(40)};
+ let plan=makePlan({status:'integrated',tasks:[],integration:[binding] as never});let promoted=false;let seeded:QueryClient|undefined;sessionStorage.setItem(ADMIN_TOKEN_KEY,'admin');
+ const commit={id:'sc-2-abcdef12',parent:'sc-1',candidates:['cand.int'],evolutions:[],manifest:[],genomeCommit:'g'.repeat(40),decision:{by:'admin',at:'',policy:'p',rationale:'r'}};
+ const after:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{const url=String(input);if(promoted)after.push(url);
+  if(url.endsWith('/promote')&&init?.method==='POST'){promoted=true;plan={...plan,status:'promoted',updatedAt:'u2'};return Response.json({plan,commit});}
+  if(url.endsWith('/history'))return Response.json({commits:promoted?[commit]:[]});
+  // Recomputed against the moved head, the review of a promoted plan lists blockers that no longer apply.
+  if(url.endsWith('/review'))return Response.json(promoted?{plan,bindings:[binding],candidates:[],evaluations:[],ready:false,blockers:['Integrate all selected tasks before promotion.'],expectedHead:'sc-2'}:{plan,bindings:[binding],candidates:[],evaluations:[],ready:true,blockers:[],expectedHead:'sc-1'});
+  if(url.includes('/realization-plans'))return Response.json(url.endsWith('/realization-plans')?{plans:[plan]}:plan);
+  // Refetched after the promote: the model and readiness answer with what the test seeded.
+  if(/\/model\b/.test(url))return Response.json(seeded!.getQueryData(qk.model(SYSTEM,'head')));
+  if(/\/readiness\b/.test(url))return Response.json(seeded!.getQueryData(qk.readiness(SYSTEM,'head'))??{});
+  return Response.json({});}));
+ const {qc}=renderApp(`${base}/review?plan=plan.one`,undefined,(c)=>{seeded=c;seed({api:true,realizations:[]})(c);c.setQueryData(qk.changelogEntry(SYSTEM,'sc-1'),{});});
+ fireEvent.change(await screen.findByLabelText('Promotion rationale'),{target:{value:'Ship it'}});
+ fireEvent.click(screen.getByRole('button',{name:'Promote reviewed implementation'}));
+ const link=await screen.findByRole('link',{name:'sc-2-abcdef12'});
+ expect(link.getAttribute('href')).toBe(`${base}/changelog?commit=sc-2-abcdef12`);
+ expect(screen.getByRole('heading',{name:'Promoted'})).toBeTruthy();
+ expect(screen.queryByRole('list',{name:'Promotion blockers'})).toBeNull();expect(screen.queryByText('Combined implementation review')).toBeNull();
+ // The header's head (revisions) and the model refetch now, not on the next navigation; unmounted keys are marked stale.
+ expect(after.some(u=>u.includes('/revisions'))).toBe(true);expect(after.some(u=>u.includes('/model'))).toBe(true);
+ expect(qc.getQueryState(qk.changelogEntry(SYSTEM,'sc-1'))?.isInvalidated).toBe(true);
+ expect(PLAN_PROMOTE_INVALIDATIONS).toEqual(expect.arrayContaining(['plan','plans','implementation-review','history','readiness','revisions','model','systems','changelog','compare']));
 });

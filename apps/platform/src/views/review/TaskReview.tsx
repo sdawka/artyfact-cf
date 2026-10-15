@@ -13,6 +13,7 @@ import { KindGlyphs, NodeChip } from '@/components/NodeChip/NodeChip';
 import { StatusText } from '@/components/StatusText/StatusText';
 import { useModelOptional } from '@/model/useModel';
 import { groupByLayer, layerFor } from '@/model/layers';
+import { criterionEvidence } from './evidence';
 import { DecisionHead } from '../work/panels/DecisionHead';
 import styles from './review.module.css';
 
@@ -36,7 +37,10 @@ function CandidateEvidence({entry,plan,taskId,token,layers,writeNodes,writeReaso
  return <article className={styles.sub} aria-label={`Candidate ${candidate.id}`}><h3 className={styles.subTitle}>Candidate <code>{candidate.id}</code></h3>
  <MetaLine items={[{label:'manifest',value:manifest.manifestHash,code:true},{label:'source',value:`${manifest.repo}@${manifest.commit.slice(0,7)}`,code:true,title:`${manifest.repo}@${manifest.commit}`},{label:'base',value:`${manifest.baseRepo}@${manifest.baseCommit.slice(0,7)}`,code:true,title:`${manifest.baseRepo}@${manifest.baseCommit}`}]}/>
  <h4 className={styles.label}>Changed files</h4><ul className={styles.list}>{candidate.changedPaths.map(file=><li key={file}><Button variant="ghost" size="compact" onClick={()=>setPath(file)} aria-pressed={path===file}>{file}</Button></li>)}</ul>
- <h4 className={styles.label}>Changed Genome nodes</h4><ul className={styles.list}>{candidate.changedSubjects.map(id=><li key={id}><code>{id}</code></li>)}</ul>
+ {entry.codeNodes
+  ?<><h4 className={styles.label}>Nodes the changed code maps to</h4><p className={styles.reason}>Through the source map: a file maps to every node that declares it. Model changes are listed below.</p>
+   {entry.codeNodes.length?<ul className={styles.list} aria-label="Nodes the changed code maps to">{entry.codeNodes.map(id=><li key={id}><code>{id}</code></li>)}</ul>:<p className={styles.muted}>No code change maps to a node.</p>}</>
+  :<><h4 className={styles.label}>Changed Genome nodes</h4><ul className={styles.list}>{candidate.changedSubjects.map(id=><li key={id}><code>{id}</code></li>)}</ul></>}
  {entry.model&&<ModelChange model={entry.model} realizationId={candidate.realization} writeNodes={writeNodes} path={path} onOpen={setPath}/>}
  {diff.isLoading&&<p role="status">Loading reviewed file changes…</p>}{diff.error&&<p role="alert">{planError('Reading Task file',diff.error)}</p>}
  {diff.data&&<section aria-label={`Reviewed changes in ${path}`}><p className={styles.reason}>From <code>{diff.data.from.commit}</code> to <code>{diff.data.to.commit}</code></p>{diff.data.binary?<p>Binary file; inspect the artifact directly before selection.</p>:<LineDiff from={diff.data.from.text} to={diff.data.to.text} label={path!}/>} {diff.data.truncated&&<p className={styles.reason}>Only the bounded portion of this file is shown.</p>}</section>}
@@ -49,10 +53,15 @@ function CandidateEvidence({entry,plan,taskId,token,layers,writeNodes,writeReaso
 export function LayeredEvaluations({evaluations,layers,empty}:{evaluations:Evaluation[];layers:Record<string,CriterionLayer>|undefined;empty:string}){
  const m=useModelOptional();
  if(!evaluations.length)return <p className={styles.muted}>{empty}</p>;
- const groups=groupByLayer(evaluations,e=>layerFor(layers,m,e.criterion));
+ // One row per criterion (and candidate): a criterion with several hooks, or a re-run, folds as the gate folds it.
+ const rows=criterionEvidence(evaluations,m?.offTrigger),many=new Set(rows.map(r=>r.candidate)).size>1;
+ const groups=groupByLayer(rows,r=>layerFor(layers,m,r.criterion));
+ const tone=(v:string)=>v==='pass'?'pass' as const:v==='fail'?'fail' as const:'neutral' as const;
  return <div className={styles.layers}>{groups.map(g=><section key={g.layer} aria-label={g.label} data-layer={g.layer} className={styles.layer}>
   <h5 className={styles.layerTitle}>{g.label} <span className={styles.reason}>{g.says}</span></h5>
-  <ul className={styles.list}>{g.items.map(e=><li key={e.id}>{e.criterion}: <StatusText status={e.verdict} tone={e.verdict==='pass'?'pass':e.verdict==='fail'?'fail':'neutral'} glyph=""/> ({e.execution})</li>)}</ul>
+  <ul className={styles.list}>{g.items.map(r=><li key={r.key} data-criterion={r.criterion}>{r.criterion}{many&&<> on <code>{r.candidate}</code></>}: <StatusText status={r.verdict} tone={tone(r.verdict)} glyph=""/>{r.hooks.length===1
+   ?(r.hooks[0]!.execution!==r.verdict&&<> ({r.hooks[0]!.execution})</>)
+   :<span className={styles.reason}> · {r.hooks.map(h=>`${h.hook} ${h.verdict}`).join(', ')}</span>}</li>)}</ul>
  </section>)}</div>;
 }
 

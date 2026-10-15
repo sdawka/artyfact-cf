@@ -7,6 +7,7 @@
 import { diffModels, type SemanticDelta, type SystemModel } from "@artyfact/model";
 import type { CandidateModel } from "../shared/api";
 import type { TaskModel } from "../shared/lifecycle";
+import { isModelPath, MODEL_PREFIX } from "../shared/model-path";
 import { changedNodesFor, diffSubtrees, diffTrees, type CandidateManifest, type TreeDiff } from "./artifacts/candidates";
 import { withRepo, type ArtifactsNamespaceLike, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
 import { assertGenomeSourceSize, GENOME_MAX_BYTES, genomePrefix, isGenomeSource, treeAt } from "./artifacts/genome-source";
@@ -16,7 +17,7 @@ import { gitTransport } from "./editor";
 import { pushCommit, PushRejected, type FileChange } from "./git/push";
 import { globMatch, type SourceMapEntry } from "./artifacts/source-map";
 
-export const MODEL_PREFIX = "system";
+export { isModelPath, MODEL_PREFIX };
 /** Caps on a candidate's `system/`, checked on the listing before any blob is read (the import path caps total YAML at GENOME_MAX_BYTES). */
 export const MODEL_MAX_FILES = 2000;
 export const MODEL_MAX_DEPTH = 24;
@@ -24,7 +25,6 @@ export const MODEL_MAX_FILE_BYTES = 256 * 1024;
 export const MODEL_GLOB = "system/**";
 /** Protected in every lifecycle fork; `system/**` is not (it is the model, judged by its own delta). */
 export const TASK_PROTECTED = ["assays/**"];
-export const isModelPath = (p: string): boolean => p === MODEL_PREFIX || p.startsWith(`${MODEL_PREFIX}/`);
 /** Globs a Task may write: its footprint plus the model. */
 export const taskPermittedGlobs = (globs: string[]): string[] => [...new Set([...globs, MODEL_GLOB])];
 /** Whether `path` is a code path the Task may change (its footprint, never the model). */

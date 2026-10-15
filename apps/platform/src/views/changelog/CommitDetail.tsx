@@ -12,6 +12,8 @@ import { useKeepParams, useSystemRoute, viewPath } from "@/model/useSelection";
 import { shortSha } from "@/model/time";
 import { useSemanticDelta } from "@/views/compare/genomeDelta";
 import { LEGACY_NOTICE } from "@/views/compare/legacy";
+import { pinnedSummary } from "@/views/compare/FilesLevel";
+import { isModelPath } from "../../../shared/model-path";
 import { SemanticDelta } from "@/views/work/panels/amendment/SemanticDelta";
 import styles from "./changelog.module.css";
 
@@ -28,15 +30,19 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 const FILE_CAP = 12;
 
-function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
+type CodeLink = ChangelogEntry["codeLinks"][number];
+
+/** The entry's code links split into the changed files proper and the pinned model copy under the app's `system/`. */
+export function splitCodeLinks(links: CodeLink[]): { files: CodeLink[]; pinned: CodeLink[] } {
+  const pinned = (f: CodeLink) => f.scope === "app" && isModelPath(f.path);
+  return { files: links.filter((f) => !pinned(f)), pinned: links.filter(pinned) };
+}
+
+function FileList({ links, row }: { links: CodeLink[]; row: ChangelogRow }) {
   const { systemId } = useSystemRoute();
-  const [all, setAll] = useState(false);
-  if (!entry.codeLinks.length) return <p className={styles.muted}>No files changed.</p>;
-  const shown = all ? entry.codeLinks : entry.codeLinks.slice(0, FILE_CAP);
   return (
-    <>
     <ul className={styles.files}>
-      {shown.map((f) => {
+      {links.map((f) => {
         // A removed file only exists on the parent side.
         const rev = f.status === "removed" && row.parent ? row.parent : row.id;
         const to = `${viewPath(systemId, rev, "code")}?${new URLSearchParams({ repo: f.scope, path: f.path })}`;
@@ -49,10 +55,30 @@ function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
         );
       })}
     </ul>
-    {entry.codeLinks.length > FILE_CAP && (
+  );
+}
+
+function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
+  const [all, setAll] = useState(false);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const { files, pinned } = splitCodeLinks(entry.codeLinks);
+  if (!entry.codeLinks.length) return <p className={styles.muted}>No files changed.</p>;
+  const shown = all ? files : files.slice(0, FILE_CAP);
+  return (
+    <>
+    {files.length ? <FileList links={shown} row={row} /> : <p className={styles.muted}>No app or Genome files changed.</p>}
+    {files.length > FILE_CAP && (
       <Button type="button" variant="ghost" size="compact" className={styles.more} aria-expanded={all} onClick={() => setAll(!all)}>
-        {all ? "Show fewer files" : `Show all ${entry.codeLinks.length} files`}
+        {all ? "Show fewer files" : `Show all ${files.length} files`}
       </Button>
+    )}
+    {pinned.length > 0 && (
+      <>
+        <Button type="button" variant="ghost" size="compact" className={styles.more} aria-expanded={pinnedOpen} onClick={() => setPinnedOpen(!pinnedOpen)}>
+          {pinnedSummary(pinned.length, entry.app?.pinnedGenome)}
+        </Button>
+        {pinnedOpen && <FileList links={pinned} row={row} />}
+      </>
     )}
     </>
   );

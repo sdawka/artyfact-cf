@@ -8,7 +8,9 @@ import { NODE_FILE } from "@artyfact/ontology/genome";
 import type {
   ChangedFiles, FileCompare, FileScope, ModelDelta, FileSide, GenomeCompare, ResolvedRef, RevisionOption, RevisionsResponse, SystemCommit, SystemCompare,
 } from "../shared/api";
+import { changedCount, MODEL_PREFIX, splitPinnedModel } from "../shared/model-path";
 import { canonicalJson } from "./util";
+import { genomePrefix, treeAt } from "./artifacts/genome-source";
 import { diffTreesAcross } from "./artifacts/candidates";
 import { artifactsErrorCode, artifactsFor, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
@@ -320,6 +322,26 @@ export function pathNodesAt(m: SystemModel | undefined, paths: string[]): Record
   return Object.fromEntries(paths.map((p) => [p, nodesForPath(sm, p).filter((n) => !n.startsWith("unmapped:"))]));
 }
 
+/**
+ * The Genome commit the app's pinned model copy (`system/`) equals at `app`, when the changed files touch it: the
+ * Genome itself when it lives in the app repo at that commit, else the `to` Genome when its tree hashes the same. Null
+ * when it differs or cannot be read; the view then names no commit.
+ */
+async function pinnedGenomeOf(env: Env, app: ResolvedRef, genome: ResolvedRef, files: ChangedFiles): Promise<string | null> {
+  if (!changedCount(splitPinnedModel(files).pinned)) return null;
+  if (app.repo === genome.repo && app.commit === genome.commit) return genome.commit;
+  const ns = artifactsFor(env);
+  try {
+    const [copy, source] = await Promise.all([
+      withRepo(ns, app.repo, (r) => treeAt(r, app.commit, MODEL_PREFIX)),
+      withRepo(ns, genome.repo, async (r) => treeAt(r, genome.commit, await genomePrefix(r, genome.commit))),
+    ]);
+    return copy && copy === source ? genome.commit : null;
+  } catch {
+    return null;
+  }
+}
+
 function changedKeys(a: Record<string, string> | undefined, b: Record<string, string> | undefined): string[] {
   const x = a ?? {}, y = b ?? {};
   return sorted([...Object.keys(x), ...Object.keys(y)].filter((k) => x[k] !== y[k]));
@@ -340,8 +362,9 @@ export async function compareSystem(env: Env, head: HeadState, from: SystemSide 
   ]);
   const gFiles = typeof genomeFiles === "string" ? null : genomeFiles;
   const gLoadError = genome.loadError ?? (typeof genomeFiles === "string" ? genomeFiles : undefined);
+  const pinnedGenome = to.app && files ? await pinnedGenomeOf(env, to.app, to.genome, files) : null;
   const app = to.app && files
-    ? { from: from?.app ?? null, to: to.app, files, pathNodes: pathNodesAt(genome.toModel, [...files.added, ...files.modified, ...files.removed]) }
+    ? { from: from?.app ?? null, to: to.app, files, pathNodes: pathNodesAt(genome.toModel, [...files.added, ...files.modified, ...files.removed]), ...(pinnedGenome && { pinnedGenome }) }
     : null;
   const fc = from?.commit.composition, tc = to.commit.composition;
   const manifest = {

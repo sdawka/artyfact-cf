@@ -4,7 +4,9 @@ import type { TaskCandidateReview, TaskReview } from '../shared/lifecycle';
 import { compareExplicitFile } from './compare';
 import { badRequest, conflict, notFound, rpc } from './errors';
 import { artifactsFor } from './artifacts/client';
-import { compareFrom } from './lifecycle-model';
+import { compareFrom, isModelPath } from './lifecycle-model';
+import { changedNodesFor } from './artifacts/candidates';
+import { sourceMapFor } from './artifacts/source-map';
 import { MODEL_REVIEW_CRITERION } from './lifecycle-model-review';
 import { hooksOf } from './promotion';
 import { genomeAt, systemStub } from './service';
@@ -21,6 +23,9 @@ export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:stri
  const stub=systemStub(env,sid),plan=await rpc(stub.realizationPlan(pid)),task=plan.tasks.find(t=>t.id===tid);
  if(!task)throw notFound(`unknown task ${tid}`);
  const candidates:TaskCandidateReview[]=[];
+ const g=await genomeAt(env,sid,plan.genome.commit,plan.genome.repo),sourceMap=sourceMapFor(g.model);
+ // Nodes of the code paths alone, so the review tells them apart from the model delta's (both are in changedSubjects).
+ const codeNodes=(paths:string[])=>changedNodesFor(sourceMap,paths.filter(p=>!isModelPath(p))).filter(n=>!n.startsWith('unmapped:'));
  for(const attempt of task.attempts) {
   for(const candidate of await stub.candidates({realizationId:attempt.realizationId})) {
    const manifest=await stub.candidateManifest(candidate.id);
@@ -28,10 +33,9 @@ export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:stri
    const model=manifest.model as CandidateModel|undefined,stored=model?await stub.review(candidate.id):null;
    // The agent says why it changed the model in a checkpoint: the attempt's last one is the reason shown beside the delta.
    const reason=model?(await stub.realization(attempt.realizationId))?.realization.checkpoints.at(-1)?.summary:undefined;
-   candidates.push({candidate,manifest:manifest as TaskCandidateReview['manifest'],evaluations:await stub.evaluations(candidate.id),...(model&&{model:{...model,review:stored?JSON.parse(stored) as GenomeCandidateReview:null,...(reason&&{reason})}})});
+   candidates.push({candidate,manifest:manifest as TaskCandidateReview['manifest'],evaluations:await stub.evaluations(candidate.id),codeNodes:codeNodes(candidate.changedPaths),...(model&&{model:{...model,review:stored?JSON.parse(stored) as GenomeCandidateReview:null,...(reason&&{reason})}})});
   }
  }
- const g=await genomeAt(env,sid,plan.genome.commit,plan.genome.repo);
  return {plan,task,candidates,layers:evidenceLayers(g.model,candidates.flatMap(c=>c.evaluations))};
 }
 export async function reviewLifecycleTaskFile(env:Env,sid:string,pid:string,tid:string,candidateId:string,path:string) {

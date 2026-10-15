@@ -8,6 +8,7 @@ import { resetHooks, setHooks } from "../worker/hooks/index";
 import { systemStub } from "../worker/service";
 import { appFiles } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
+import { walkTree } from "../worker/artifacts/genome-source";
 import { genomeAmendment, importFresh, passing, promoteApp, renameContact, renameContactAndScreen, submitApp, type Flow } from "./helpers/flows";
 
 beforeEach(() => setHooks({ runner: () => passing }));
@@ -141,6 +142,24 @@ describe("compareSystem", () => {
       expect(cmp.identical).toBe(false);
     }
     expect((await compareSystemRefs(env, f.systemId, "sc-2", "head")).identical).toBe(true);
+  });
+
+  it("names the Genome commit an app head's pinned copy under system/ equals, and none when it differs", async () => {
+    const f = await importFresh();
+    const genome = f.ns.repo(f.genomeRepo);
+    const copy = Object.fromEntries([...(await walkTree(genome, f.imp.genomeCommit))].map(([p, t]) => [`system/${p}`, t]));
+    await promoteApp(f, { "src/ui/people/list.ts": "list", ...copy });
+    const cmp = await compareSystemRefs(env, f.systemId, "sc-1", "sc-2");
+    expect(cmp.app!.files.added).toEqual(expect.arrayContaining(["src/ui/people/list.ts", ...Object.keys(copy)]));
+    expect(cmp.app!.pinnedGenome).toBe(f.imp.genomeCommit);
+    const [first] = Object.keys(copy);
+    await promoteApp(f, { [first!]: "edited" }, "evolution.3");
+    const next = await compareSystemRefs(env, f.systemId, "sc-2", "sc-3");
+    expect(next.app!.files.modified).toEqual([first]);
+    expect(next.app!.pinnedGenome).toBeUndefined();
+    // No change under system/: nothing to name.
+    await promoteApp(f, { "src/ui/people/list.ts": "list v2" }, "evolution.4");
+    expect((await compareSystemRefs(env, f.systemId, "sc-3", "sc-4")).app!.pinnedGenome).toBeUndefined();
   });
 
   it("after an acceptance: the Genome delta's changed fields and affected criteria; the app is unchanged", async () => {

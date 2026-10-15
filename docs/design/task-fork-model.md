@@ -67,6 +67,11 @@ checkpoint. The platform then treats the candidate as code **and** a model propo
   is refused (all 409 `model-delta-invalid`). The DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
   compare-and-swap that moves the app head, exactly as `accept` does for a Genome amendment fork. Open plans pinned to
   the previous Genome are checked by `assertGenomeCompatible` as after any accept.
+- Task scope includes every ancestor on its nodes' and criteria' containment paths, so accepting any Genome amendment
+  under the same Thing makes `assertGenomeCompatible` refuse the open plan with 409 `replan-required`.
+- The promoted app head is the integrated fork commit, so it carries the pinned Genome under `system/` whether or not a
+  delta was accepted. Compare and the Changelog list those paths apart from the app's files, as one collapsed "Pinned
+  Genome copy under system/" row naming the Genome commit it equals, and leave them out of the App count.
 
 ## 3. Criteria layers
 
@@ -103,6 +108,8 @@ It is off in the unit tests, which count the example System's candidates and eva
 `TaskReview.candidates[].model`, when present, renders beside the changed files: the changed `system/**` paths (same
 file compare route, `taskReviewFile`), the delta's added / changed / removed ids against the Task's `writeNodes`, and
 the System One signals (`review.signals`, `review.review` like the amendment panel), each with its verdict and
-provider. Evidence rows group by `layers[evaluation.criterion]`. The plan review shows `modelDelta` with an
+provider. The code side lists `TaskCandidateReview.codeNodes`, the nodes the changed code maps to through the source map
+(a file maps to every node declaring a matching glob), apart from the model delta's nodes. Evidence rows group by
+`layers[evaluation.criterion]`, one row per criterion folded over its hooks as the gate folds them. The plan review shows `modelDelta` with an
 "Accept model change" checkbox that sets `acceptModelDelta` on promote; without it the button is disabled when a
 `modelDelta` exists.

@@ -2,10 +2,13 @@ import { CloudVerification } from "./CloudVerification";
 import { Button, Checkbox, Textarea } from "@/components/ui";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import type { Candidate } from "../../../shared/api";
 import type { ImplementationReview, RealizationPlan } from "../../../shared/lifecycle";
 import { LineDiff } from "@/components/LineDiff/LineDiff";
 import { useAdminToken } from "@/api/adminToken";
+import { useHistory } from "@/api/queries";
+import { useKeepParams } from "@/model/useSelection";
 import { lifecycleApi } from "@/api/lifecycle";
 import { planError } from "../work/plan/lib";
 import { planKeys } from "../work/plan/queries";
@@ -19,7 +22,28 @@ interface Props {
   plan: RealizationPlan;
   writeReason: string | null;
   busy: boolean;
-  run(fn: () => Promise<unknown>): void;
+  run(fn: () => Promise<unknown>, o?: { promote?: boolean }): void;
+}
+
+/** A promoted plan has nothing left to review: it names the System commit it became and links to the Changelog. */
+function PromotedPlan({ plan }: { plan: RealizationPlan }) {
+  const href = useKeepParams();
+  const history = useHistory();
+  const ids = new Set(plan.integration.map((b) => b.candidateId));
+  const commit = history.data?.find((c) => c.candidates.some((id) => ids.has(id)));
+  return (
+    <section aria-labelledby="integrated-review" className={styles.detailPane}>
+      <header className={styles.detailPane}>
+        <h2 id="integrated-review" className={styles.detailTitle} tabIndex={-1}>Promoted</h2>
+        <MetaLine items={[{ label: "plan", value: plan.title }, { label: "bindings", value: String(plan.integration.length) }]} />
+      </header>
+      {commit ? (
+        <p>Promoted as <Link to={href("changelog", { commit: commit.id, plan: null, task: null })}><code>{commit.id}</code></Link>.</p>
+      ) : (
+        <p>{history.isLoading ? "Promoted. Finding its System commit…" : <>Promoted. Its System commit is in the <Link to={href("changelog", { plan: null, task: null })}>Changelog</Link>.</>}</p>
+      )}
+    </section>
+  );
 }
 
 /** The integrated plan's combined review: every changed binding, its file diffs and evaluations, then promotion. */
@@ -27,7 +51,10 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
   const { token } = useAdminToken();
   const [rationale, setRationale] = useState("");
   const [acceptModel, setAcceptModel] = useState(false);
-  const review = useQuery({ queryKey: planKeys.review(plan.systemId, plan.id, plan.updatedAt), queryFn: () => lifecycleApi.review(plan.systemId, plan.id, token), retry: false });
+  const promoted = plan.status === "promoted";
+  const review = useQuery({ queryKey: planKeys.review(plan.systemId, plan.id, plan.updatedAt), queryFn: () => lifecycleApi.review(plan.systemId, plan.id, token), retry: false, enabled: !promoted });
+  // A promoted plan's review is recomputed against the head it moved, so its blockers are stale by construction.
+  if (promoted) return <PromotedPlan plan={plan} />;
   if (review.isLoading) return <p role="status">Loading implementation review…</p>;
   if (review.error) return <p role="alert">{planError("Reading the review", review.error)}</p>;
   const r = review.data;
@@ -70,7 +97,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
         onSubmit={(e) => {
           e.preventDefault();
           if (promoteReason || busy || !rationale.trim()) return;
-          run(() => lifecycleApi.promote(plan.systemId, plan.id, { expectedHead: r.expectedHead, rationale, candidateIds: r.bindings.map((b) => b.candidateId), ...(modelDelta && { acceptModelDelta: true }) }, token));
+          run(() => lifecycleApi.promote(plan.systemId, plan.id, { expectedHead: r.expectedHead, rationale, candidateIds: r.bindings.map((b) => b.candidateId), ...(modelDelta && { acceptModelDelta: true }) }, token), { promote: true });
         }}
       >
         <div className={workStyles.field}>

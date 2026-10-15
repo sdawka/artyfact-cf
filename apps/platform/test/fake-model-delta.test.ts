@@ -24,6 +24,11 @@ it("seeds a submitted Task candidate with a model delta and an integrated plan w
   expect(entry.model!.delta.added).toEqual([FAKE_ACTIVITY.modelAddedNode]);
   expect(entry.model!.delta.changed.map((c) => c.id)).toEqual([FAKE_ACTIVITY.modelNode]);
   expect(entry.model!.outsideWriteNodes).toBeUndefined();
+  // The copied dialog file is a new node, not its source's: AddContactDialog is named only because the seeded code file
+  // lies under public/people/**, a glob it shares with the screen.
+  expect(entry.model!.changedNodes).toEqual([FAKE_ACTIVITY.modelAddedNode, FAKE_ACTIVITY.modelNode].sort());
+  expect(entry.codeNodes).toEqual(["component.AddContactDialog", FAKE_ACTIVITY.modelNode]);
+  expect(entry.candidate.changedSubjects).toEqual([...new Set([...entry.codeNodes!, ...entry.model!.changedNodes])].sort());
   expect(entry.model!.review!.review.length).toBeGreaterThan(0);
   expect(entry.model!.review!.review.every((r) => ["pass", "fail", "unknown"].includes(r.verdict))).toBe(true);
   expect(entry.evaluations.find((e) => e.criterion === "C.model.review")).toMatchObject({ execution: "completed" });
