@@ -3,13 +3,12 @@
 
 ## Now
 
-- Current: UI refresh on integration branch `ui-refresh` (`9e2cfa08`: W0 foundation plus eight W1 slices merged locally). W2 records on `r-w2docs`: self-Genome UI nodes and `docs/design/ui.md` match the shipped UI. Evidence: [[journals/2026-10-14-ui-refresh]].
-- Verified: the self-Genome test passes (10 tests, info-only findings), along with the ontology, template, model-validation and site how-it-works suites. Full CI, the cross-slice rules review and after-shots have not run.
-- Merged: `origin/main` (intent authoring, integrity review, keyboard-accessible import path lists) into `ui-refresh`; integrity rows, the integrity panel and Start's intent handoff use the refreshed primitives.
-- Next action: merge `r-w2docs` into `ui-refresh`, fix the code follow-ups listed in the journal (stray per-form token fields), run full CI and open the one integration PR.
-- Tracking: canonical Markdown is authoritative; the vault validates (7 records). The RPC dry-run applied 0 and sync stays pending a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
-- Previous release: intention fixes, [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) at `1ec3826`, platform `39aba8f8`, site `a5b7ff36` ([[journals/2026-10-14-intention-fixes]]).
-- Last updated: 2026-10-14T17:45:00-04:00.
+- Current: local bootstrap foundation implemented on `feat/local-bootstrap`, based on merged #84 / `c2252821`. [[roadmap]] carries acceptance; evidence in [[journals/2026-10-14-local-bootstrap]].
+- Verified: full local CI passed (402s); final operator/UI and source-model regressions passed. Independent verifier/operator reviews clear. Cloud verifier deployed and authenticated health smoke passed.
+- Next: ship [PR #85](https://github.com/sdawka/artyfact-cf/pull/85) to main after every CI check passes. Live testing also exposed the SDK's missing Git index; the verifier reconstructs it before installation. Rerun the cloud candidate, then resume the local review/analytics Task.
+- Remaining milestone: passing real Cloudflare execution (first attempt failed), initial and implementation human approvals, K2/Basin event improvement and approved local activation. Local operator is at http://127.0.0.1:1348; US$1 incremental cloud-test budget. Hosting follows later.
+- Tracking: canonical Markdown authoritative. RPC sync pending a confirmed separate Artyfact destination; preserve wrong-project conflict. Original checkout user edits untouched.
+- Last updated: 2026-10-14T21:32:00-04:00.
 
 ## Intent integrity release
 

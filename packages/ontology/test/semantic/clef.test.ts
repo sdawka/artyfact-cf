@@ -145,6 +145,56 @@ describe("workersAiProvider", () => {
     expect(calls[0]).toMatchObject({ model: "@cf/cloudflare/clef-flash", inputs: { model: "clef-flash" } });
   });
 
+  it("aliases unsafe question ids for Clef and restores the caller's ids without collisions", async () => {
+    const colon = "questions:check:asset.provenance.[key]";
+    const long = `question.${"x".repeat(101)}`;
+    const questions: S1Questions = {
+      "s1.transport.0": QUESTIONS.yn!,
+      [colon]: QUESTIONS.yn!,
+      [long]: QUESTIONS.yn!,
+    };
+    let sent: Record<string, unknown> | undefined;
+    const ai: AiBinding = {
+      run: async (_model, inputs) => {
+        sent = inputs.questions as Record<string, unknown>;
+        return {
+          answers: Object.fromEntries(Object.keys(sent).map((id) => [id, { type: "noul", noul: 0.12 }])),
+          usage: {},
+        };
+      },
+    };
+
+    const reply = await workersAiProvider(ai).ask({}, questions);
+    const transportIds = Object.keys(sent!);
+    expect(transportIds).toHaveLength(3);
+    expect(transportIds).toContain("s1.transport.0");
+    expect(transportIds).not.toContain(colon);
+    expect(transportIds).not.toContain(long);
+    expect(transportIds.every((id) => /^[A-Za-z0-9_.-]{1,100}$/.test(id))).toBe(true);
+    expect(new Set(transportIds).size).toBe(3);
+    expect(Object.keys(reply.answers).sort()).toEqual(Object.keys(questions).sort());
+    expect(reply.answers[colon]).toEqual({ type: "noul", noul: 0.12 });
+    expect(reply.answers[long]).toEqual({ type: "noul", noul: 0.12 });
+  });
+
+  it("preserves prototype-like question ids through JSON transport and response mapping", async () => {
+    const questions: S1Questions = Object.fromEntries(["__proto__", "constructor", "toString"].map((id) => [id, QUESTIONS.yn!]));
+    let sent: Record<string, unknown> | undefined;
+    const ai: AiBinding = {
+      run: async (_model, inputs) => {
+        sent = JSON.parse(JSON.stringify(inputs.questions)) as Record<string, unknown>;
+        return { answers: Object.fromEntries(Object.keys(sent).map((id) => [id, { type: "noul", noul: 0.12 }])) };
+      },
+    };
+    const reply = await workersAiProvider(ai).ask({}, questions, { retries: 0 });
+    expect(Object.keys(sent!).sort()).toEqual(Object.keys(questions).sort());
+    expect(Object.keys(reply.answers).sort()).toEqual(Object.keys(questions).sort());
+    for (const id of Object.keys(questions)) {
+      expect(Object.hasOwn(reply.answers, id)).toBe(true);
+      expect(reply.answers[id]).toEqual({ type: "noul", noul: 0.12 });
+    }
+  });
+
   it("sends images as {content_type, base64} and keys the cache on them", async () => {
     const { ai, calls } = mockAi();
     const s1 = workersAiProvider(ai);

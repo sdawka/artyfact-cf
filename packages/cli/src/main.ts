@@ -15,6 +15,7 @@ import { skillCommand } from "./skill.ts";
 import { validateGenomeCommand } from "./validate-genome.ts";
 import { integrityCommand } from "./integrity.ts";
 import { releaseCommand, type ReleaseIo } from "./release.ts";
+import { operatorCommand, type OperatorIo } from "./operator.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -93,15 +94,21 @@ const USAGE = `artyfact <command>
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
 
-  release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--allow-dirty] [--json]
-        build the platform and site, push the outputs to <ns>/platform.builds (one commit and tag v<yyyymmdd>-<sha7> per
+  release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--json]
+        build the platform and site from a clean source, push the outputs to <ns>/platform.builds (one stable tag per
         source commit, reused when it exists) and deploy each Worker from that checkout; --dry-run writes nothing remote.
+  operator verify --system sid --plan pid [--artifact aid] [--retry] [--vars-file /secure/operator.env] [--platform url] [--namespace ns]
+        run trusted Cloud verification and return its result before approval.
+  operator publish --system sid --plan pid [--artifact aid] [--vars-file /secure/operator.env] [--platform url] [--namespace ns]
+        publish the current approved verification output to platform.builds without rebuilding or restarting verification.
+  operator activate --system sid --plan pid --dir checkout --state-dir state [--artifact aid] [--vars-file /secure/operator.env] [--prepare-only] [--port 1337]
+        prepare the exact approved source and accepted model, preserving local state outside the checkout, then run it locally.
 
   --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
   ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
 `;
 
-export async function main(argv: string[], io?: Partial<Io> & Partial<Pick<ReleaseIo, "build" | "deploy" | "now">>): Promise<number> {
+export async function main(argv: string[], io?: Partial<Io> & Partial<Pick<ReleaseIo, "build" | "deploy" | "now">> & Partial<Pick<OperatorIo, "install" | "run">>): Promise<number> {
   const full: Io = {
     out: io?.out ?? ((s) => process.stdout.write(`${s}\n`)),
     err: io?.err ?? ((s) => process.stderr.write(`${s}\n`)),
@@ -116,6 +123,7 @@ export async function main(argv: string[], io?: Partial<Io> & Partial<Pick<Relea
       case "evolution": case "plan": case "task": case "ontology": case "operations": return await lifecycleCommand(cmd, rest, full);
       case "init": return await initCommand(rest, full);
       case "release": return await releaseCommand(rest, { ...full, build: io?.build, deploy: io?.deploy, now: io?.now });
+      case "operator": return await operatorCommand(rest, { ...full, install: io?.install, run: io?.run });
       case "platform-sync": return await platformSyncCommand(rest, full);
       case "start": return await start(rest, full);
       case "checkpoint": return await checkpoint(rest, full);

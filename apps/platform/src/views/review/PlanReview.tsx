@@ -1,3 +1,4 @@
+import { CloudVerification } from "./CloudVerification";
 import { Button, Checkbox, Textarea } from "@/components/ui";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -57,6 +58,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
         ))}
       </ul>
       {modelDelta && <IntegratedModelDelta plan={plan} delta={modelDelta} artifactId={r.bindings.find((b) => b.model)?.artifactId ?? r.bindings[0]?.artifactId} token={token} />}
+      {(r.verificationRequired || r.verifications?.length) ? <CloudVerification systemId={plan.systemId} planId={plan.id} bindings={r.bindings} results={r.verifications ?? []} token={token} busy={busy} writeReason={writeReason} run={run} /> : null}
       {r.evaluations.length > 0 && (
         <div className={styles.sub}>
           <h3 className={styles.subTitle}>Evaluations</h3>

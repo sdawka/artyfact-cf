@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-verification-poll
+kind: endpoint
+fields:
+  name: Verification poll
+  description: "Poll trusted cloud evidence and attach exact criterion results to the integrated candidate."
+  route: POST /api/systems/:id/realization-plans/:pid/verification/poll
+  auth: Admin bearer token (ADMIN_TOKEN).

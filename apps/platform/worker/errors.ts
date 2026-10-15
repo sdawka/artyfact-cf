@@ -14,7 +14,7 @@ export const unprocessable = (code: string, message: string, details?: unknown) 
 
 /** Map an error thrown across DO RPC (`[code] message`, see ConflictError) to an HttpError. */
 export function fromRpc(e: unknown): HttpError | undefined {
-  const m = /^\[(not-found|invalid-state|stale-base)\] (.*)$/s.exec((e as Error)?.message ?? "");
+  const m = /^\[(not-found|invalid-state|stale-base|verification-required)\] (.*)$/s.exec((e as Error)?.message ?? "");
   if (!m) return undefined;
   return m[1] === "not-found" ? notFound(m[2]) : conflict(m[1], m[2]);
 }

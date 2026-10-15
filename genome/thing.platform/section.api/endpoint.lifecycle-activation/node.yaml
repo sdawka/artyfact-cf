@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-activation
+kind: endpoint
+fields:
+  name: Activation
+  description: "Read current human-approved source, model and verified output identity for local activation."
+  route: GET /api/systems/:id/realization-plans/:pid/activation
+  auth: Admin bearer token (ADMIN_TOKEN).

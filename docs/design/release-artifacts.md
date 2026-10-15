@@ -12,13 +12,13 @@ Build output is the realized artifact, so the deployed version of the platform c
 
 ## Design
 
-1. `artyfact release` reads the source commit (refuses a dirty tree unless `--allow-dirty`) and names the release `v<yyyymmdd>-<sha7>` (UTC date).
+1. `artyfact release` reads the source commit (refuses tracked or untracked source changes) and names the release `v-<sha12>` (stable across dates).
 2. It builds `@artyfact/platform` and `@artyfact/site`, then stages a self-contained tree: `platform/` (the vite plugin's `dist`, whose `artyfact_platform/wrangler.json` has `main: index.js`, `no_bundle` and `assets: ../client`), `site/wrangler.jsonc` plus `site/dist/`, and `release.json` (version, git commit, tree hash of the self-Genome `genome/`, built-at, Worker configs, node and wrangler versions).
 3. It commits that tree to `artyfact/platform.builds` as `main` with an annotated tag, pushed with a write token; the repo is created on first use. A tag that already exists is fetched and reused, so re-running the same source commit never mints a second release.
 4. It deploys each Worker with `wrangler deploy --config <config>` and `cwd` in the checkout of `platform.builds`, never in the worktree; `release.json` in the repo is the deployment record.
 5. `--dry-run` builds, stages and commits locally, reads the repo with a read token when it exists, pushes nothing and runs `wrangler deploy --dry-run`. `--no-deploy` pushes only (for the Workers Builds path below). Tokens never reach stdout or argv.
 
-The platform's `POST /api/systems/:id/deployments` is per imported System and binds a System commit to an app repo; the platform itself is not an imported System in production, so this slice records nothing there. When `system.artyfact` is imported, `release.json` carries what such a record needs (`gitCommit`, `genomeTree`).
+The legacy `release` path is a local build/publish/deploy tool, not the self-development approval loop. Artyfact is already imported in production; that does not mean its local bootstrap has been approved or cloud-tested. `artyfact operator publish` instead requires a current promoted plan and immutable cloud output, and records System commit, exact source and accepted Genome refs, model digest, verification run and output digest. The accepted Genome can live under `system/` in the integrated fork; root `genome/` is not assumed to be authoritative. Local activation runs approved source with persistent operator state. Native hosted deployment remains deferred for this milestone.
 
 ## Native path (optional, one-time, dashboard)
 

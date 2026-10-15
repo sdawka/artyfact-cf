@@ -25,7 +25,11 @@ const configFor = (command: "build" | "serve") => ({
   // `npm run dev` (real backend) adds Workers AI and Browser Run, which are remote-only and need a Cloudflare login like
   // ARTIFACTS. A build keeps the deployed config as is.
   plugins: [react(), ...(fake ? [] : [noSelfSeed()]), cloudflare({
-    ...((process.env.ARTYFACT_E2E_FIXTURE === "1" || fake) && { persistState: false }),
+    ...((process.env.ARTYFACT_E2E_FIXTURE === "1" || fake)
+      ? { persistState: false }
+      : command === "serve" && process.env.ARTYFACT_PERSIST_STATE_DIR
+        ? { persistState: { path: process.env.ARTYFACT_PERSIST_STATE_DIR } }
+        : {}),
     ...(command === "serve" && {
       config: (c) => {
         if (fake) {

@@ -4,9 +4,10 @@ template: template.thing.cloudflare-worker-service@1
 root: apps/ci
 fields:
   name: CI
-  description: "The artyfact-ci Worker: the ArtyfactCI Workflow on @cloudflare/ci builds and deploys app commits in a container sandbox and reports each build back to the platform."
+  description: "The artyfact-ci Worker: the ArtyfactCI Workflow on @cloudflare/ci builds and deploys app commits in a container sandbox and reports each build back to the platform. A separate ArtyfactVerification Workflow tests exact self-development source and pinned hooks without deployment credentials, and retains immutable output for local approval and activation."
 links:
   - { rel: artifact, to: artifact.ci }
+  - { rel: dependsOn, to: thing.model }
   - { rel: exposes, to: endpoint.ci-health }
   - { rel: calls, to: endpoint.report-build }
   - { rel: calls, to: endpoint.report-realization-build }
