@@ -32,7 +32,7 @@ const configFor = (command: "build" | "serve") => ({
           // Artifacts is remote-only: without it the dev server needs no Cloudflare login.
           delete (c as { artifacts?: unknown }).artifacts;
           c.vars = { ...c.vars, HOSTED_DEMO: "0", FAKE_ARTIFACTS: "1", FAKE_S1: "1", ALLOW_LOCAL_PREVIEW: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token",
-            ...(process.env.FAKE_SEED && { FAKE_SEED: process.env.FAKE_SEED }) };
+            ...(process.env.FAKE_SEED && { FAKE_SEED: process.env.FAKE_SEED }), ...(process.env.FAKE_MODEL_DELTA && { FAKE_MODEL_DELTA: process.env.FAKE_MODEL_DELTA }) };
           return;
         }
         Object.assign(c, { ai: { binding: "AI" }, browser: { binding: "BROWSER" } });

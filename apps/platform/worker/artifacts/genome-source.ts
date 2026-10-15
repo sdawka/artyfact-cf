@@ -13,7 +13,7 @@ async function rootTree(repo: ArtifactsRepoLike, commit: string): Promise<string
 }
 
 /** Resolve the tree object at `prefix` under `commit`, or null if the prefix does not exist. */
-async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): Promise<string | null> {
+export async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): Promise<string | null> {
   let tree = await rootTree(repo, commit);
   for (const part of normPrefix(prefix).split("/").filter(Boolean)) {
     const entries = await repo.readTree(tree);
@@ -69,9 +69,10 @@ export async function walkTree(
 }
 
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
-const INTENT_BRIEF = "intent/brief.md";
-const INTENT_MANIFEST = "intent/manifest.json";
-const isGenomeSource = (p: string) => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
+export const INTENT_BRIEF = "intent/brief.md";
+export const INTENT_MANIFEST = "intent/manifest.json";
+/** A Genome source file (Genome-relative path): YAML, or one of the two intent sidecars. Nothing else is part of the model. */
+export const isGenomeSource = (p: string): boolean => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
 
 /** Where the Genome lives in a repo: root (`node.yaml`, or a legacy `system.yaml`) or `system/`. */
 export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Promise<string> {
@@ -106,10 +107,15 @@ export async function readGenomeFiles(repo: ArtifactsRepoLike, commit: string): 
 /** Genome YAML plus the two allowlisted intent sidecars; no other repo content crosses this boundary. */
 export async function readGenomeSourceFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
   const files = await walkTree(repo, commit, await genomePrefix(repo, commit), isGenomeSource);
+  assertGenomeSourceSize(files, commit);
+  return files;
+}
+
+/** The import caps on a set of Genome source files: YAML in all, and each intent sidecar. */
+export function assertGenomeSourceSize(files: Map<string, string>, commit: string): void {
   assertGenomeSize(new Map([...files].filter(([path]) => isYaml(path))), commit);
   if (byteLength(files.get(INTENT_BRIEF) ?? "") > 64 * 1024) throw unprocessable("intent-too-large", "intent/brief.md exceeds 64 KiB");
   if (byteLength(files.get(INTENT_MANIFEST) ?? "") > 128 * 1024) throw unprocessable("intent-too-large", "intent/manifest.json exceeds 128 KiB");
-  return files;
 }
 
 export interface LoadedGenome {

@@ -28,7 +28,7 @@ function api(options:{fail?:boolean;loading?:boolean;token?:boolean;selected?:bo
 it('reviews exact candidate files/evaluations and refreshes after selection',async()=>{
  const a=api();const {qc}=renderApp(`${base}/review?plan=plan.one&task=t1`,undefined,a.setup);
  const review=await screen.findByRole('region',{name:'Review Task t1'});
- expect(within(review).getByText('candidate.exact')).toBeTruthy();expect(within(review).getByText(/C.exact: pass/)).toBeTruthy();
+ expect(within(review).getByText('candidate.exact')).toBeTruthy();expect(review.textContent).toMatch(/C\.exact: pass \(completed\)/);
  fireEvent.click(within(review).getByRole('button',{name:'src/exact.ts'}));expect(await within(review).findByText('pinned-base')).toBeTruthy();
  await waitFor(()=>expect((qc.getQueryData(qk.systems()) as {planCounts?:{submitted:number}}[])[0]?.planCounts?.submitted).toBe(1));
  fireEvent.click(within(review).getByRole('button',{name:'Select reviewed Task result'}));

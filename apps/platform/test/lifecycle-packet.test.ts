@@ -82,7 +82,7 @@ describe('lifecycle packet fields', () => {
     expect(lines).toEqual([
       'You are implementing task c (Task c) of plan plan.1 for system.x, wave 2. Read TASK_PACKET.md fully.',
       'Permitted edits: src/c/**, src/shared.ts.',
-      'Do not touch: src/a/** (a); src/b/** (b); src/a/** (d); src/e/** (e); system/**, assays/**.',
+      'Do not touch: src/a/** (a); src/b/** (b); src/a/** (d); src/e/** (e); assays/**.',
       'Concurrent tasks: b (working, wave 1).',
       'Builds on: a (selected; its changes are in your base).',
       'After you: e starts once this task is selected.',
@@ -98,6 +98,8 @@ describe('lifecycle packet fields', () => {
     expect(packet.markdown).toContain('### Independence\nIndependent of b, d');
     expect(packet.markdown).toContain('### Builds on\n- `a` Task a, candidate `candidate.a`');
     expect(packet).toMatchObject({ wave: 2, permittedGlobs: ['src/c/**', 'src/shared.ts'], workspace: { remote: 'https://git.example/app--c.git', baseCommit: BASE } });
+    expect(packet.model).toBeUndefined();
+    expect(packet.markdown).not.toContain('## Model');
   });
 
   it('never lists a glob that covers or matches the task\'s own permitted edits', () => {

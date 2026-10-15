@@ -1,0 +1,8 @@
+id: component.work.task-model
+kind: component
+fields:
+  name: Task model
+  description: "In the Task detail: the pinned Genome commit and the fork commit that holds it under system/ (read-only unless the model cannot be realized as written; the agent then edits system/ and says why in a checkpoint), or that the fork receives it at the first claim. The Task's checks group by layer: Model, Realization, Running thing."
+  states:
+    - "pinned: the fork holds the model"
+    - "pending: committed at the first claim"

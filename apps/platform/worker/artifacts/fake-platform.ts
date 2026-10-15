@@ -18,6 +18,8 @@ import { ingestEvents } from "../phenome";
 import { hooksOf } from "../promotion";
 import { genomeAt, importSystem, refreshRegistry, registryStub, startWork, systemStub } from "../service";
 import { buildCandidateManifest, manifestHash } from "./candidates";
+import { walkTree } from "./genome-source";
+import { MODEL_PREFIX } from "../lifecycle-model";
 import { setArtifactsOverride } from "./client";
 import { FakeArtifacts } from "./fake";
 import { fakeReceivePack, type FakeReceivePack } from "./fake-receive-pack";
@@ -126,6 +128,7 @@ async function boot(env: Env): Promise<FakeArtifacts> {
     if (await registryStub(env).hasSystem(systemId)) continue;
     await importSystem(env, { systemId, genomeRepo, appRepo, review: false });
     if (systemId === exampleSystemId) await seedActivity(env, ns, systemId);
+    if (systemId === exampleSystemId && env.FAKE_MODEL_DELTA === "1") await seedModelDelta(env, ns, systemId);
   }
   return ns;
 }
@@ -139,7 +142,67 @@ export const FAKE_ACTIVITY = {
   agent: "agent:seed",
   /** The file the seed candidate adds to the app (a path nothing else touches, so later candidates do not conflict). */
   path: "NOTES.md",
+  /** `FAKE_MODEL_DELTA=1`: a plan whose submitted candidate changes the pinned model (its write node's route, plus a node it adds). */
+  modelPlanTitle: "Model fit: People screen",
+  modelTask: "people-screen",
+  modelNode: "screen.people",
+  modelAddedNode: "component.ContactFilter",
+  modelReason: "needs: the route must be /contacts, /people is taken by the legacy owner app; a ContactFilter component is needed to realize the search state",
+  /** `FAKE_MODEL_DELTA=1`: a second plan, selected and integrated, so the plan review carries a model delta. */
+  integratedPlanTitle: "Model fit: Data deletion",
+  integratedTask: "data-delete",
+  integratedNode: "operation.data.delete",
 } as const;
+
+/**
+ * Opt-in (`FAKE_MODEL_DELTA=1`, which the fake e2e projects set): Task candidates with a model delta, through the same
+ * services the routes use (docs/design/task-fork-model.md, Demo). One plan whose task is claimed, checkpointed with the
+ * reason, and submitted with a code change beside two model edits under `system/` (the People screen's route, and a new
+ * component under it, so the delta adds a node outside the Task's write nodes); its checks span the genome, realization
+ * and phenome layers. A second plan whose task is submitted with a model-only edit, selected and integrated, so the plan
+ * review carries `modelDelta`. Off by default: the unit tests count the example System's candidates and evaluations.
+ */
+async function seedModelDelta(env: Env, ns: FakeArtifacts, systemId: string): Promise<void> {
+  const { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan, selectLifecycleTask, startLifecycleTask, submitLifecycleTask } = await import("../lifecycle-service");
+  const stub = systemStub(env, systemId), state = await stub.state();
+  if (!state?.manifest) throw new Error(`fake seed: ${systemId} has no manifest`);
+  const model = (await genomeAt(env, systemId, state.genomeCommit, state.genomeSource)).model;
+  const artifactId = Object.keys(state.manifest.artifacts)[0]!;
+  const nodeFile = (id: string) => `${MODEL_PREFIX}/${model.origin[id]}`;
+  const edit = (files: Map<string, string>, file: string, from: string, to: string) => {
+    const text = files.get(file);
+    if (!text?.includes(from)) throw new Error(`fake seed: ${file} lacks "${from}"`);
+    files.set(file, text.replace(from, to));
+  };
+  const task = (id: string, title: string, node: string, steps: string[], checks: string[]) => ({ id, title, artifactId, steps, dependsOn: [], readNodes: [], writeNodes: [node], checks });
+  const submitted = async (planId: string, taskId: string, message: string, change: (files: Map<string, string>, footprint: string[]) => void) => {
+    const started = await startLifecycleTask(env, systemId, planId, taskId, { agentLabel: "agent:seed-model" }, "http://localhost");
+    const attempt = { attemptId: started.attempt.id, generation: started.attempt.generation };
+    await checkpointLifecycleTask(env, systemId, planId, taskId, { ...attempt, message });
+    const fork = ns.repo(started.task.forkRepo), files = await walkTree(fork, started.task.model!.commit);
+    change(files, started.task.footprint.globs);
+    return submitLifecycleTask(env, systemId, planId, taskId, { ...attempt, commit: fork.commit(files, message.split(";")[0]!) });
+  };
+
+  const a = FAKE_ACTIVITY;
+  const plan = await createRealizationPlan(env, systemId, { title: a.modelPlanTitle, tasks: [task(a.modelTask, "Realize the People screen", a.modelNode,
+    ["Realize screen.people as pinned; change the model only if it cannot be realized as written"], ["C.system.structure", "C.webapp.screen.people", "C.webapp.health"])] });
+  await submitted(plan.id, a.modelTask, a.modelReason, (files, globs) => {
+    edit(files, nodeFile(a.modelNode), "route: /people", "route: /contacts");
+    const dialog = nodeFile("component.AddContactDialog"), added = dialog.replace("component.AddContactDialog", a.modelAddedNode);
+    files.set(added, files.get(dialog)!.replace("id: component.AddContactDialog", `id: ${a.modelAddedNode}`).replace("name: AddContactDialog", "name: ContactFilter")
+      .replace(/description: .*\n/, "description: One ContactFilter above the collection; narrows the rows by name as the owner types\n").replace(/cardinality: .*\n/, "cardinality: 1\n"));
+    const glob = globs[0] ?? "public/people/**";
+    files.set(glob.replace(/[^/]*[*?[{].*$/, "").replace(/\/?$/, "/seed-model.txt"), "Seeded with the model change.\n");
+  });
+
+  const second = await createRealizationPlan(env, systemId, { title: a.integratedPlanTitle, tasks: [task(a.integratedTask, "Realize account deletion", a.integratedNode,
+    ["Realize operation.data.delete as pinned"], ["C.webapp.lifecycle.data"])] });
+  const sub = await submitted(second.id, a.integratedTask, "needs: live data cannot be purged within seven days while backups replicate nightly; thirty is the floor the provider guarantees",
+    (files) => edit(files, nodeFile(a.integratedNode), "Purge owned live data within seven days", "Purge owned live data within thirty days"));
+  await selectLifecycleTask(env, systemId, second.id, a.integratedTask, { candidateId: sub.candidate.id });
+  await integrateLifecyclePlan(env, systemId, second.id, "http://localhost");
+}
 
 /**
  * Populated Deployments and Evaluations on a fresh fake Peopling, through the same services the routes use: one passed

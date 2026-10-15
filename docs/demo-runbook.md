@@ -341,7 +341,7 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task claim $P t1 --system system.pe
 wait
 ```
 
-The claim clones the task's fork into `./work/t1`, writes `TASK_PACKET.md` and `AGENTS.md` and stores the fork token
+The claim clones the task's fork into `./work/t1` (the app plus the pinned Genome under `system/`, the agent's reference), writes `TASK_PACKET.md` and `AGENTS.md` and stores the fork token
 and attempt secret in `.git/artyfact-task.json` (mode 0600, never staged, never printed). The agent never sees the
 admin token: it is set for the claim only, and the agent line unsets it. Nothing started under `env -u` inherits the
 token; the risk is a shell profile that exports it, which a tool shell reading that profile picks up again. Keep

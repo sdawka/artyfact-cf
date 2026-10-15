@@ -1,0 +1,10 @@
+id: module.cli.release
+kind: module
+fields:
+  name: Release
+  description: "release: build outputs to platform.builds in Artifacts, then wrangler deploy from that checkout."
+  path: src/release.ts
+links:
+  - { rel: implements, to: command.release }
+files:
+  - src/release.ts

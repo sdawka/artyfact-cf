@@ -12,7 +12,7 @@ Start a System with an imported ontology or one authored by your agent. Map its 
 
 ## See it in 90 seconds
 
-Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md).
+Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md); `npm run release` pushes each build to the Artifacts repo `artyfact/platform.builds` and deploys the Workers from there.
 
 ![Map with two candidates overlapping on operation.contact.save](docs/images/map-candidates.png)
 
@@ -46,7 +46,7 @@ More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a Task forks its explicit artifact binding and returns a short-lived write token and attempt secret. Resuming fences the previous attempt and replaces its credentials while preserving its fork. Older agent-level Realizations and Genome amendments keep their existing API. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a Task forks its explicit artifact binding, commits the pinned Genome into the fork under `system/` over Git, and returns a short-lived write token and attempt secret. Resuming fences the previous attempt and replaces its credentials while preserving its fork. Older agent-level Realizations and Genome amendments keep their existing API. Agents clone and push with ordinary Git over HTTPS.
 
 **Submission and push events on Queues.** The primary path is the CLI `submit` command, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`). It resolves the fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, and this version does not create one per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit, and a redelivered event does nothing.
 

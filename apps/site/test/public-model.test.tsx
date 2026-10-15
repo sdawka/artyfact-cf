@@ -49,7 +49,7 @@ it('maps the agent handoff to its sections and names the real plan commands', ()
   for (const command of ['plan draft', 'plan tasks', 'plan promote', 'task claim', 'task submit']) expect(container.querySelector('.guide-steps')?.textContent).toContain('artyfact ' + command);
   for (const chip of ['The model, pinned to one version', '15-minute token', 'Any harness']) expect(container.querySelector('.guide-chips')?.textContent).toContain(chip);
   expect(container.querySelector('.guide-chips')?.textContent).not.toContain('TASK_PACKET.md');
-  for (const text of ['forks the app’s repo for this Task', 'a fork of the model repo', 'Edits under system/ fail the scope check', 'artyfact evolution propose']) expect(container.querySelector('.guide-steps')?.textContent).toContain(text);
+  for (const text of ['forks the app’s repo for this Task', 'a fork of the model repo', 'becomes a model delta', 'artyfact evolution propose']) expect(container.querySelector('.guide-steps')?.textContent).toContain(text);
   expect(container.querySelector('.handoff-model')?.textContent).toContain('The model, pinned to one version.');
 });
 

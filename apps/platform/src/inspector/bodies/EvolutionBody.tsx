@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import type { Evolution } from "../../../shared/api";
+import { groupByLayer, layerFromModel } from "@/model/layers";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { registerBody, type BodyProps } from "./registry";
@@ -23,9 +24,18 @@ function EvolutionBody({ entry }: BodyProps) {
       <div className={styles.row}><div className={styles.rowLabel}>Affected</div><Chips ids={e.affectedNodes} /></div>
       <div className={styles.row}>
         <div className={styles.rowLabel}>Acceptance criteria</div>
-        <ul className={styles.plain}>
-          {e.acceptanceCriteria.map((c) => <li key={c} className={styles.cardHead}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
-        </ul>
+        {e.acceptanceCriteria.length ? (
+          <ul className={styles.plain}>
+            {groupByLayer(e.acceptanceCriteria, (c) => layerFromModel(m, c)).map((g) => (
+              <li key={g.layer} data-layer={g.layer}>
+                <span className={styles.muted}>{g.label}</span>
+                <ul className={styles.plain}>
+                  {g.items.map((c) => <li key={c} className={styles.cardHead}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        ) : <span className={styles.muted}>none</span>}
       </div>
       <div className={styles.row}><div className={styles.rowLabel}>Depends on</div><Chips ids={e.dependsOn} /></div>
       {e.genomeDelta.length > 0 && (

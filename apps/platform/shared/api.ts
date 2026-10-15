@@ -359,6 +359,24 @@ export interface Candidate {
   previewUrl?: string;
   /** Latest build of this candidate's commit. */
   build?: BuildSummary;
+  /** Task and integration candidates: the model delta of the candidate's `system/` vs the pinned Genome; absent when it is untouched. */
+  model?: CandidateModel;
+}
+
+/**
+ * A lifecycle candidate's model delta (docs/design/task-fork-model.md §2): `changedPaths` are the `system/**` files that
+ * differ from the pinned Genome at `genomeCommit`, `delta` the semantic difference of the two loaded models, `changedNodes`
+ * its ids. `loadError` is set when the candidate's model does not load (`delta` is then empty, not unchanged).
+ */
+export interface CandidateModel {
+  prefix: "system";
+  genomeCommit: string;
+  changedPaths: string[];
+  changedNodes: string[];
+  delta: ModelDelta;
+  loadError?: string;
+  /** Changed model files outside the Task's write nodes (their directories and declaring files): a reviewer accepts them knowingly or not at all. */
+  outsideWriteNodes?: string[];
 }
 
 export interface ArtifactBinding {

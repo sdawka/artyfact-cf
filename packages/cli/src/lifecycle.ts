@@ -156,6 +156,8 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
     if(fresh)rmSync(dir,{recursive:true,force:true});else for(const entry of readdirSync(dir))rmSync(join(dir,entry),{recursive:true,force:true});
     throw new CliError(`${action} landed but the workspace could not be cloned (${(e as Error).message}); the lease is still yours, so fix the cause and run: artyfact task resume ${[plan,task,'--system',system,'--dir',dir,'--platform',base].map(shellArg).join(' ')}`);}}
    for(const sub of ['.git','.git/info'])if(!lstatSync(join(dir,sub)).isDirectory()||lstatSync(join(dir,sub)).isSymbolicLink())throw new CliError('refusing unsafe git workspace');
+   // The fork carries the pinned model under system/ (docs/design/task-fork-model.md): a clone without it is not a usable Task workspace.
+   const model=res.task?.model;if(model&&!existsSync(join(dir,model.prefix,'node.yaml')))throw new CliError(`the fork is missing the pinned model (${model.prefix}/node.yaml, Genome ${model.genomeCommit.slice(0,12)}); fetch ${model.commit.slice(0,12)} or run task resume for a fresh workspace`);
    if(isTracked(dir,LEGACY_CONFIG)||isTracked(dir,'TASK_PACKET.md'))throw new CliError('refusing tracked task configuration or packet; do not store attempt credentials in source');
    const cfg:LocalTask={platform:base,systemId:system,planId:plan,taskId:task,attemptId:res.attempt.id,generation:res.attempt.generation,remote,secret,reviewUrl:res.reviewUrl,token:writeToken,tokenExpires:res.token.expiresAt};
    const exclude=join(dir,'.git/info/exclude'),existing=readFileSync(exclude,'utf8');write(exclude,`${existing}\n${[LEGACY_CONFIG,'TASK_PACKET.md','AGENTS.md',...WORKSPACE_IGNORES].join('\n')}\n`);
@@ -164,7 +166,7 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    const agents=join(dir,'AGENTS.md');write(agents,mergeAgentsBlock(existsSync(agents)?readFileSync(agents,'utf8'):'',scrub(res.packet.agentsMd??`Read TASK_PACKET.md. Implement only the pinned Genome, permitted paths, and Task scope. Run its checks. Checkpoint with npx artyfact task checkpoint "<message>". Submit with npx artyfact task submit; the task write token is stored in ${CONFIG} and is never shown. Never approve an Evolution, integrate, or promote without review. Return the durable review link: ${res.reviewUrl}`),'artyfact-task'));
    writeSecret(join(dir,CONFIG),JSON.stringify(cfg,null,2)+'\n');
    if(v.json){io.out(JSON.stringify({workspace:dir,attemptId:res.attempt.id,generation:res.attempt.generation,reviewUrl:res.reviewUrl,tokenExpires:res.token.expiresAt}));return 0;}
-   io.out(`Task workspace ready: ${dir}`);io.out(`Review: ${res.reviewUrl}`);io.out(`The task write token is stored in ${CONFIG} (mode 0600, inside .git, never staged); task submit uses it. Run task resume to refresh it.`);return 0;
+   io.out(`Task workspace ready: ${dir}`);if(model)io.out(`The pinned Genome ${model.genomeCommit.slice(0,12)} is in ${model.prefix}/; TASK_PACKET.md names your nodes' files. Change it only if the model cannot be realized as written.`);io.out(`Review: ${res.reviewUrl}`);io.out(`The task write token is stored in ${CONFIG} (mode 0600, inside .git, never staged); task submit uses it. Run task resume to refresh it.`);return 0;
   }else throw new CliError('usage: artyfact task claim|start|resume <plan> <task> | checkpoint <message> | submit | select <plan> <task> --candidate id');
  }else if(command==='ontology'){
   const root=`/api/systems/${encodeURIComponent(system)}/ontology-imports`;

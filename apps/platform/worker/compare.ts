@@ -476,7 +476,8 @@ export async function revisions(env: Env, systemId: string): Promise<RevisionsRe
 }
 
 /** Exact artifact-bound file comparison, used by a pinned multi-binding implementation review. */
-export async function compareExplicitFile(env:Env,from:ResolvedRef,to:ResolvedRef,rawPath:unknown):Promise<FileCompare>{
- const path=validPath(rawPath),[a,b]=await Promise.all([readSide(env,from,path),readSide(env,to,path)]),binary=a.binary||b.binary;
+/** `fromPath`: the file's path on the `from` side when it differs (a fork's `system/x` against the Genome repo's `x`). */
+export async function compareExplicitFile(env:Env,from:ResolvedRef,to:ResolvedRef,rawPath:unknown,fromPath?:string):Promise<FileCompare>{
+ const path=validPath(rawPath),[a,b]=await Promise.all([readSide(env,from,fromPath??path),readSide(env,to,path)]),binary=a.binary||b.binary;
  return {path,from:binary?{...a.side,text:null}:a.side,to:binary?{...b.side,text:null}:b.side,truncated:a.truncated||b.truncated,binary};
 }

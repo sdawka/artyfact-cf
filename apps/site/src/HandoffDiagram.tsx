@@ -1,20 +1,21 @@
 import React from 'react';
 
 type Station = { href: string; name: React.ReactNode; detail: string };
-// Mirrors the platform: lifecycle-service.ts forks the app repo per Task and runs the model's checks on submit;
-// system-authority.ts promotes with a compare-and-swap on the System head.
+// Mirrors the platform: lifecycle-service.ts forks the app repo per Task, seeds the pinned Genome under system/ and
+// runs the model's checks on submit (a changed system/ becomes a model delta); system-authority.ts promotes with a
+// compare-and-swap on the System head.
 const zones: { place: string; stations: Station[] }[] = [
   { place: 'On the platform', stations: [
     { href: '#start', name: 'Plan against the model', detail: 'An accepted change to the model, split into Tasks.' },
   ] },
   { place: 'On your machine', stations: [
     { href: '#start', name: <code>task claim</code>, detail: 'Forks the app’s repo for this Task and clones it.' },
-    { href: '#work', name: 'Fork and brief', detail: 'The code, plus a brief cut from the model.' },
-    { href: '#work', name: 'Your agent', detail: 'Changes the code its own way. The model stays read-only.' },
+    { href: '#work', name: 'Fork and brief', detail: 'The code, the pinned model under system/, and a brief naming what to realize.' },
+    { href: '#work', name: 'Your agent', detail: 'Changes the code its own way, the model only when it can’t be built as written.' },
     { href: '#submit', name: <code>task submit</code>, detail: 'Pushes and submits the exact commit, like a pull request.' },
   ] },
   { place: 'Back on the platform', stations: [
-    { href: '#submit', name: 'Checks from the model', detail: 'Each check is a rule in the model. Only a pass is green.' },
+    { href: '#submit', name: 'Checks from the model', detail: 'Three layers: the model holds, the code realizes it, the running thing behaves. Only a pass is green.' },
     { href: '#review', name: 'Review and promote', detail: 'One review, then the merge. Refused if the System moved.' },
   ] },
 ];
@@ -36,6 +37,6 @@ export function HandoffDiagram() {
         </ol>
       </div>)}
     </div>
-    <p className="handoff-model"><strong>The model, pinned to one version.</strong> Every step reads from it. Only an accepted change to the model makes a new version.</p>
+    <p className="handoff-model"><strong>The model, pinned to one version.</strong> Every step reads from it. An accepted change to the model makes a new version; an agent may propose one from its fork when the model can’t be built as written.</p>
   </figure>;
 }

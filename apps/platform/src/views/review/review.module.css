@@ -50,3 +50,12 @@
 .list code { font: var(--type-code); overflow-wrap: anywhere; }
 .blockers { margin: 0; padding-left: var(--spacing-5); color: var(--color-text-secondary); font: var(--type-ui); }
 .reason { margin: 0; font: var(--type-meta); color: var(--color-text-secondary); }
+
+/* Evidence grouped by criteria layer (Model, Realization, Running thing) and a candidate's proposed model change. */
+.layers { display: grid; gap: var(--spacing-3); }
+.layer { display: grid; gap: var(--spacing-1); min-width: 0; }
+.layerTitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-2); margin: 0; font: var(--type-ui); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.judgment { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-2); }
+.modelChange { display: grid; gap: var(--spacing-2); padding: var(--spacing-3); min-width: 0; background: var(--surface-panel); border-radius: var(--border-radius-md); }
+.checkpoint { margin: 0; max-width: var(--measure-body); font: var(--type-body); }
+.check { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); min-height: var(--control-height); font: var(--type-ui); }

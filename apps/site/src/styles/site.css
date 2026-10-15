@@ -67,18 +67,41 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 dl { margin: 0; }
 dt { font-weight: 600; margin-bottom: 4px; }
 dd { margin: 0; color: var(--color-text-secondary); }
-.closing { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 32px 64px; align-items: start; }
-.closing h2 { margin-bottom: 0; }
-.closing .actions { margin-top: 20px; }
-.closing-steps { margin: 0 0 8px; padding-left: 1.3em; color: var(--color-text-secondary); max-width: var(--measure-prose); }
-.closing-steps li { padding: 3px 0; }
+/* Closing: the lead and the three steps side by side, then one lit panel with every way in. The panel is the one place
+   on the page that glows at rest (the haze token is for signature areas); its halo fades inside the panel's own box. */
+.closing { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px 64px; align-items: start; }
+.closing-lead h2 { margin-bottom: 12px; }
+.closing-lead p { margin: 0; max-width: 38ch; }
+.closing-steps { margin: 0; padding: 0; list-style: none; counter-reset: closing; max-width: var(--measure-prose); font: var(--type-body); color: var(--color-text-primary); }
+.closing-steps li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--color-border-faint); counter-increment: closing; }
+.closing-steps li:last-child { border-bottom: 1px solid var(--color-border-faint); }
+.closing-steps li::before { content: counter(closing) '.'; color: var(--color-text-secondary); font: var(--type-numeric); font-variant-numeric: tabular-nums; }
+.closing-links { grid-column: 2; margin: 0; }
+.closing-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.get-routes { grid-column: 1 / -1; list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: relative; isolation: isolate; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-lg); background: var(--surface-well); overflow: hidden; }
+.get-routes::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--gradient-haze); pointer-events: none; }
+.get-routes li { min-width: 0; border-left: 1px solid var(--color-border-faint); }
+.get-routes li:first-child { border-left: 0; }
+.get-routes a { display: grid; align-content: start; gap: 6px; height: 100%; min-height: 44px; padding: 24px clamp(16px, 2.2vw, 28px) 26px; text-decoration: none; color: var(--color-text-primary); }
+.get-routes strong { font: var(--type-h2); font-size: 1.2rem; text-decoration: underline; text-decoration-color: var(--color-link-underline); text-decoration-thickness: 1px; text-underline-offset: .2em; }
+.get-routes a:hover strong { text-decoration-color: var(--color-brand-primary); }
+.get-routes span { color: var(--color-text-secondary); font: var(--type-ui); max-width: 40ch; overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+  .get-routes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .get-routes li:nth-child(3) { border-left: 0; }
+  .get-routes li:nth-child(n + 3) { border-top: 1px solid var(--color-border-faint); }
+}
+#get-artyfact { scroll-margin-top: 24px; }
 .not-found { padding-top: 12vh; }
 .not-found h1 { font: var(--type-display-2); letter-spacing: var(--type-display-2-tracking); }
 .independent { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 64px; }
 
-/* Atmosphere: a soft pool of haze at the top, fading out well inside its box. The WebGL field mounts after hydration. */
+/* Atmosphere: a soft veil of haze at the top and a low pool, both fading out well inside their box. The box is taller
+   than the viewport (large-viewport units) so its bottom edge, where the mask reaches zero, never comes on screen: not
+   behind a collapsing mobile toolbar, not in the WebGL canvas that fills it after hydration, not in the CSS fallback.
+   The gradients use several stops so the dark ramp eases out instead of stepping. */
 html, body { overflow-x: clip; }
-.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(90% 60% at 50% 0%, oklch(0.79 0.125 60 / 0.09), transparent 70%); mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); }
+.ambient { position: fixed; top: 0; left: 0; right: 0; height: 115vh; height: 115lvh; z-index: 0; pointer-events: none; background: radial-gradient(90% 56% at 50% 0%, oklch(0.79 0.125 60 / 0.085) 0%, oklch(0.79 0.125 60 / 0.05) 28%, oklch(0.79 0.125 60 / 0.018) 58%, oklch(0.79 0.125 60 / 0) 82%); mask-image: linear-gradient(to bottom, #000 0%, #000 42%, oklch(0 0 0 / 0.6) 68%, oklch(0 0 0 / 0.22) 86%, transparent 100%); }
 .site-header, main, .site-footer { position: relative; z-index: 1; }
 
 /* Home: hero */
@@ -122,16 +145,32 @@ html, body { overflow-x: clip; }
 .model-nesting-alongside dd { font: var(--type-ui); color: var(--color-text-primary); }
 .model-nesting .model-self-component { padding: clamp(14px, 2vw, 22px); }
 .model-nesting .model-self-affordance { margin-top: 14px; }
-.model-nesting-note { margin: 20px 0 0; max-width: 80ch; }
+.model-nesting-terms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; margin-top: 24px; border-top: 1px solid var(--color-border-faint); }
+.model-nesting-terms > div { display: grid; gap: 2px; padding: 12px 0; margin: 0; }
+.model-nesting-terms dt { margin: 0; font: var(--type-control); color: var(--color-text-primary); }
+.model-nesting-terms dd { font: var(--type-ui); }
+.model-nesting-note { margin: 12px 0 0; max-width: 80ch; }
 
-/* Environment: three plain columns. */
-.environment-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 40px; }
-.environment-columns article { min-width: 0; }
+/* Environment: three zones of one Task. The brief is a sheet (a well), the guardrails are the dashed frame the Task
+   forks use elsewhere on the page, and freedom is open space. Then the one sentence about parallel agents, pulled out. */
+.environment-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.environment-columns article { min-width: 0; padding: 20px 22px; border-radius: var(--border-radius-lg); }
+.environment-columns [data-zone="context"] { background: var(--surface-well); border-top: 2px solid var(--color-brand-primary); }
+.environment-columns [data-zone="guardrails"] { border: 1px dashed var(--color-border); }
+.environment-columns [data-zone="freedom"] { padding-inline: 4px 0; }
 .environment-columns h3 { font: var(--type-h2); margin-bottom: 2px; }
 .environment-label { color: var(--color-text-secondary); font: var(--type-meta); margin-bottom: 12px; }
-.environment-columns ul { margin: 0; padding-left: 1.1em; }
-.environment-columns li { color: var(--color-text-secondary); font: var(--type-ui); padding: 3px 0; }
-.environment-note { margin: 12px 0 0; font: var(--type-meta); }
+.environment-columns ul { margin: 0; padding: 0; list-style: none; }
+.environment-columns li { color: var(--color-text-secondary); font: var(--type-ui); padding: 8px 0; border-top: 1px solid var(--color-border-faint); max-width: 44ch; }
+.environment-note { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--color-border-faint); color: var(--color-text-secondary); font: var(--type-meta); max-width: 44ch; }
+.environment-parallel { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px 64px; align-items: start; margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--color-border-faint); }
+.environment-pull { font: var(--type-display-2); font-size: clamp(1.5rem, 2.4vw, 2rem); letter-spacing: var(--type-display-2-tracking); color: var(--color-text-primary); margin: 0; max-width: 22ch; }
+.environment-parallel > p:last-child { margin: 0; max-width: 52ch; }
+.environment-contrast { margin: 36px 0 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); column-gap: 64px; }
+.environment-contrast > div { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; padding: 12px 0; border-top: 1px solid var(--color-border-faint); }
+.environment-contrast dt { margin: 0; font: var(--type-control); color: var(--color-text-primary); }
+.environment-contrast dd { margin: 0; font: var(--type-ui); color: var(--color-text-secondary); max-width: 52ch; }
+.environment-contrast > div:last-child dd { color: var(--color-text-primary); }
 #environment, #cloudflare, #artifacts { scroll-margin-top: 24px; }
 
 /* Guide */
@@ -248,7 +287,9 @@ blockquote { margin: 20px 0; padding-left: 20px; border-left: 1px solid var(--co
 .backbone-node[data-kind="shared"] strong, .backbone-node[data-kind="shared"] .backbone-detail { display: inline; margin-right: 8px; }
 .backbone-token { display: block; margin-top: 8px; padding: 2px 8px; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); color: var(--color-text-secondary); font: var(--type-meta); line-height: 1.5; }
 .backbone-stage { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.backbone-pieces { margin-top: 24px; }
+.backbone-pieces-cols { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 4px 28px; margin: 28px 0 0; padding-bottom: 8px; color: var(--color-text-secondary); font: var(--type-meta); max-width: none; }
+.backbone-pieces { margin-top: 0; }
+.backbone-pieces [data-status="coming-soon"] dd { color: var(--color-text-secondary); }
 .backbone-pieces > div { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); gap: 4px 28px; margin: 0; padding: 12px 0; border-top: 1px solid var(--color-border-faint); border-bottom: 0; min-width: 0; }
 .backbone-pieces dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; color: var(--color-text-primary); font: var(--type-control); }
 .backbone-pieces dd { font: var(--type-ui); }
@@ -307,7 +348,20 @@ blockquote { margin: 20px 0; padding-left: 20px; border-left: 1px solid var(--co
   .site-footer { flex-direction: column; gap: 12px; }
   .footer-links { justify-content: flex-start; }
   .footer-links > span { padding-inline: 0; }
-  .environment-columns { grid-template-columns: minmax(0, 1fr); }
+  .environment-columns { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .environment-columns article { padding: 16px 18px; }
+  .environment-columns [data-zone="freedom"] { padding: 16px 0 0; border-top: 1px solid var(--color-border-faint); border-radius: 0; }
+  .environment-parallel { grid-template-columns: minmax(0, 1fr); }
+  .environment-contrast { grid-template-columns: minmax(0, 1fr); }
+  .environment-contrast > div { row-gap: 4px; }
+  .model-nesting-terms { grid-template-columns: minmax(0, 1fr); }
+  .model-nesting-terms > div { border-top: 1px solid var(--color-border-faint); }
+  .model-nesting-terms > div:first-child { border-top: 0; }
+  .backbone-pieces-cols { display: none; }
+  .closing-links { grid-column: 1; }
+  .get-routes { grid-template-columns: minmax(0, 1fr); }
+  .get-routes li { border-left: 0; }
+  .get-routes li + li { border-top: 1px solid var(--color-border-faint); }
   .practice-cols { display: none; }
   .practice-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .practice-state { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; }
@@ -324,7 +378,7 @@ blockquote { margin: 20px 0; padding-left: 20px; border-left: 1px solid var(--co
 }
 @media (max-width: 640px) {
   main, .site-header, .site-footer { width: calc(100% - 32px); }
-  .site-header nav { gap: 0; }
+  .site-header nav { gap: 0; flex-wrap: wrap; }
   .site-header nav a { padding-inline: 6px; font: var(--type-meta); white-space: nowrap; }
   .wordmark { font-size: 22px; }
   .actions { flex-direction: column; align-items: stretch; }

@@ -58,6 +58,10 @@ pushes only when the content changed.
 A Genome with no `worker-fullstack` artifact imports without an app repo. `init` does not invent source or send an
 `appRepo` for that System.
 
+## `release`
+
+`artyfact release` (root: `npm run release`) builds `@artyfact/platform` and `@artyfact/site`, commits the outputs and a `release.json` (version, source commit, self-Genome tree hash, built-at, Worker configs, tool versions) to the Artifacts repo `<namespace>/platform.builds` as `main` with the tag `v<yyyymmdd>-<sha7>` (UTC date), and runs `wrangler deploy --config …` for each Worker with its working directory in that checkout. A tag that exists is fetched and deployed again instead of rebuilt. It refuses a dirty source tree (`--allow-dirty` overrides), `--dry-run` reads at most with a read token and deploys with `wrangler deploy --dry-run`, `--no-build` reuses the outputs on disk, `--no-deploy` only pushes (for a Workers Builds connection), and `--json` prints the result. Tokens never reach stdout or argv. Design: `docs/design/release-artifacts.md`.
+
 ## Parts
 
 ```sh
@@ -192,6 +196,8 @@ cd ./work/task.id && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and
 `env -u` removes the token from the agent's environment, and nothing the agent starts inherits it. The risk is a shell
 profile that exports `ARTYFACT_ADMIN_TOKEN`: a tool shell that reads the profile gets it back. So keep `ADMIN_TOKEN`
 unexported and never set either name in a profile.
+
+The fork carries the whole pinned Genome under `system/` (the platform commits it at claim; `TASK_PACKET.md` names the file of every node the Task reads or writes). It is the reference: change it only when the model cannot be realized as written, and say why in a checkpoint. A changed `system/` is submitted as the candidate's model delta, judged by System One against the whole ontology and reviewed beside the code (see [docs/design/task-fork-model.md](../../docs/design/task-fork-model.md)).
 
 Inside the Task fork:
 

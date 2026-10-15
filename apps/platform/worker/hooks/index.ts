@@ -1,5 +1,5 @@
 import type { TemplateStore } from '@artyfact/model';
-import type { SystemOneEnv } from '@artyfact/semantic';
+import { createSystemOne, type SystemOne, type SystemOneEnv } from '@artyfact/semantic';
 /**
  * Hook wiring: the real runner (./run) and queue consumer (./queue). Tests swap them with `setHooks`.
  * `noopHookRunner` is kept for tests and as a building block.
@@ -38,14 +38,18 @@ const realRunner: HookRunnerFactory = (env) => defaultHookRunner(env);
 // Built lazily: service.ts imports this module, so `queueContextFor` is only safe to read at call time.
 const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor)(batch, env);
 
-const defaults = { runner: realRunner, queue: realQueue };
+/** The System One the platform judges with outside the hook runner (a Task's model delta): simulated in the hosted demo, else from the Worker env (off without a key). */
+const realS1 = (env: Env): SystemOne => (isHostedDemo(env) ? simulatedSystemOne() : createSystemOne(env as unknown as SystemOneEnv));
+
+const defaults = { runner: realRunner, queue: realQueue, s1: realS1 };
 let current = { ...defaults };
+export const systemOneFor = (env: Env): SystemOne => current.s1(env);
 
 export const hookRunner = (env: Env, templates?:TemplateStore): HookRunner => current.runner===realRunner ? defaultHookRunner(env,createHookRunner,templates) : current.runner(env);
 export const queueEntry: QueueEntry = (batch, env) => current.queue(batch, env);
 
 /** Tests swap implementations here. */
-export function setHooks(h: Partial<{ runner: HookRunnerFactory; queue: QueueEntry }>): void {
+export function setHooks(h: Partial<{ runner: HookRunnerFactory; queue: QueueEntry; s1: (env: Env) => SystemOne }>): void {
   current = { ...current, ...h };
 }
 export function resetHooks(): void {

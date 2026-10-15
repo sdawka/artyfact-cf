@@ -69,6 +69,22 @@ export async function diffTreesAcross(from: TreeSide | null, to: TreeSide): Prom
   return d;
 }
 
+/** One side of a subtree comparison: a repo handle and a tree id in it (null = the empty tree). */
+export interface SubtreeSide { repo: ArtifactsRepoLike; tree: string | null }
+
+/**
+ * Recursive tree-hash comparison of two subtrees (trees, not commits), each in its own repo, with every path reported
+ * under `base` (`system/`). A null tree on one side means every file of the other is added or removed.
+ */
+export async function diffSubtrees(from: SubtreeSide, to: SubtreeSide, base: string): Promise<TreeDiff> {
+  const d: TreeDiff = { added: [], modified: [], removed: [] };
+  if (from.tree && to.tree) await diffTree(from.repo, to.repo, from.tree, to.tree, base, d);
+  else if (to.tree) await allBlobs(to.repo, to.tree, base, d.added);
+  else if (from.tree) await allBlobs(from.repo, from.tree, base, d.removed);
+  d.added.sort(); d.modified.sort(); d.removed.sort();
+  return d;
+}
+
 /** Recursive tree-hash comparison between two commits of one repo. */
 export function diffTrees(repo: ArtifactsRepoLike, baseCommit: string, headCommit: string): Promise<TreeDiff> {
   return diffTreesAcross({ repo, commit: baseCommit }, { repo, commit: headCommit });

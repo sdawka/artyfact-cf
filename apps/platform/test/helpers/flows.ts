@@ -8,6 +8,8 @@ import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from
 import { noopHookRunner } from "../../worker/hooks/index";
 import { appFiles, genomeFiles, genomeFor } from "../fixtures/genome";
 import { FakeArtifacts } from "./fake-artifacts";
+import { setEditorTransport } from "../../worker/editor";
+import { fakeReceivePack } from "./fake-receive-pack";
 
 export const ADMIN = { authorization: "Bearer test-admin-token" };
 const secrets = new Map<string, string>();
@@ -70,6 +72,8 @@ export async function importFresh(ns = new FakeArtifacts()): Promise<Flow> {
   }, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
+  // A Task claim pushes the pinned model into the fork over git: route the Worker's pushes to the fake receive-pack.
+  setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
   const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ns, systemId, genomeRepo, appRepo, imp: res.json, forks: 0 };
