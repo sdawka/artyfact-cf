@@ -161,6 +161,58 @@ describe('realization plan HTTP lifecycle',()=>{
   }finally{restore();}
  });
 
+ it('ends the attempt and mints no writer when seeding the pinned model fails, then seeds on resume',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json;
+  setEditorTransport({fetch:async()=>{throw new Error('git unavailable');}});
+  try{expect((await call('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).status).toBe(500);}finally{setEditorTransport({fetch:fakeReceivePack(f.ns).fetch});}
+  const before=await systemStub(env,f.systemId).realizationPlan(p.id),a=before.tasks[0].attempts.at(-1)!,repo=f.ns.repo(before.tasks[0].forkRepo);
+  expect(a.status).toBe('ended');expect(before.tasks[0].status).toBe('pending');expect(before.tasks[0].model).toBeUndefined();
+  // The seed's own short-lived token was revoked by the seeder; no writer token was ever minted.
+  expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(0);expect(await systemStub(env,f.systemId).realizationSecretHash(a.realizationId)).toBeNull();
+  const resumed=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','resume'),{},ADMIN);expect(resumed.status,JSON.stringify(resumed.json)).toBe(201);
+  expect(resumed.json.task.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit});expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(1);
+ });
+ it('revokes the minted token and ends the activated attempt when packet assembly fails',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json;let restore=()=>{};
+  await runInDurableObject(env.SYSTEMS.getByName(f.systemId),async(i:SystemAuthority)=>{const proto=Object.getPrototypeOf(i),orig=proto.getModelCache;let once=true;proto.getModelCache=function(...args:unknown[]){if(once){once=false;throw new Error('genome cache unavailable');}return orig.apply(this,args);};restore=()=>{proto.getModelCache=orig;};});
+  try{expect((await call('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).status).toBe(500);}finally{restore();}
+  const before=await systemStub(env,f.systemId).realizationPlan(p.id),a=before.tasks[0].attempts.at(-1)!,repo=f.ns.repo(before.tasks[0].forkRepo);
+  // Activation had landed: the attempt is ended again, its secret cleared, the writer token revoked and cleared from its row.
+  expect(a.status).toBe('ended');expect(before.tasks[0].status).toBe('pending');expect(before.tasks[0].model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit});
+  expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(0);expect(await systemStub(env,f.systemId).realizationSecretHash(a.realizationId)).toBeNull();expect(await systemStub(env,f.systemId).lifecycleCredentials(p.id,'ui')).toEqual([]);
+  const resumed=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','resume'),{},ADMIN);expect(resumed.status,JSON.stringify(resumed.json)).toBe(201);expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(1);
+ });
+ it('surfaces the activation refusal, not the cleanup failure, when revoking the fresh token fails',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json;let restore=()=>{};
+  await runInDurableObject(env.SYSTEMS.getByName(f.systemId),async(i:SystemAuthority)=>{const proto=Object.getPrototypeOf(i),orig=proto.lifecycleActivate;proto.lifecycleActivate=function(){throw new Error('[invalid-state] task attempt is fenced or its lease expired');};restore=()=>{proto.lifecycleActivate=orig;};});
+  const forkRepo=p.tasks[0].forkRepo,base=f.ns.repo(f.appRepo),fork=base.fork.bind(base);
+  // The seeder revokes its own token first; only the writer token (the second one minted) finds revocation unavailable.
+  base.fork=async(...args)=>{const out=await fork(...args),repo=f.ns.repo(forkRepo),mint=repo.createToken.bind(repo);let n=0;repo.createToken=async(...a)=>{const t=await mint(...a);if(++n===2)repo.revokeToken=async()=>{throw new Error('revocation unavailable');};return t;};return out;};
+  let refused:{status:number;json:{error:{code:string;message:string}}};
+  try{refused=await call('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);}finally{restore();}
+  expect(refused!.status).toBe(409);expect(refused!.json.error).toMatchObject({code:'invalid-state',message:'task attempt is fenced or its lease expired'});
+  const after=await systemStub(env,f.systemId).realizationPlan(p.id);expect(after.tasks[0].attempts.at(-1)!.status).toBe('ended');expect(after.tasks[0].status).toBe('pending');
+  expect(f.ns.repo(forkRepo).tokens.filter(t=>!t.revoked)).toHaveLength(1);
+ });
+ it('rejects a stale attempt at activation and leaves the attempt that took the task over live',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json,forkRepo=p.tasks[0].forkRepo,base=f.ns.repo(f.appRepo),fork=base.fork.bind(base);
+  let takeover:Promise<{status:number;json:TaskStartResponse}>|undefined;
+  base.fork=async(...args)=>{
+   const out=await fork(...args),repo=f.ns.repo(forkRepo),mint=repo.createToken.bind(repo);let n=0;
+   // The first token is the seeder's; the second is the writer. Between the seed and the writer mint, a resume takes the task over and goes live.
+   repo.createToken=async(...a)=>{if(++n===2){repo.createToken=mint;takeover=call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','resume'),{},ADMIN);await takeover;}return mint(...a);};
+   return out;
+  };
+  const stale=await call<{error:{code:string}}>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);expect(stale.status,JSON.stringify(stale.json)).toBe(409);expect(stale.json.error.code).toBe('invalid-state');
+  const live=await takeover!;expect(live.status,JSON.stringify(live.json)).toBe(201);
+  const after=await systemStub(env,f.systemId).realizationPlan(p.id),[first,second]=after.tasks[0].attempts;expect(after.tasks[0].attempts).toHaveLength(2);
+  // Compensating the stale attempt revoked only its own token and left the live attempt, its secret and its token alone.
+  expect(first.status).toBe('ended');expect(second.id).toBe(live.json.attempt.id);expect(second.status).toBe('working');expect(after.tasks[0].status).toBe('working');
+  expect(await systemStub(env,f.systemId).realizationSecretHash(second.realizationId)).not.toBeNull();
+  const repo=f.ns.repo(forkRepo),open=repo.tokens.filter(t=>!t.revoked);expect(open).toHaveLength(1);expect(`secret-${open[0].id}`).toBe(live.json.token.value);
+  const checkpoint=await call('POST',`${path(f.systemId,p.id)}/tasks/ui/checkpoint`,{attemptId:second.id,generation:second.generation,message:'still here'},{authorization:`Bearer ${live.json.secret}`});expect(checkpoint.status,JSON.stringify(checkpoint.json)).toBe(200);
+ });
+
 });
 
 describe('replayDelta',()=>{
