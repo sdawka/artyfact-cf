@@ -17,6 +17,7 @@ import { newRealizationSecret } from './auth';
 import { badRequest, conflict, fromRpc, notFound, rpc, unprocessable } from './errors';
 import { hookRunner } from './hooks';
 import { selectHooks } from './hooks/run';
+import { PLATFORM_WRITTEN } from './hooks/diff-scope';
 import type { CandidateRef, SubmissionContext } from './hooks/contract';
 import { pushCommit, type FileChange } from './git/push';
 import { gateCriteria, hooksOf } from './promotion';
@@ -156,7 +157,8 @@ export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:stri
  const manifest=await taskManifest(env,f.plan,{realizationId:f.attempt.realizationId,repo:f.task.forkRepo,baseRepo:f.task.base.repo,baseCommit:f.task.base.commit,commit:i.commit,...(i.previewUrl&&{previewUrl:i.previewUrl})},f.task.writeNodes);
  if(!manifest.changedPaths.length)throw unprocessable('no-change','task candidate changes no files');
  // Code paths must sit in the footprint and off the protected globs; model paths (system/**) are the candidate's model delta, judged on their own.
- const outside=manifest.changedPaths.filter(path=>!isModelPath(path)&&(!inFootprint(f.task.footprint.globs,path)||TASK_PROTECTED.some(glob=>picomatch(glob,{dot:true})(path))));
+ // Platform-written files (AGENTS.md, TASK_PACKET.md, .artyfact/**) are never a violation, as in diff-scope.
+ const outside=manifest.changedPaths.filter(path=>!isModelPath(path)&&!picomatch(PLATFORM_WRITTEN,{dot:true})(path)&&(!inFootprint(f.task.footprint.globs,path)||TASK_PROTECTED.some(glob=>picomatch(glob,{dot:true})(path))));
  if(outside.length)throw unprocessable('scope-violation',`candidate changes outside its task binding scope: ${outside.join(', ')}`);
  // Screenshots are checked and stored before the candidate is recorded; the fence above already proved the caller holds this attempt.
  const shots=await storeScreenshots(env.EVIDENCE,sid,f.attempt.realizationId,i.commit,i.screenshots??[]);

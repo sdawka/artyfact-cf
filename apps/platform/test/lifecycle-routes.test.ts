@@ -246,6 +246,11 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   const submit=(commit:string)=>call<TaskSubmitResponse&{error:{code:string;message:string}}>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit},{authorization:`Bearer ${s.secret}`});
   return {f,p,s,fork,files,submit};
  }
+ it('does not count platform-written files such as AGENTS.md as a scope violation',async()=>{
+  const {fork,files,submit}=await claimed('Platform files');
+  const edited=new Map(files);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));edited.set('AGENTS.md','<!-- artyfact-task:start -->\nTask block\n<!-- artyfact-task:end -->\n');
+  const r=await submit(fork.commit(edited,'With AGENTS.md'));expect(r.status,JSON.stringify(r.json)).toBe(201);
+ });
  it('keeps the app scope check with a model edit alongside, and flags model edits outside the write nodes',async()=>{
   const {f,p,fork,files,submit}=await claimed('Scope');
   const edited=new Map(files);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));

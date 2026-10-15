@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { mergeAgentsBlock } from "../src/agents-md";
 import { main } from "../src/main";
 import { assertId, assertRemote, assertSecret, assertToken, commitIfDirty, gitEnv } from "../src/git";
 
@@ -182,6 +183,26 @@ describe("artyfact cli", () => {
     expect(head).not.toBe(first);
     expect(sh(repo, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual([".dev.vars.example", "src.ts"]);
     expect(sh(repo, "ls-files")).not.toMatch(/node_modules|\.wrangler|\.dev\.vars$|\.env/);
+  });
+
+  it("commitIfDirty keeps injected AGENTS.md blocks out of commits but leaves them in the working tree", () => {
+    const repo = join(tmp, "agents-block");
+    sh(tmp, "init", "-q", "-b", "main", repo);
+    writeFileSync(join(repo, "AGENTS.md"), "# Mine\n");
+    sh(repo, "add", "-A");
+    sh(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init");
+    const first = sh(repo, "rev-parse", "HEAD");
+    const injected = mergeAgentsBlock(mergeAgentsBlock("# Mine\n", "realization block"), "task block", "artyfact-task");
+    writeFileSync(join(repo, "AGENTS.md"), injected);
+    // Only the blocks changed: nothing is committed.
+    expect(commitIfDirty(repo, "blocks only")).toBe(first);
+    expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toBe(injected);
+    // An agent's own edit to AGENTS.md is committed without the blocks.
+    writeFileSync(join(repo, "AGENTS.md"), injected.replace("# Mine\n", "# Mine\nMore.\n"));
+    writeFileSync(join(repo, "src.ts"), "export {}");
+    expect(commitIfDirty(repo, "work")).not.toBe(first);
+    expect(sh(repo, "show", "HEAD:AGENTS.md")).toBe("# Mine\nMore.");
+    expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toContain("task block");
   });
 
   it("status --json has stable shape", async () => {
