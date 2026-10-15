@@ -128,7 +128,7 @@ The screenshots in [docs/images/](docs/images/) predate the plan flow. [map-cand
 ### Prerequisites
 
 - Node 24 (`.nvmrc`) and pnpm, pinned by `packageManager` in `package.json` (`corepack enable` installs it). The repo is one pnpm workspace: run `pnpm install` once at the root.
-- A Playwright browser for the end-to-end suites: `pnpm exec playwright install chromium`.
+- A Playwright browser for the end-to-end suites: `pnpm --filter @artyfact/platform exec playwright install chromium`.
 - For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `pnpm exec wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. They log in separately; `pnpm exec wrangler whoami` and `cf auth whoami` must show the same account, and `artyfact init` and `pnpm run release` check this.
 - Cost. Fixture and fake mode are free and talk to no Cloudflare service. The real backend uses Artifacts, which has a free tier of operations, plus Workers AI (`AI`, for Clef) and Browser Run (`BROWSER`, for preview screenshots), both billed to the logged-in account. [docs/costs.md](docs/costs.md) has the numbers.
 
