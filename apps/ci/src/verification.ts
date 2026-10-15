@@ -3,7 +3,6 @@ import {
   normalizeVerificationRequest,
   verificationModelDigest,
   type VerificationCheck,
-  type VerificationCheckResult,
   type VerificationOutput,
   type VerificationRequest,
   type VerificationResult,
@@ -17,7 +16,7 @@ const BASE64_MAX = Math.ceil(OUTPUT_MAX / 3) * 4;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 const never = { retries: { limit: 0, delay: 1_000 } };
-const retryOnce = { retries: { limit: 1, delay: 10_000, backoff: "constant" as const } };
+const candidateExecution = { ...never, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 10_000 };
 
 /**
  * Candidate-controlled files are copied into a private staging directory, checked for unsafe file types, and archived
@@ -54,21 +53,25 @@ export interface VerificationPlannedStep {
   name: string;
   command: string;
   cache?: { inputs: string[] };
-  config: typeof never | typeof retryOnce;
+  config: typeof never | typeof candidateExecution;
   cloudflareCredentials?: never;
   secrets?: never;
 }
 
-/** Fixed profile plus exact commands already authorized from the accepted Genome. */
+const shellQuote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
+
+/** Fixed profile plus exact commands already authorized from the accepted Genome, in one unsnapshotted execution. */
 export function planVerificationSteps(request: VerificationRequest): VerificationPlannedStep[] {
-  const checks = request.checks ?? [];
+  const commands = [
+    "npm ci",
+    "npx --no-install playwright install --with-deps chromium",
+    "npm run ci -- --ultra-compact",
+    ...(request.checks ?? []).map((check) => check.command),
+  ];
   return [
-    // Verification must start from the exact commit. The engine's install cache overlays source on an older complete
-    // workspace and intentionally leaves deleted paths behind, so this profile does not use it.
-    { name: "install", command: "npm ci", config: retryOnce },
-    { name: "browser setup", command: "npx --no-install playwright install --with-deps chromium", config: retryOnce },
-    { name: "full gate", command: "npm run ci -- --ultra-compact", config: never },
-    ...checks.map((check, index) => ({ name: `check ${index + 1}`, command: check.command, config: never })),
+    // Keep dependencies in the live sandbox that installed them. Snapshot restoration is reserved for packaging the
+    // already-built output. Each literal runs in its own shell so comments and quoting cannot alter later commands.
+    { name: "candidate verification", command: `set -eu\n${commands.map((command) => `sh -c ${shellQuote(command)}`).join("\n")}`, config: candidateExecution },
     { name: "package output", command: PACKAGE_OUTPUT_COMMAND, config: never },
   ];
 }
@@ -208,9 +211,8 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
       runner = await (runner ? runner.runner(current) : input.ci.runner(current));
       const step: VerificationStep = { name: current.name, command: current.command, status: "passed", durationMs: Date.parse(await input.now(`${current.name} finished`)) - started };
       result.steps.push(step);
-      if (current.name.startsWith("check ")) {
-        const check = request.checks[Number(current.name.slice(6)) - 1]!;
-        result.checks!.push({ ...check, status: "passed" });
+      if (current.name === "candidate verification") {
+        result.checks!.push(...request.checks.map((check) => ({ ...check, status: "passed" as const })));
       }
       if (index < plan.length - 1) await cancelRunnerLogs(runner);
       await input.persist(result, `persist ${current.name}`);
@@ -230,10 +232,6 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
       existingStep.status = "error";
     } else if (!existingStep) {
       result.steps.push({ name, command: current?.command ?? "validate pinned verification request", status });
-    }
-    if (current?.name.startsWith("check ")) {
-      const check = request.checks[Number(current.name.slice(6)) - 1];
-      if (check) result.checks!.push({ ...check, status } as VerificationCheckResult);
     }
     result.status = status;
     result.error = String((error as Error)?.message ?? error).slice(0, ERROR_MAX);

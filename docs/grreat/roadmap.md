@@ -7,7 +7,7 @@
 - Baseline: merged UI refresh #83 plus Task/model forks and Artifacts publisher #84. Reuse Work, Review, exact integrated fork references, and explicit model approval.
 - Work: (1) verification-only Cloudflare Workflow with immutable source/model identity, test evidence and output digest, no deployment credentials; (2) trusted polling into local Review and promotion guards; (3) publish verified outputs without rebuilding and activate the approved source with persistent local state; (4) use that loop for development events, transactional outbox, authenticated K2 and explicit Basin analytics bridge.
 - Acceptance: failed, stale, mismatched or forged CI cannot approve; explicit model approval names the accepted model; retries reuse the same output/release; local restart retains history; replay deduplicates by event ID. Prove the complete loop against real Cloudflare separately from local/fake-provider tests.
-- Constraints: source remains at its approved Artifacts fork/commit; no required source-main synchronization. Development analytics stays separate from runtime observations. Approval is a human action. Hosting the operator is deferred.
+- Constraints: source remains at its approved Artifacts fork/commit; no required source-main synchronization. Development analytics stays separate from runtime observations. Approval is a human action. Hosting the operator is deferred. Bootstrap testing has a US$1 incremental Cloudflare spending limit (2026-10-14).
 
 ## Earlier follow-up: intent and integrity foundations
 

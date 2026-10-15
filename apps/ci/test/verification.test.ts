@@ -48,18 +48,18 @@ describe("verification authorization", () => {
 });
 
 describe("verification plan", () => {
-  it("is fixed, retries only infrastructure setup, and never receives Cloudflare credentials", () => {
-    const steps = planVerificationSteps(base);
-    expect(steps.slice(0, 3).map((s) => [s.name, s.command])).toEqual([
-      ["install", "npm ci"],
-      ["browser setup", "npx --no-install playwright install --with-deps chromium"],
-      ["full gate", "npm run ci -- --ultra-compact"],
-    ]);
+  it("runs setup, the full gate, and exact quoted checks in one bounded credentialless runner", () => {
+    const request = { ...base, checks: [{ ...base.checks![0], command: `printf '%s\\n' "it's exact" # comment` }] };
+    const steps = planVerificationSteps(request);
+    expect(steps.map((s) => s.name)).toEqual(["candidate verification", "package output"]);
+    expect(steps[0]?.command).toContain("sh -c 'npm ci'");
+    expect(steps[0]?.command).toContain("sh -c 'npx --no-install playwright install --with-deps chromium'");
+    expect(steps[0]?.command).toContain("sh -c 'npm run ci -- --ultra-compact'");
+    expect(steps[0]?.command).toContain(`sh -c 'printf '"'"'%s\\n'"'"' "it'"'"'s exact" # comment'`);
     expect(steps.some((s) => s.command.includes("deploy"))).toBe(false);
     expect(steps.every((s) => s.cloudflareCredentials === undefined && s.secrets === undefined)).toBe(true);
     expect(steps.every((s) => s.cache === undefined)).toBe(true);
-    expect(steps.map((s) => s.config.retries.limit)).toEqual([1, 1, 0, 0, 0]);
-    expect(steps.find((s) => s.name === "check 1")?.command).toBe("npm test");
+    expect(steps[0]?.config).toEqual({ retries: { limit: 0, delay: 1_000 }, timeout: 1_800_000, commandTimeoutMs: 1_790_000 });
     expect(steps.find((s) => s.name === "package output")?.command).toContain("apps/platform/dist");
   });
 });
@@ -122,24 +122,28 @@ describe("verification pipeline", () => {
     return { cancel, stream: new ReadableStream<Uint8Array>({ cancel }) };
   };
 
-  it("closes both log streams before chaining every successful intermediate runner", async () => {
-    const streams = Array.from({ length: 9 }, trackedStream);
+  it("uses one live runner for installation, the full gate, and checks before packaging", async () => {
+    const streams = Array.from({ length: 3 }, trackedStream);
     const archive = btoa(String.fromCharCode(0x1f, 0x8b, 0x08, 0x00));
-    const packageStderr = streams[8]!;
-    const runners = [0, 2, 4, 6].map((offset, index) => ({
-      exitCode: 0,
-      logs: { stdout: streams[offset]!.stream, stderr: streams[offset + 1]!.stream },
-      runner: async () => runners[index + 1] ?? packageRunner,
-    }));
+    const planned: string[] = [];
+    const packageStderr = streams[2]!;
     const packageRunner = { exitCode: 0, logs: { stdout: archive, stderr: packageStderr.stream }, runner: async () => packageRunner };
-    await runVerificationPipeline({
+    const candidateRunner = {
+      exitCode: 0,
+      logs: { stdout: streams[0]!.stream, stderr: streams[1]!.stream },
+      runner: async (step: { name: string }) => { planned.push(step.name); return packageRunner; },
+    };
+    const result = await runVerificationPipeline({
       request: base,
       authorize: async () => {},
-      ci: { runner: async () => runners[0]! },
+      ci: { runner: async (step: { name: string }) => { planned.push(step.name); return candidateRunner; } },
       now: async () => new Date(0).toISOString(),
       persist: async () => {},
       storeOutput: async (bytes) => ({ key: "output", digest: "d".repeat(64), size: bytes.byteLength }),
     });
+    expect(planned).toEqual(["candidate verification", "package output"]);
+    expect(result.steps.map((step) => step.name)).toEqual(["candidate verification", "package output"]);
+    expect(result.checks).toEqual([{ ...base.checks![0], status: "passed" }]);
     for (const tracked of streams) expect(tracked.cancel).toHaveBeenCalledOnce();
   });
 
@@ -159,23 +163,11 @@ describe("verification pipeline", () => {
     expect(packageStderr.cancel).toHaveBeenCalledOnce();
   });
 
-  it("does not package or publish output after a failed full gate", async () => {
+  it("does not package, publish, or mark checks passed after combined candidate execution fails", async () => {
     const planned: string[] = [];
     const saved: VerificationResult[] = [];
-    const installLogs = [trackedStream(), trackedStream()];
-    const browserLogs = [trackedStream(), trackedStream()];
-    const failure = Object.assign(new Error("tests failed"), { name: "CiRunnerFailure", runner: { name: "full gate" } });
-    const browserRunner = {
-      exitCode: 0,
-      logs: { stdout: browserLogs[0]!.stream, stderr: browserLogs[1]!.stream },
-      runner: async (step: { name: string }) => { planned.push(step.name); throw failure; },
-    };
-    const installRunner = {
-      exitCode: 0,
-      logs: { stdout: installLogs[0]!.stream, stderr: installLogs[1]!.stream },
-      runner: async (step: { name: string }) => { planned.push(step.name); return browserRunner; },
-    };
-    const ci = { runner: async (step: { name: string }) => { planned.push(step.name); return installRunner; } };
+    const failure = Object.assign(new Error("tests failed"), { name: "CiRunnerFailure", runner: { name: "candidate verification" } });
+    const ci = { runner: async (step: { name: string }) => { planned.push(step.name); throw failure; } };
     await expect(runVerificationPipeline({
       request: base,
       authorize: async () => {},
@@ -184,9 +176,8 @@ describe("verification pipeline", () => {
       persist: async (result) => { saved.push(structuredClone(result)); },
       storeOutput: async () => { throw new Error("must not store"); },
     })).rejects.toThrow("tests failed");
-    expect(planned).toEqual(["install", "browser setup", "full gate"]);
-    for (const tracked of [...installLogs, ...browserLogs]) expect(tracked.cancel).toHaveBeenCalledOnce();
-    expect(saved.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "install", status: "passed" }, { name: "browser setup", status: "passed" }, { name: "full gate", status: "failed" }] });
+    expect(planned).toEqual(["candidate verification"]);
+    expect(saved.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "candidate verification", status: "failed" }], checks: [] });
     expect(saved.at(-1)?.output).toBeUndefined();
   });
 

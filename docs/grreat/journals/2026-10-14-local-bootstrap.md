@@ -15,3 +15,17 @@ Cloud state: `artyfact-ci` version `9becc28f-f7f9-4bf1-92c1-b807fcff8cbb` deploy
 Local operator secrets/state are private and outside the implementation checkout. No model or implementation human approval has been recorded. Next: publish the exact foundation source and scoped model, prepare initial integrity review, claim the analytics Task, then exercise verification, human approval and activation. K2/Basin resources and the analytics implementation are not yet created.
 
 GRREAT validation passes (seven records). Versioned RPC preview remains pending missing credentials and a confirmed separate Artyfact destination; zero records applied and the earlier wrong-project conflict is preserved.
+
+## Release and live bootstrap follow-up
+
+Foundation commit `33d6eaad9010bb20115a0cee26313b30a723c55b` passed the exact-head pre-push gate (480.5s), was pushed, and is in [PR #85](https://github.com/sdawka/artyfact-cf/pull/85). The user asked to prioritize shipping to main; merge remains gated on all CI checks.
+
+That source is published in `artyfact.bootstrap.app`; isolated model commit `1ea4cdf0bb2db6ce8f5b6b8f1ae9a6f7f7ac4073` points all ten source bindings there. Local operator `http://127.0.0.1:1348` runs that source with a separate persistent state directory. Initial integrity snapshot `a0ef4f99c70dc2c87bcf9828ee74cb2871348778dfdba500fb13d36faf3b463a` remains unapproved. Browser automation was unavailable, so no browser walkthrough is claimed.
+
+Real Cloudflare foundation run `bootstrap-foundation-33d6eaad` passed install/browser setup and failed typecheck after 103s; the failed sandbox was cleaned up. The exact dependency graph and a fresh local install pass, so dependency restoration between runner steps is being investigated. This remains a failed cloud result, never promotion evidence.
+
+Automatic approval review rejected the default external TypeSafe integrity call. No such call was made. A safe, explicitly selected Cloudflare Workers AI Clef run completed structural checks but exposed an internal-question-ID transport validation defect; it exhausted its 200-call count and remains needs-review, with no agreement recorded. The provider-key adapter is being repaired locally before any additional calls.
+
+The user set a US$1 incremental Cloudflare budget. Billable-usage API reads returned 403 with the existing credential, so invoices are not available; use conservative measured-run estimates and recorded provider token usage, and do not present estimates as the actual bill. No K2/Basin resources or analytics Task have been created yet.
+
+The verifier now installs dependencies, installs Chromium, runs the repository gate and executes pinned command checks in one bounded sandbox execution, avoiding dependency restoration between those commands. Clef now uses collision-free transport aliases for invalid question IDs and preserves prototype-like keys safely. Focused regressions pass (34 tests), including a reproduced-then-fixed `__proto__` transport failure; root typecheck passes. A new live cloud run is still required. The earlier integrity run persisted one successful provider response (2,946 input tokens); its other attempted calls do not establish billable usage.
