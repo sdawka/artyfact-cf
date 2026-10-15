@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
+import { cloudCli, spawnExec, wranglerBin, wranglerCommand, type Cloud } from "./cloud.ts";
 import { isGenomeSource, verificationModelDigest } from "@artyfact/model";
 import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
@@ -116,12 +116,10 @@ function defaultBuild(root: string): void {
 }
 
 /** `wrangler deploy --config <config>` with cwd in the checkout; wrangler comes from the monorepo (the checkout has no node_modules). */
-/** pnpm links each workspace's dependencies under its own node_modules, so wrangler is resolved from apps/platform. */
-const WRANGLER_DIR = "apps/platform/node_modules/wrangler";
 function wranglerDeploy(root: string) {
   return (checkout: string, config: string, opts: { dryRun: boolean; env: Record<string, string | undefined> }) => {
-    const bin = join(root, WRANGLER_DIR, "bin/wrangler.js");
-    if (!existsSync(bin)) throw new CliError("wrangler is not installed; run pnpm install");
+    const bin = wranglerBin(root);
+    if (!bin) throw new CliError("wrangler is not installed; run pnpm install");
     const args = [bin, "deploy", "--config", config, ...(opts.dryRun ? ["--dry-run"] : [])];
     const r = spawnSync(process.execPath, args, { cwd: checkout, stdio: "inherit", env: { ...process.env, ...opts.env } });
     if (r.status !== 0) throw new CliError(`wrangler deploy --config ${config} failed`);
@@ -130,7 +128,9 @@ function wranglerDeploy(root: string) {
 
 function wranglerVersion(root: string): string | undefined {
   try {
-    return (JSON.parse(readFileSync(join(root, WRANGLER_DIR, "package.json"), "utf8")) as { version?: string }).version;
+    const bin = wranglerBin(root);
+    if (!bin) return undefined;
+    return (JSON.parse(readFileSync(join(dirname(dirname(bin)), "package.json"), "utf8")) as { version?: string }).version;
   } catch {
     return undefined;
   }
@@ -173,7 +173,7 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
   const version = releaseTag(gitCommit);
 
   // 2. Account and remote. The cloud's own checks keep names off argv and tokens off stdout.
-  const cloud = io.cloud ?? cloudCli(spawnExec(root), io.env);
+  const cloud = io.cloud ?? cloudCli(spawnExec(root), io.env, wranglerCommand(root));
   const account = cloud.account();
   io.out(`release ${version} from ${gitCommit.slice(0, 7)} (account ${account.slice(0, 8)}…) to ${ns}/${repo}${dryRun ? " [dry-run]" : ""}`);
   const exists = cloud.repoExists(ns, repo);

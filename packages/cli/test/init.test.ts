@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agreeOnAccount, cloudCli, type Cloud, type Exec } from "../src/cloud.ts";
+import { agreeOnAccount, cloudCli, wranglerBin, wranglerCommand, type Cloud, type Exec } from "../src/cloud.ts";
 import { appArtifactIds, flatYaml, systemIdOf } from "../src/init.ts";
 import { WORKSPACE_IGNORES } from "../src/ignore.ts";
 import { main } from "../src/main.ts";
@@ -146,6 +146,23 @@ describe("account confirmation", () => {
     expect(() => bad.account()).toThrow(/different accounts/);
   });
 
+  it("runs wrangler from the monorepo's platform workspace, never through npx", () => {
+    // pnpm links wrangler under apps/platform, not the root, so npx --no-install would fetch it from the registry.
+    const root = resolve(import.meta.dirname, "../../..");
+    const bin = wranglerBin(root);
+    expect(bin).toBe(resolve(root, "apps/platform/node_modules/wrangler/bin/wrangler.js"));
+    expect(wranglerCommand(root)).toEqual([process.execPath, bin]);
+    expect(wranglerCommand(tmpdir())).toEqual([process.execPath, bin]);
+    const argvs: string[][] = [];
+    const who = JSON.stringify({ accounts: [{ id: ACCOUNT }] });
+    const c = cloudCli((cmd, args) => (argvs.push([cmd, ...args]), { status: 0, stdout: who, stderr: "" }), {}, wranglerCommand(root));
+    expect(c.account()).toBe(ACCOUNT);
+    expect(argvs).toContainEqual([process.execPath, bin, "whoami", "--json"]);
+    expect(argvs.some((a) => a[0] === "npx" || a.includes("npx"))).toBe(false);
+    const failing = cloudCli(() => ({ status: 1, stdout: "", stderr: "not logged in" }), {}, wranglerCommand(root));
+    expect(() => failing.account()).toThrow(/^wrangler whoami failed: not logged in$/);
+  });
+
   it("decides namespace existence by get, else by create confirmed with list; an empty repo list is never proof", () => {
     const who = JSON.stringify({ accounts: [{ id: ACCOUNT }] });
     const listed = JSON.stringify([{ namespace: "artyfact", jurisdiction: "unrestricted", repo_count: 16 }]);
@@ -169,7 +186,7 @@ describe("account confirmation", () => {
     const fresh = cloudWith({ status: 0, stderr: "" }, "[]");
     expect(fresh.c.ensureNamespace("brand-new")).toBe("created");
     expect(fresh.argvs).toContainEqual(["cf", "artifacts", "namespaces", "create", "--body", JSON.stringify({ namespace: "brand-new" })]);
-    expect(fresh.argvs.some((a) => a[0] === "npx" && a.includes("list"))).toBe(false);
+    expect(fresh.argvs.some((a) => a[0] !== "cf" && a.includes("list"))).toBe(false);
 
     const existing = cloudWith({ status: 1, stderr: exists409 });
     expect(existing.c.ensureNamespace("artyfact")).toBe("exists");
