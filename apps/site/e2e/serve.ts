@@ -12,7 +12,7 @@ export async function serveDist(page: Page) {
     try {
       if ((await stat(file)).isDirectory()) file += '/index.html';
       await route.fulfill({ body: await readFile(file), contentType: types[extname(file)] || 'text/plain',
-        headers: { 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
+        headers: { 'content-security-policy': "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
     } catch { await route.fulfill({ status: 404, body: await readFile(resolve(dist, '404.html')), contentType: 'text/html' }); }
   });
 }
