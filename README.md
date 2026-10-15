@@ -37,7 +37,7 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim <plan-id> <task-id> 
 cd ./work/<task-id> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit"
 ```
 
-Inside the fork the agent runs `artyfact task checkpoint "<message>"` and `artyfact task submit`. The coordinator then runs `task select`, `plan integrate`, `plan review` and `plan promote`. Every command and flag is in [packages/cli/README.md](packages/cli/README.md); the skill the agent follows is [packages/cli/skills/artyfact-genome/SKILL.md](packages/cli/skills/artyfact-genome/SKILL.md). Claude Code can also load the skill as a plugin from the manifest in [.claude-plugin/](.claude-plugin/plugin.json) with `/plugin install artyfact --marketplace sdawka/artyfact-cf`.
+Inside the fork the agent runs `artyfact task checkpoint "<message>"` and `artyfact task submit`. The coordinator then runs `task select`, `plan integrate`, `plan review` and `plan promote`. Every command and flag is in [packages/cli/README.md](packages/cli/README.md); the skill the agent follows is [packages/cli/skills/artyfact-genome/SKILL.md](packages/cli/skills/artyfact-genome/SKILL.md). Claude Code can also load the skill as a plugin from the manifest in [.claude-plugin/](.claude-plugin/plugin.json) with `/plugin marketplace add sdawka/artyfact-cf` and then `/plugin install artyfact@artyfact`.
 
 ## Thesis
 
