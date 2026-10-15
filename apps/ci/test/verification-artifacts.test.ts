@@ -95,4 +95,29 @@ describe("verification Artifacts model input", () => {
       await expect(read(["section.29/node.00.yaml", "section.03/node.19.yaml"])).rejects.toThrow("Genome file section.03/node.19/node.yaml exceeds 1000000 bytes");
     }
   });
+
+  it("reserves text bytes before reading and starts no reads once the budget is exceeded", async () => {
+    const trees = new Map<string, { name: string; mode: string; type: "blob" | "tree"; hash: string }[]>();
+    trees.set("root", [{ name: "node.yaml", mode: "100644", type: "blob", hash: "root" }]);
+    for (let i = 0; i < 60; i++) trees.get("root")!.push({ name: `part.${String(i).padStart(2, "0")}.yaml`, mode: "100644", type: "blob", hash: `part.${i}` });
+    const big = "x".repeat(900_000);
+    for (let run = 0; run < 3; run++) {
+      let textBytes = 0, blobReads = 0;
+      const repository = {
+        readCommit: async () => ({ hash: COMMIT, treeHash: "root" }),
+        readTree: async (hash: string) => trees.get(hash) ?? null,
+        readBlob: async (hash: string) => {
+          blobReads += 1;
+          await new Promise((done) => setTimeout(done, Math.random() * 3));
+          const content = hash === "root" ? "id: system.big\n" : big;
+          return { size: content.length, text: async () => { textBytes += content.length; return content; } };
+        },
+      };
+      await expect(readVerificationGenome({ get: async () => repository } as never, { repo: "big", commit: COMMIT, prefix: "", digest: "0".repeat(64) }))
+        .rejects.toThrow("Genome YAML exceeds 1000000 bytes");
+      expect(textBytes).toBeLessThanOrEqual(1_000_000 + 64 * 1024 + 128 * 1024);
+      // The first 16 start together; once a reservation fails, finishing workers start nothing new.
+      expect(blobReads).toBeLessThan(16 + 3);
+    }
+  });
 });

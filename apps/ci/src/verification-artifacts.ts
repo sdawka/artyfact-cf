@@ -23,12 +23,15 @@ async function treeAt(repo: ArtifactsRepo, ref: VerificationGenomeRef): Promise<
 /** Artifacts reads in flight at once: a ~600-file Genome read one blob at a time outlasts the platform's start timeout. */
 const READ_CONCURRENCY = 16;
 
-/** `fn` over `items` with at most `limit` in flight; results keep the input order. */
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out = new Array<R>(items.length);
+/**
+ * `fn` over `items` with at most `limit` in flight, started in input order; results keep that order. Once `stop()`
+ * holds no new item starts, so the items run are always a prefix (the rest stay undefined).
+ */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>, stop: () => boolean = () => false): Promise<(R | undefined)[]> {
+  const out = new Array<R | undefined>(items.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
+    while (next < items.length && !stop()) {
       const i = next++;
       out[i] = await fn(items[i]!);
     }
@@ -71,16 +74,22 @@ export async function readVerificationGenome(artifacts: Artifacts, ref: Verifica
   const repo = await artifacts.get(ref.repo);
   try {
     const sorted = [...await listYaml(repo, await treeAt(repo, ref))].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
-    // Read concurrently, then check in sorted order so the first error is the same as a sequential read's. Text is
-    // skipped once a file or the YAML read so far is over its limit: the checks below then throw at or before it.
-    let yamlRead = 0;
+    // Read concurrently, then check in sorted order so the first error is the same as a sequential read's. Each text
+    // reserves its bytes first (YAML against one shared budget), so text in memory stays within the sequential bound.
+    // A missing blob or a failed reservation stops new reads. The reads run are a sorted prefix whose YAML sizes
+    // already pass the budget (or hold the violating file), so the checks below throw within it, before any unread entry.
+    let yamlReserved = 0, stop = false;
     const read = await mapLimit(sorted, READ_CONCURRENCY, async ([path, entry]) => {
       const blob = await repo.readBlob(entry.hash);
-      if (!blob) return null;
-      if (/\.ya?ml$/.test(path)) yamlRead += blob.size;
-      const over = blob.size > fileLimit(path) || yamlRead > MAX_TOTAL_BYTES;
-      return { size: blob.size, text: over ? undefined : await blob.text() };
-    });
+      if (!blob) { stop = true; return null; }
+      const yaml = /\.ya?ml$/.test(path);
+      if (stop || blob.size > fileLimit(path) || (yaml && yamlReserved + blob.size > MAX_TOTAL_BYTES)) {
+        stop = true;
+        return { size: blob.size, text: undefined };
+      }
+      if (yaml) yamlReserved += blob.size;
+      return { size: blob.size, text: await blob.text() };
+    }, () => stop);
     const files = new Map<string, string>();
     let yamlTotal = 0;
     sorted.forEach(([path], i) => {
