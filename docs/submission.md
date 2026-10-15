@@ -13,6 +13,7 @@ The next Git platform keeps track of the product, not just the files, so coding 
 - How it works, generated from Artyfact's own model: https://artyfact.ing/how-it-works
 - Platform demo: https://artyfact-platform.dawka.workers.dev
 - Repository: https://github.com/sdawka/artyfact-cf
+- npm package: `artyfact` (`npx artyfact@latest --help`)
 - Video: `TODO(video-url)`
 - Licence: Apache-2.0
 
@@ -41,6 +42,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 - User experience (25%): an agreement tree to accept a change node by node, a wave board with one claim command per Task, one review across all Tasks, verdicts that are never green without a pass, and a changelog and compare at System, Genome and file level.
 
 ## Features
+- Agent-first today: coding agents drive the platform through the `artyfact` CLI and the `artyfact-genome` skill (install with `npx artyfact@latest skill --write --agent claude`), and the web app is where a person reviews and promotes. Authoring the Genome in the browser is in progress.
 - Home with a card per System and signifiers for evolving, pending, awaiting review, not built, deployed and observed.
 - Describe a change in the browser or hand it to an agent: an agreement tree to agree, reject or defer node by node, then a plan of Tasks in waves with one claim command per Task (`artyfact task claim`), a task packet and a real Git push to a fork.
 - Intent edits: a message is routed through the Genome tree by the ontology engine and becomes ops to review and accept. Artyfact describes itself with ten Things in the same format.
