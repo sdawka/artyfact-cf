@@ -289,11 +289,15 @@ describe("System atlas", () => {
     const canvas = screen.getByTestId("atlas-canvas");
     fireEvent.wheel(canvas, { deltaY: -300 });
     expect(router.state.location.search).toContain("scope=screen.people");
+    // One continuous modified-wheel gesture: it latches on the first threshold crossing, and the reversed
+    // delta that follows within the same burst must not navigate back. Firing all of it synchronously keeps
+    // the burst inside the gesture's 220 ms release window regardless of how slowly the Enter lands.
     fireEvent.wheel(canvas, { deltaY: -160, ctrlKey: true });
     fireEvent.wheel(canvas, { deltaY: -100, ctrlKey: true });
     fireEvent.wheel(canvas, { deltaY: -80, ctrlKey: true });
-    await waitFor(() => expect(router.state.location.search).toContain("scope=component.AddContactDialog"));
     fireEvent.wheel(canvas, { deltaY: 300, ctrlKey: true });
+    await waitFor(() => expect(router.state.location.search).toContain("scope=component.AddContactDialog"));
+    await ready("affordance.AddContactDialog.save");
     expect(router.state.location.search).toContain("scope=component.AddContactDialog");
     fireEvent.touchStart(canvas, { touches: [{ clientX: 0, clientY: 0 }, { clientX: 100, clientY: 0 }] });
     fireEvent.touchMove(canvas, { touches: [{ clientX: 0, clientY: 0 }, { clientX: 65, clientY: 0 }] });

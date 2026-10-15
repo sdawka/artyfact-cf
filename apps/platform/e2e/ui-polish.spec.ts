@@ -49,7 +49,10 @@ async function openAdmin(page: Page) {
 }
 
 async function navigation(nav: Locator) {
-  const boxes = await nav.getByRole('link').evaluateAll(elements => elements.map(el => { const r = el.getBoundingClientRect(); return { x:r.x, width:r.width, height:r.height }; }));
+  const links = nav.getByRole('link');
+  // The SideNav renders its links after mount; wait for the ninth before measuring so slow runners do not see an empty list.
+  await expect(links.nth(8)).toBeVisible();
+  const boxes = await links.evaluateAll(elements => elements.map(el => { const r = el.getBoundingClientRect(); return { x:r.x, width:r.width, height:r.height }; }));
   expect(boxes.length).toBeGreaterThan(8);
   for (const box of boxes) { expect(box.height).toBeGreaterThanOrEqual(43.5); expect(Math.abs(box.x - boxes[0]!.x)).toBeLessThanOrEqual(1); expect(Math.abs(box.width - boxes[0]!.width)).toBeLessThanOrEqual(1); }
   for (const name of ['Overview','Journeys','Evaluations','Deployments','Private Parts']) {
