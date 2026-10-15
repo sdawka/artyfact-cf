@@ -106,6 +106,8 @@ It is off in the unit tests, which count the example System's candidates and eva
 `TaskReview.candidates[].model`, when present, renders beside the changed files: the changed `system/**` paths (same
 file compare route, `taskReviewFile`), the delta's added / changed / removed ids against the Task's `writeNodes`, and
 the System One signals (`review.signals`, `review.review` like the amendment panel), each with its verdict and
-provider. Evidence rows group by `layers[evaluation.criterion]`. The plan review shows `modelDelta` with an
+provider. The code side lists `TaskCandidateReview.codeNodes`, the nodes the changed code maps to through the source map
+(a file maps to every node declaring a matching glob), apart from the model delta's nodes. Evidence rows group by
+`layers[evaluation.criterion]`, one row per criterion folded over its hooks as the gate folds them. The plan review shows `modelDelta` with an
 "Accept model change" checkbox that sets `acceptModelDelta` on promote; without it the button is disabled when a
 `modelDelta` exists.

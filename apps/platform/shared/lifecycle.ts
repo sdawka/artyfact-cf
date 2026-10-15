@@ -50,6 +50,12 @@ export interface DraftPlanProvenance { planner:{provider:string; model:string}; 
 export interface DraftRealizationPlanResponse { request:CreateRealizationPlanRequest; analysis:TaskAnalysis; problems:DraftPlanProblem[]; provenance:DraftPlanProvenance }
 /** Evidence pinned to one immutable Task candidate, including its actual source/base and recorded checks. */
 export interface TaskCandidateReview { candidate:Candidate; manifest:{planId:string;taskId:string;realizationId:string;repo:string;baseRepo:string;baseCommit:string;commit:string;manifestHash:string;changedPaths:string[]}; evaluations:Evaluation[];
+  /**
+   * Nodes the changed code paths (outside `system/`) map to through the pinned Genome's source map: a path maps to every
+   * node declaring a glob that matches it, so a file under a screen's directory also names the components sharing that
+   * glob. `candidate.changedSubjects` is these plus the model delta's nodes.
+   */
+  codeNodes?:string[];
   /** The candidate's model delta (its `system/` vs the pinned Genome) with System One's review of it; absent when `system/` is untouched. */
   model?:TaskCandidateModelReview }
 /** `review` has the Genome amendment review's shape (semantic changes, readiness before and after, System One signals). */

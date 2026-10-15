@@ -37,6 +37,7 @@ function taskApi() {
       { id: "e.none", criterion: "C.unplaced", verdict: "unknown", execution: "not-run" },
     ],
     model,
+    codeNodes: ["screen.exact"],
   };
   const layers = { "C.run": "phenome", "C.exact": "realization", "C.model-review": "genome" };
   const calls: { url: string; body: unknown }[] = [];
@@ -73,6 +74,10 @@ it("shows the model change proposed by the agent: files, nodes against the write
   const review = await screen.findByRole("region", { name: "Review Task t1" });
   const change = within(review).getByRole("region", { name: "Model change proposed by the agent" });
   expect(change.textContent).toContain("system/");
+  // The code's nodes are labelled as a source-map mapping, apart from the model delta's changed nodes.
+  const code = within(review).getByRole("list", { name: "Nodes the changed code maps to" });
+  expect([...code.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["screen.exact"]);
+  expect(within(review).queryByText("Changed Genome nodes")).toBeNull();
   expect(within(change).getByTitle(GENOME).textContent).toBe(GENOME.slice(0, 7));
   // Nodes: the changed one is in scope; the added one is flagged against the Task's write nodes (attention, not danger).
   expect(within(change).getAllByTitle("Screen: screen.exact")).toHaveLength(2);
