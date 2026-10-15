@@ -1,6 +1,6 @@
 # Releases through Artifacts
 
-Build output is the realized artifact, so the deployed version of the platform comes from an Artifacts repo, not from a local worktree. `artyfact release` (root: `npm run release`) is the one command. Status: implemented and tested behind a fake cloud in `packages/cli/test/release.test.ts`. The first real release ran on 2026-10-15 as tag `v20261015-c225282` into the Artifacts repo `artyfact/platform.builds`.
+Build output is the realized artifact, so the deployed version of the platform comes from an Artifacts repo, not from a local worktree. `artyfact release` (root: `pnpm run release`) is the one command. Status: implemented and tested behind a fake cloud in `packages/cli/test/release.test.ts`. The first real release ran on 2026-10-15 as tag `v20261015-c225282` into the Artifacts repo `artyfact/platform.builds`.
 
 ## What Cloudflare supports today (checked 2026-10-14)
 

@@ -1,9 +1,13 @@
 /**
  * Account-level Artifacts operations `artyfact init` needs, behind an interface so tests run against local bare repos.
- * The real implementation shells out to `npx wrangler` (namespaces, repos, tokens) and `cf` (namespace create, fork).
+ * The real implementation shells out to wrangler (namespaces, repos, tokens) and `cf` (namespace create, fork).
  * Tokens come back on stdout and are returned to the caller; nothing here prints them or puts them on an argv.
  */
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CliError } from "./git.ts";
 import { assertName } from "./safety.ts";
 
@@ -33,6 +37,31 @@ export const spawnExec = (cwd: string): Exec => (cmd, args, env) => {
 
 const ACCOUNT_RE = /^[0-9a-f]{32}$/;
 
+const here = dirname(fileURLToPath(import.meta.url));
+/** The monorepo root when this package runs from a checkout (src/ or dist/ are both three levels down). */
+const monorepoRoot = () => resolve(here, "../../..");
+/** Where pnpm links wrangler in the monorepo: the platform workspace, never the root (strict linking). */
+export const PLATFORM_WRANGLER = "apps/platform/node_modules/wrangler/bin/wrangler.js";
+
+/**
+ * The wrangler entry point to run with `process.execPath`: the one resolvable from `cwd` (a user project), else the
+ * monorepo's platform workspace. Never `npx`, which has no root bin under pnpm and would fetch from the registry.
+ */
+export function wranglerBin(cwd: string): string | null {
+  try {
+    return createRequire(join(cwd, "noop.js")).resolve("wrangler/bin/wrangler.js");
+  } catch {
+    const inRepo = join(monorepoRoot(), PLATFORM_WRANGLER);
+    return existsSync(inRepo) ? inRepo : null;
+  }
+}
+
+/** `[node, wrangler.js]` for {@link wranglerBin}, or a bare `wrangler` from PATH when none is installed near `cwd`. */
+export function wranglerCommand(cwd: string): string[] {
+  const bin = wranglerBin(cwd);
+  return bin ? [process.execPath, bin] : ["wrangler"];
+}
+
 /** First JSON value in `text` (npx/wrangler may print banners before it). */
 function jsonOf<T>(text: string, what: string): T {
   const i = text.search(/[[{]/);
@@ -53,7 +82,7 @@ export function accountIds(whoami: unknown): string[] {
 
 /** Pick the account both CLIs see: `CLOUDFLARE_ACCOUNT_ID`/`ACCOUNT_ID` when set, else the single shared one. */
 export function agreeOnAccount(wrangler: string[], cf: string[], preferred?: string): string {
-  if (!wrangler.length) throw new CliError("wrangler is not logged in; run `npx wrangler login`");
+  if (!wrangler.length) throw new CliError("wrangler is not logged in; run `wrangler login`");
   if (!cf.length) throw new CliError("cf is not logged in; run `cf auth login`");
   const shared = wrangler.filter((id) => cf.includes(id));
   if (preferred) {
@@ -65,10 +94,11 @@ export function agreeOnAccount(wrangler: string[], cf: string[], preferred?: str
   throw new CliError("several accounts are visible; set CLOUDFLARE_ACCOUNT_ID to choose one");
 }
 
-export function cloudCli(exec: Exec, env: Record<string, string | undefined>): Cloud {
+export function cloudCli(exec: Exec, env: Record<string, string | undefined>, wranglerCmd: string[] = wranglerCommand(process.cwd())): Cloud {
   let accountId: string | undefined;
   const childEnv = () => (accountId ? { CLOUDFLARE_ACCOUNT_ID: accountId } : {});
-  const wrangler = (...args: string[]) => exec("npx", ["--no-install", "wrangler", ...args], childEnv());
+  const [wranglerExe, ...wranglerPrefix] = wranglerCmd as [string, ...string[]];
+  const wrangler = (...args: string[]) => exec(wranglerExe, [...wranglerPrefix, ...args], childEnv());
   const cf = (...args: string[]) => exec("cf", args, childEnv());
   // Every namespace and repo name is checked before it reaches an argv (never an option, never a path step).
   const ok = (ns: string, ...repos: string[]) => {
@@ -94,7 +124,7 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
   return {
     accountId: () => accountId,
     account() {
-      const w = must(wrangler("whoami", "--json"), "npx wrangler whoami");
+      const w = must(wrangler("whoami", "--json"), "wrangler whoami");
       const c = must(cf("auth", "whoami"), "cf auth whoami");
       accountId = agreeOnAccount(accountIds(jsonOf(w.stdout, "wrangler whoami")), accountIds(jsonOf(c.stdout, "cf auth whoami")),
         env.CLOUDFLARE_ACCOUNT_ID || env.ACCOUNT_ID || undefined);

@@ -66,26 +66,38 @@ const accept = (systemId: string, body: unknown, headers: Record<string, string>
   call<SystemImportReviewAcceptResponse & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
 const getReview = (systemId: string) => call<SystemImportReview & ApiError>("GET", `/systems/${systemId}/import-review`);
 
-/** Every route that creates or starts work, or moves a Genome change forward. */
-const guarded = (systemId: string) => {
-  const plans = `/systems/${systemId}/realization-plans`, task = `${plans}/plan.1/tasks/t1`, intent = `/systems/${systemId}/intents/proposal.1`;
-  return Promise.all([
-    call<ApiError>("POST", `/systems/${systemId}/evolutions`, { title: "t", intent: "i", kind: "genome-amendment" }, ADMIN),
-    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN),
-    call<ApiError>("POST", `/systems/${systemId}/intents`, { message: "add a screen" }, ADMIN),
-    call<ApiError>("POST", `/systems/${systemId}/template-upgrade`, { ref: "head" }, ADMIN),
-    call<ApiError>("POST", plans, { evolutionIds: ["evolution.1"], tasks: [] }, ADMIN),
-    call<ApiError>("POST", `${plans}/draft`, {}, ADMIN),
-    ...["claim", "start", "resume"].map((a) => call<ApiError>("POST", `${task}/${a}`, { agentLabel: "a" }, ADMIN)),
-    call<ApiError>("POST", `${intent}/reply`, { answers: [] }, ADMIN),
-    call<ApiError>("PUT", `${intent}/decisions`, { decisions: [] }, ADMIN),
-    call<ApiError>("POST", `${intent}/accept`, {}, ADMIN),
-    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/accept`, { candidateId: "c" }, ADMIN),
-    call<ApiError>("POST", `${task}/select`, { candidateId: "c" }, ADMIN),
-    call<ApiError>("POST", `${plans}/plan.1/integrate`, {}, ADMIN),
-    call<ApiError>("POST", `${plans}/plan.1/promote`, { rationale: "r" }, ADMIN),
-  ]);
+type Route = { method: "POST" | "PUT"; path: string; body: Record<string, unknown> };
+/**
+ * Every route behind the shared `requireImportReviewed` middleware (worker/routes/import-review.ts): all that create
+ * or start work, or move a Genome change forward. Admin first, so the gate is 401 before it is 409.
+ */
+const GUARDED = (systemId: string): Route[] => {
+  const plans = `/systems/${systemId}/realization-plans`, plan = `${plans}/plan.1`, task = `${plan}/tasks/t1`, intent = `/systems/${systemId}/intents/proposal.1`;
+  return [
+    { method: "POST", path: `/systems/${systemId}/evolutions`, body: { title: "t", intent: "i", kind: "genome-amendment" } },
+    { method: "POST", path: `/systems/${systemId}/evolutions/evolution.1/realizations`, body: { agentLabel: "a" } },
+    { method: "POST", path: `/systems/${systemId}/evolutions/evolution.1/accept`, body: { candidateId: "c" } },
+    { method: "POST", path: `/systems/${systemId}/intents`, body: { message: "add a screen" } },
+    { method: "POST", path: `${intent}/reply`, body: { answers: [] } },
+    { method: "PUT", path: `${intent}/decisions`, body: { decisions: [] } },
+    { method: "POST", path: `${intent}/revise`, body: {} },
+    { method: "POST", path: `${intent}/accept`, body: {} },
+    { method: "POST", path: `/systems/${systemId}/template-upgrade`, body: { ref: "head" } },
+    { method: "POST", path: plans, body: { evolutionIds: ["evolution.1"], tasks: [] } },
+    { method: "POST", path: `${plans}/draft`, body: {} },
+    { method: "POST", path: `${plan}/integrate`, body: {} },
+    { method: "POST", path: `${plan}/promote`, body: { rationale: "r" } },
+    { method: "POST", path: `${plan}/verification/start`, body: {} },
+    { method: "POST", path: `${plan}/verification/poll`, body: {} },
+    { method: "POST", path: `${task}/select`, body: { candidateId: "c" } },
+    ...["claim", "start", "resume"].map((a): Route => ({ method: "POST", path: `${task}/${a}`, body: { agentLabel: "a" } })),
+  ];
 };
+/** Admin writes outside the gate: abandoning an intent is always allowed. */
+const UNGUARDED = (systemId: string): Route[] => [
+  { method: "POST", path: `/systems/${systemId}/intents/proposal.1/abandon`, body: {} },
+];
+const guarded = (systemId: string) => Promise.all(GUARDED(systemId).map((r) => call<ApiError>(r.method, r.path, r.body, ADMIN)));
 
 /** Every file of the amendment's candidate, read from the fork that holds it. */
 async function candidateFiles(ns: FakeArtifacts, systemId: string, realization: string, candidate: string): Promise<Map<string, string>> {
@@ -122,12 +134,23 @@ describe("import review: pending, guard, opt-out", () => {
     // The scaffold is mapped by the template's defaults and the nodes' files; only the extras are not.
     expect(rv.json.unmapped).toEqual(["docs/notes.md", "src/legacy/old.ts"]);
 
-    for (const r of await guarded(systemId)) {
-      expect(r.status, JSON.stringify(r.json)).toBe(409);
-      expect(r.json.error.code).toBe("import-unreviewed");
-      expect(r.json.error.message).toContain(`/s/${systemId}/r/head/review?panel=import`);
-      expect(r.json.error.details).toEqual({ genomeCommit: imp.genomeCommit });
+    const routes = GUARDED(systemId);
+    for (const [i, r] of (await guarded(systemId)).entries()) {
+      const at = `${routes[i]!.method} ${routes[i]!.path}: ${JSON.stringify(r.json)}`;
+      expect(r.status, at).toBe(409);
+      expect(r.json.error.code, at).toBe("import-unreviewed");
+      expect(r.json.error.message, at).toContain(`/s/${systemId}/r/head/review?panel=import`);
+      expect(r.json.error.details, at).toEqual({ genomeCommit: imp.genomeCommit });
     }
+    // Auth comes before the gate: without credentials every guarded route is 401, not 409.
+    for (const r of routes) expect((await call<ApiError>(r.method, r.path, r.body, {})).status, `${r.method} ${r.path}`).toBe(401);
+    // Outside the gate: abandoning an intent and reading are never 409 `import-unreviewed`.
+    for (const r of UNGUARDED(systemId)) {
+      const res = await call<ApiError>(r.method, r.path, r.body, ADMIN);
+      expect(res.json.error?.code, `${r.method} ${r.path}: ${JSON.stringify(res.json)}`).not.toBe("import-unreviewed");
+    }
+    expect((await call<ApiError>("GET", `/systems/${systemId}/intents/proposal.1`, undefined, ADMIN)).json.error?.code).not.toBe("import-unreviewed");
+    expect((await call<ApiError>("GET", `/systems/${systemId}/evolutions/evolution.1`)).status).toBe(200);
     // No work was created by the refused calls.
     const work = (await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json;
     expect(work.realizations).toEqual([]);

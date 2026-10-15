@@ -41,7 +41,7 @@ describe("resolvePlatform", () => {
 
   it("has no fallback: stops when nothing on 1337-1346 identifies as artyfact, even if 1337 answers 200", async () => {
     const { f, asked } = localhost({ 1337: () => new Response("<html>other app</html>", { status: 200 }), 1340: () => Response.json({ service: "other" }) });
-    await expect(resolvePlatform(undefined, {}, f)).rejects.toThrow("no artyfact platform found on localhost:1337–1346; start it with `npm run dev` or pass --platform");
+    await expect(resolvePlatform(undefined, {}, f)).rejects.toThrow("no artyfact platform found on localhost:1337–1346; start it with `pnpm --filter @artyfact/platform dev` or pass --platform");
     expect(asked).toHaveLength(10);
     expect(DEFAULT_URL).toBe("http://localhost:1337");
   });

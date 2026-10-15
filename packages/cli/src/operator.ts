@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
-import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
+import { cloudCli, spawnExec, wranglerCommand, type Cloud } from "./cloud.ts";
 import { canonicalJson, normalizeVerificationRequest, type VerificationOutput, type VerificationRequest, type VerificationResult } from "@artyfact/model";
 import { longFetch } from "./api.ts";
 import { CliError, git, isPristine } from "./git.ts";
@@ -31,7 +31,7 @@ const MAX_VARS_FILE = 64 * 1024;
 /** Longer than artyfact-ci's own no-progress bound, after which it reports a stuck run as `error`. */
 const VERIFY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
 
-/** The ambient environment npm in the approved checkout gets: an allowlist, never an operator credential. */
+/** The ambient environment pnpm in the approved checkout gets: an allowlist, never an operator credential. */
 export function childEnv(base: NodeJS.ProcessEnv, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(base))
@@ -208,7 +208,7 @@ interface VerifiedManifest {
 }
 
 export function publishVerifiedRelease(stage: string, activation: Activation, io: OperatorIo, ns = DEFAULT_NS): { version: string; buildsCommit: string; action: "created" | "reused" } {
-  const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env);
+  const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env, wranglerCommand(io.cwd));
   cloud.account();
   const namespace = assertName("namespace", ns);
   const identity = verifiedReleaseIdentity(activation);
@@ -379,12 +379,12 @@ function linkWorkerSecrets(checkout: string, stateDir: string, env: Record<strin
 
 function defaultInstall(checkout: string): void {
   // Lifecycle scripts stay on: esbuild and workerd install their native binaries from them.
-  const r = spawnSync("npm", ["ci"], { cwd: checkout, stdio: "inherit", env: childEnv(process.env) });
-  if (r.status !== 0) throw new CliError("npm ci failed in the approved source checkout");
+  const r = spawnSync("pnpm", ["install", "--frozen-lockfile"], { cwd: checkout, stdio: "inherit", env: childEnv(process.env) });
+  if (r.status !== 0) throw new CliError("pnpm install failed in the approved source checkout");
 }
 
 function defaultRun(checkout: string, args: string[], env: NodeJS.ProcessEnv): number {
-  const r = spawnSync("npm", args, { cwd: checkout, stdio: "inherit", env });
+  const r = spawnSync("pnpm", args, { cwd: checkout, stdio: "inherit", env });
   if (r.error) throw new CliError(`could not start the local platform: ${r.error.message}`);
   return r.status ?? 1;
 }
@@ -407,7 +407,7 @@ export function prepareActivation(activation: Activation, opts: { dir: string; s
   let prepared = false;
   try {
     git(checkout, ["init", "-q"]);
-    const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env);
+    const cloud = io.cloud ?? cloudCli(spawnExec(io.cwd), io.env, wranglerCommand(io.cwd));
     cloud.account();
     const ns = assertName("namespace", opts.namespace ?? io.env.ARTYFACT_NAMESPACE ?? DEFAULT_NS);
     const token = cloud.token(ns, activation.source.repo, "read");
@@ -509,7 +509,7 @@ async function activateCommand(values: Values, io: OperatorIo): Promise<number> 
   if (values["prepare-only"]) { io.out(JSON.stringify({ prepared: true, ...prepared, activation })); return 0; }
   const port = typeof values.port === "string" ? values.port : "1337";
   if (!/^\d{2,5}$/.test(port)) throw new CliError("--port must be a numeric TCP port");
-  const args = ["run", "dev", "-w", "@artyfact/platform", "--", "--host", "127.0.0.1", "--port", port, "--strictPort"];
+  const args = ["--filter", "@artyfact/platform", "run", "dev", "--host", "127.0.0.1", "--port", port, "--strictPort"];
   // Worker secrets reach the app only through the linked .dev.vars; Cloudflare access comes from the user's wrangler login.
   return (io.run ?? defaultRun)(prepared.checkout, args, childEnv(process.env, { HOSTED_DEMO: "0", ARTYFACT_PERSIST_STATE_DIR: prepared.stateDir }));
 }

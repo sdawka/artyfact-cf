@@ -5,13 +5,13 @@ The guide works without JavaScript; the model example has a readable initial sta
 
 From the repository root:
 
-    npm ci
-    npm run build -w @artyfact/site
-    npm run preview -w @artyfact/site    # http://127.0.0.1:4180
-    npm run typecheck -w @artyfact/site
-    npm run test -w @artyfact/site
-    npm run test:build -w @artyfact/site
-    npm run e2e -w @artyfact/site
+    pnpm install --frozen-lockfile
+    pnpm --filter @artyfact/site build
+    pnpm --filter @artyfact/site preview    # http://127.0.0.1:4180
+    pnpm --filter @artyfact/site typecheck
+    pnpm --filter @artyfact/site test
+    pnpm --filter @artyfact/site test:build
+    pnpm --filter @artyfact/site e2e
 
 The build uses Vite/React to render HTML and hydrate the example.
 src/render.tsx renders the pages; src/client.tsx handles copy controls and lazily loads the example.

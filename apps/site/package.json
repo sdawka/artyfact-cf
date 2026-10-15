@@ -5,19 +5,19 @@
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "dev": "npm run build && vite preview --host 127.0.0.1 --port 4180",
+    "dev": "pnpm run build && vite preview --host 127.0.0.1 --port 4180",
     "build": "vite build && vite build --ssr src/render.tsx --outDir .render && node .render/render.js",
     "preview": "vite preview --host 127.0.0.1 --port 4180",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
     "e2e": "playwright test",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy",
     "test:build": "node --test test/site-build.test.mjs"
   },
   "dependencies": {
-    "@artyfact/effects": "*",
-    "@artyfact/model": "*",
-    "@artyfact/templates": "*",
+    "@artyfact/effects": "workspace:*",
+    "@artyfact/model": "workspace:*",
+    "@artyfact/templates": "workspace:*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

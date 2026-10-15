@@ -7,8 +7,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@artyfact/model": "*",
-    "@artyfact/templates": "*",
+    "@artyfact/model": "workspace:*",
+    "@artyfact/templates": "workspace:*",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

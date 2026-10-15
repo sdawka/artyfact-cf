@@ -14,19 +14,19 @@
     "build:fixture": "node scripts/build-fixture.ts",
     "dev:amendment": "vite --config vite.amendment-dev.config.ts --port 5199",
     "build:spa": "vite build --config vite.fixture.config.ts",
-    "preview:fixture": "npm run build:spa && vite preview --config vite.fixture.config.ts --port 1338 --strictPort",
-    "e2e": "npm run build:spa && playwright test",
+    "preview:fixture": "pnpm run build:spa && vite preview --config vite.fixture.config.ts --port 1338 --strictPort",
+    "e2e": "pnpm run build:spa && playwright test",
     "e2e:fake": "ARTYFACT_E2E_FAKE=1 playwright test",
-    "e2e:live": "npm run build && ARTYFACT_E2E_LIVE=1 playwright test"
+    "e2e:live": "pnpm run build && ARTYFACT_E2E_LIVE=1 playwright test"
   },
   "dependencies": {
-    "artyfact": "*",
-    "@artyfact/effects": "*",
-    "@artyfact/model": "*",
-    "@artyfact/ontology": "*",
-    "@artyfact/rules": "*",
-    "@artyfact/semantic": "*",
-    "@artyfact/templates": "*",
+    "artyfact": "workspace:*",
+    "@artyfact/effects": "workspace:*",
+    "@artyfact/model": "workspace:*",
+    "@artyfact/ontology": "workspace:*",
+    "@artyfact/rules": "workspace:*",
+    "@artyfact/semantic": "workspace:*",
+    "@artyfact/templates": "workspace:*",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-json": "^6.0.2",
@@ -60,7 +60,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@artyfact/templates": "*",
+    "@artyfact/templates": "workspace:*",
     "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "^1.63.1",
     "@cloudflare/vitest-plugin": "^1.4.0",

@@ -51,7 +51,7 @@ interface Secrets {
   FLAGS?: Flagship;
   /**
    * Workers AI: selects Cloudflare Clef for System One and for visual checks. Browser Run: platform screenshots for
-   * visual checks. Both are remote-only and local-only: `npm run dev` adds them (vite.config.ts); the deployed
+   * visual checks. Both are remote-only and local-only: `pnpm run dev` adds them (vite.config.ts); the deployed
    * wrangler.jsonc (the hosted demo) and wrangler.test.jsonc omit them, so they are optional here.
    */
   AI?: Ai;

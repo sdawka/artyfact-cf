@@ -1,4 +1,5 @@
-# The steps live in scripts/ci.mjs, which the pre-push hook runs too (`npm run ci`).
+# The steps live in scripts/ci.mjs. Hosted CI runs its four jobs in parallel after one shared setup; the pre-push hook runs `pnpm run ci --fast`.
+# `ci` is the single status to require on main: it fails when any job failed or was cancelled, and passes when a job was not needed.
 name: ci
 
 on:
@@ -11,19 +12,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    outputs:
+      unit: ${{ steps.plan.outputs.unit }}
+      e2e_fixture: ${{ steps.plan.outputs.e2e_fixture }}
+      e2e_fake: ${{ steps.plan.outputs.e2e_fake }}
+      site: ${{ steps.plan.outputs.site }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - name: Install (warms the pnpm store cache the other jobs restore)
+        run: pnpm install --frozen-lockfile
+      - name: Decide which jobs the changes need
+        id: plan
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            node scripts/ci.mjs --plan --changed --base "origin/$BASE_REF" | tee -a "$GITHUB_OUTPUT"
+          else
+            node scripts/ci.mjs --plan | tee -a "$GITHUB_OUTPUT"
+          fi
 
+  unit:
+    needs: setup
+    if: needs.setup.outputs.unit == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck, unit tests, platform build
+        run: node scripts/ci.mjs --job unit
+
+  e2e-fixture:
+    needs: setup
+    if: needs.setup.outputs.e2e_fixture == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Read pinned Playwright version
         id: pw
         run: echo "version=$(node -p "require('./apps/platform/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
@@ -35,25 +82,111 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Install Chromium and system deps
         if: steps.browsers.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: pnpm --filter @artyfact/platform exec playwright install --with-deps chromium
       - name: Install system deps only
         if: steps.browsers.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Pull request, scoped to the changes
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: npm run ci -- --changed --base "origin/$BASE_REF"
-      - name: Manual run, everything
-        if: github.event_name == 'workflow_dispatch'
-        run: npm run ci
+        run: pnpm --filter @artyfact/platform exec playwright install-deps chromium
+      - name: Platform e2e against the bundled fixture
+        run: node scripts/ci.mjs --job e2e-fixture
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: e2e-artifacts
-          path: |
-            apps/platform/e2e-artifacts
-            apps/site/e2e-artifacts
+          name: e2e-fixture-artifacts
+          path: apps/platform/e2e-artifacts
           retention-days: 14
           if-no-files-found: ignore
+
+  e2e-fake:
+    needs: setup
+    if: needs.setup.outputs.e2e_fake == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Read pinned Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('./apps/platform/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium and system deps
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm --filter @artyfact/platform exec playwright install --with-deps chromium
+      - name: Install system deps only
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm --filter @artyfact/platform exec playwright install-deps chromium
+      - name: Platform e2e against the in-memory fake platform
+        run: node scripts/ci.mjs --job e2e-fake
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-fake-artifacts
+          path: apps/platform/e2e-artifacts
+          retention-days: 14
+          if-no-files-found: ignore
+
+  site:
+    needs: setup
+    if: needs.setup.outputs.site == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Read pinned Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('./apps/site/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium and system deps
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm --filter @artyfact/platform exec playwright install --with-deps chromium
+      - name: Install system deps only
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm --filter @artyfact/platform exec playwright install-deps chromium
+      - name: Site typecheck, unit tests, build and e2e
+        run: node scripts/ci.mjs --job site
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: site-e2e-artifacts
+          path: apps/site/e2e-artifacts
+          retention-days: 14
+          if-no-files-found: ignore
+
+  ci:
+    # The one required status. Runs even when jobs failed or were skipped, and judges them explicitly.
+    needs: [setup, unit, e2e-fixture, e2e-fake, site]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed or was not needed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          node -e '
+            const needs = JSON.parse(process.env.RESULTS);
+            const bad = Object.entries(needs).filter(([job, { result }]) => job === "setup" ? result !== "success" : !["success", "skipped"].includes(result));
+            if (bad.length) { console.error("ci: " + bad.map(([j, { result }]) => `${j} ${result}`).join(", ")); process.exit(1); }
+            console.log("ci: green");
+          '

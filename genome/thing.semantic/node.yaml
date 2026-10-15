@@ -28,7 +28,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/semantic
+          command: pnpm --filter @artyfact/semantic test
   - id: C.thing.semantic.checks
     title: Changed nodes meet their checks
     claim: Changed nodes meet the checks their kinds declare.

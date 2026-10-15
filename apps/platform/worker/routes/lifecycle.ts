@@ -1,18 +1,16 @@
 import { startVerification, pollVerification, activationDescriptor, verificationOutput } from '../verification';
-import { Hono, type MiddlewareHandler } from 'hono';
+import { Hono } from 'hono';
 import { requireAdmin, requireRealizationSecret } from '../auth';
 import { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan, promoteLifecyclePlan, reviewLifecycleFile, reviewLifecyclePlan, selectLifecycleTask, startLifecycleTask, submitLifecycleTask } from '../lifecycle-service';
 import { reviewLifecycleTask, reviewLifecycleTaskFile } from '../lifecycle-task-review';
 import { systemStub } from '../service';
 import { draftRealizationPlan } from '../tasks/planner';
 import { rpc as call } from '../errors';
-import { assertImportReviewed } from '../import-review';
 import { body, origin, type AppEnv, type Ctx } from './app';
+import { requireImportReviewed as reviewed } from './import-review';
 import { MAX_SUBMIT_BODY } from '../evidence';
 const prefix='/systems/:id/realization-plans';
 const plan=`${prefix}/:pid`,task=`${plan}/tasks/:tid`;
-/** Creating or starting work waits for the System's import review (409 `import-unreviewed`). */
-const reviewed:MiddlewareHandler<AppEnv>=async(c,next)=>{await assertImportReviewed(c.env,c.req.param('id')!);await next();};
 const ids=(c:Ctx)=>[c.req.param('id')!,c.req.param('pid')!,c.req.param('tid')!] as const;
 async function authed(c:Ctx) {const [sid,pid,tid]=ids(c);await requireRealizationSecret(c.env,c.req.header('authorization'),async()=>{try{const p=await systemStub(c.env,sid).realizationPlan(pid),t=p.tasks.find(t=>t.id===tid),a=t?.attempts.at(-1);return [{systemId:sid,hash:a?await systemStub(c.env,sid).realizationSecretHash(a.realizationId):null}];}catch{return [];}});}
 // Reads follow the System's visibility like /work (public); every write is admin or realization-secret only.

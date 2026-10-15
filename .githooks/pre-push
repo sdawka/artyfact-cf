@@ -1,4 +1,8 @@
 #!/bin/sh
-# Runs CI locally for the commits being pushed. Skip once with git's own `--no-verify` flag.
+# Fast local gate: typecheck and unit tests of the changed workspaces, no e2e. Hosted CI is the merge gate.
+# CI_LOCAL=full runs every job (what hosted CI runs). Skip once with git's own `--no-verify` flag.
 cd "$(git rev-parse --show-toplevel)" || exit 1
-exec npm run ci -- --changed
+if [ "$CI_LOCAL" = "full" ]; then
+  exec pnpm run ci --changed
+fi
+exec pnpm run ci --fast

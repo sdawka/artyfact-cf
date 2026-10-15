@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - apps/*
+  - examples/*
+
+# Dependencies allowed to run install scripts (esbuild and workerd fetch their native binaries).
+allowBuilds:
+  esbuild: true
+  workerd: true

@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Fixture mode (default): `vite preview` of the static SPA built by `vite.fixture.config.ts` (no Cloudflare plugin, no login). The API 404s, so the SPA falls back
- * to its bundled fixture. Live mode (`ARTYFACT_E2E_LIVE=1`): `wrangler dev` serves the SPA built by `npm run build` and the Worker API together; specs tagged `@live` run only there, specs tagged `@fixture`
+ * to its bundled fixture. Live mode (`ARTYFACT_E2E_LIVE=1`): `wrangler dev` serves the SPA built by `pnpm run build` and the Worker API together; specs tagged `@live` run only there, specs tagged `@fixture`
  * only in fixture mode. Fake mode (`ARTYFACT_E2E_FAKE=1`): `vite` boots the Worker with `FAKE_ARTIFACTS=1` (in-memory Artifacts seeded from `examples/*`)
  * and `ADMIN_TOKEN=test`; only specs tagged `@fake` run there, one at a time because they share one in-memory platform. A second server
  * (port + 1, `FAKE_SEED=artyfact`) serves the self-model specs, so Artyfact's own Genome is exercised too. `fake-import` runs the
@@ -45,10 +45,10 @@ export default defineConfig({
   webServer: [
     {
       command: fake
-        ? `npx vite --port ${port} --strictPort`
+        ? `pnpm exec vite --port ${port} --strictPort`
         : live
-          ? `npx wrangler dev --port ${port}`
-          : `npx vite preview --config vite.fixture.config.ts --port ${port} --strictPort`,
+          ? `pnpm exec wrangler dev --port ${port}`
+          : `pnpm exec vite preview --config vite.fixture.config.ts --port ${port} --strictPort`,
       url: baseURL,
       env: fake ? { FAKE_ARTIFACTS: "1", ARTYFACT_E2E_FAKE: "1", ADMIN_TOKEN: "test", FAKE_MODEL_DELTA: "1" } : live ? {} : { ARTYFACT_E2E_FIXTURE: "1" },
       reuseExistingServer: !process.env.CI,
@@ -56,7 +56,7 @@ export default defineConfig({
     },
     ...(fake
       ? [{
-          command: `npx vite --port ${port + 1} --strictPort`,
+          command: `pnpm exec vite --port ${port + 1} --strictPort`,
           url: selfURL,
           env: { FAKE_ARTIFACTS: "1", ARTYFACT_E2E_FAKE: "1", ADMIN_TOKEN: "test", FAKE_SEED: "artyfact", VITE_CACHE_DIR: "node_modules/.vite-self" },
           reuseExistingServer: !process.env.CI,

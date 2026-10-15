@@ -34,7 +34,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/ontology
+          command: pnpm --filter @artyfact/ontology test
   - id: C.thing.ontology.checks
     title: Changed nodes meet their checks
     claim: Changed nodes meet the checks their kinds declare.

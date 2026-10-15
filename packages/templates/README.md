@@ -54,7 +54,7 @@ Relations added: `exposes`, `calls`, `deploys`, `implements`. `system`, `thing`,
 ## Adding a template or pack
 
 1. Create `thing/<name>@<v>/template.yaml` (or `system/...`) as meta@1. A new template needs no `template.v1.yaml`.
-2. Run `npm run build -w @artyfact/templates` to regenerate `src/generated/files.ts` (also runs on `prepare` and `pretest`) and commit the result.
+2. Run `pnpm --filter @artyfact/templates build` to regenerate `src/generated/files.ts` (also runs on `prepare` and `pretest`) and commit the result.
 3. Add or extend a test: templates must parse with `Template`; every rule in a pack needs a `.message` and a valid/invalid case in `test/fixtures/`.
 
 **Versioning rule:** never edit a published `@<v>`. Make a new version directory or file (`@2`) and let Things and kits move to it explicitly.

@@ -28,13 +28,13 @@ the real model.
 ## 0. Prerequisites (once)
 
 - Node 24, git, jq, `openssl`.
-- Run `npx wrangler login` first. `npm run dev` fails without it, because the
+- Run `pnpm exec wrangler login` first. `pnpm run dev` fails without it, because the
   Worker's Artifacts binding is remote even in local dev.
 - `cf` logged in (`cf auth login`). Wrangler and `cf` log in separately, so check that both show the same account
   before creating anything:
 
   ```sh
-  npx wrangler whoami      # account id 1bae12d5…
+  pnpm exec wrangler whoami   # account id 1bae12d5…
   cf auth whoami           # same id
   ```
 
@@ -45,12 +45,12 @@ the real model.
 Once, in the checkout:
 
 ```sh
-npm install
+pnpm install
 # Local secrets (git-ignored, owner-only). Never paste the token anywhere.
 umask 077
 cat > apps/platform/.dev.vars <<VARS
 ADMIN_TOKEN=$(openssl rand -hex 32)
-ACCOUNT_ID=$(npx wrangler whoami 2>/dev/null | grep -Eo '[0-9a-f]{32}' | head -1)
+ACCOUNT_ID=$(pnpm exec wrangler whoami 2>/dev/null | grep -Eo '[0-9a-f]{32}' | head -1)
 FAKE_S1=1
 ALLOW_LOCAL_PREVIEW=1
 PREVIEW_HOST_ALLOWLIST=
@@ -63,7 +63,7 @@ VARS
 ```sh
 export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:1337/api/systems/system.peopling
 mkdir -p -m 700 "$RUN"; umask 077
-alias artyfact='npx --prefix "$REPO" --no-install artyfact'
+alias artyfact='pnpm -C "$REPO" exec artyfact'
 ```
 
 **Only in terminal ops**, the one the admin uses, set the admin token in a plain shell variable `ADMIN_TOKEN`, without
@@ -86,7 +86,7 @@ Follow [Deploy: production admin token](deploy.md#production-admin-token) for ro
 Terminal **P**:
 
 ```sh
-npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts binding is remote
+pnpm --filter @artyfact/platform dev   # http://localhost:1337, Artifacts binding is remote
 ```
 
 ## 2. `artyfact init`: push and import in one command (about 30 s)
@@ -100,7 +100,7 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" ./scripts/bootstrap.sh   # = npx artyfact in
 ```
 
 `init` reads the root `node.yaml` and derives every name from the System id: slug `peopling`, repos
-`peopling.genome` and `peopling.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
+`peopling.genome` and `peopling.app`, forks `<repo>--r<N>`. It checks that `pnpm exec wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
 creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
 `POST /api/systems/import` with `$ARTYFACT_ADMIN_TOKEN`. Tokens reach git only through `GIT_CONFIG_*` variables,
@@ -420,7 +420,7 @@ Steps 5 to 9 were walked on the fake platform, in-memory Artifacts seeded from `
 local git transport:
 
 ```sh
-cd apps/platform && FAKE_ARTIFACTS=1 ADMIN_TOKEN=test FAKE_S1=1 npx vite --port 1339 --strictPort
+cd apps/platform && FAKE_ARTIFACTS=1 ADMIN_TOKEN=test FAKE_S1=1 pnpm exec vite --port 1339 --strictPort
 export ARTYFACT_PLATFORM=http://localhost:1339
 export ARTYFACT_ALLOW_REMOTE_HOST=fake.artifacts.local GIT_CONFIG_GLOBAL=$PWD/gitconfig
 # The fake admin token is `test`: set ADMIN_TOKEN=test in this shell without exporting it; admin commands pass it inline.
@@ -471,7 +471,7 @@ These come from the 2026-10-12 run of the older realization commands; the task c
 
 ```sh
 cf artifacts namespaces create --namespace artyfact-test      # once
-cd apps/platform && ARTYFACT_INTEGRATION=1 npx vitest run --project integration
+cd apps/platform && ARTYFACT_INTEGRATION=1 pnpm exec vitest run --project integration
 ```
 
 This test still drives the older realization commands (`start`, `submit`, `promote`), which stay available. It runs its own `wrangler dev` (`wrangler.integration.jsonc`), then `artyfact init` on a copy of the example
@@ -504,12 +504,12 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
   re-run with `--adopt` to commit the project on top (a fast-forward; init never force-pushes).
 - **Health `fail` with "buildId does not match the commit":** the preview served another `BUILD_ID`. In this run the
   first preview served `dev`. Restart it with `--var BUILD_ID:$(git rev-parse HEAD)`. Promotion re-runs the probe.
-- **Wrangler version:** run `npx wrangler --version`. It must be 4.145 or later; 4.149.0 is verified.
+- **Wrangler version:** run `pnpm exec wrangler --version`. It must be 4.145 or later; 4.149.0 is verified.
 - **`cf artifacts namespaces create` prints help:** the name goes in `--namespace <name>`, not as a positional
   argument.
 - **Schema mismatch after pulling new code:** stop the dev server and move `apps/platform/.wrangler/state` aside.
   There are no Durable Object migrations yet. Old forks in the namespace are skipped by name.
-- **Dev server exits after a branch switch or `npm install`:** restart `npm run dev`. The Durable Object state
+- **Dev server exits after a branch switch or `pnpm install`:** restart `pnpm run dev`. The Durable Object state
   survives restarts.
 - **Missed events in the UI:** server-sent events are not replayed. Reload the page, or rely on the UI's polling.
 
@@ -517,8 +517,8 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 
 ```sh
 # stop the dev server first
-for r in $(npx wrangler artifacts repos list --namespace artyfact --json | jq -r '.[].name'); do
-  npx wrangler artifacts repos delete "$r" --namespace artyfact --force
+for r in $(pnpm exec wrangler artifacts repos list --namespace artyfact --json | jq -r '.[].name'); do
+  pnpm exec wrangler artifacts repos delete "$r" --namespace artyfact --force
 done
 rm -rf apps/platform/.wrangler/state ./work "$RUN"
 ```

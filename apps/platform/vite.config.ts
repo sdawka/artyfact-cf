@@ -22,7 +22,7 @@ const configFor = (command: "build" | "serve") => ({
   // repo-root genome/, Artyfact itself): no remote binding, no persisted state (the fake repos live in the isolate),
   // the fake System One (deployed vars no longer set FAKE_S1), no AI or BROWSER, and an admin token unless ADMIN_TOKEN is set.
   // The deployed wrangler.jsonc is the hosted demo (HOSTED_DEMO=1, no AI or BROWSER). A dev server is never the demo;
-  // `npm run dev` (real backend) adds Workers AI and Browser Run, which are remote-only and need a Cloudflare login like
+  // `pnpm run dev` (real backend) adds Workers AI and Browser Run, which are remote-only and need a Cloudflare login like
   // ARTIFACTS. A build keeps the deployed config as is.
   plugins: [react(), ...(fake ? [] : [noSelfSeed()]), cloudflare({
     ...((process.env.ARTYFACT_E2E_FIXTURE === "1" || fake)
