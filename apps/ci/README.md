@@ -1,6 +1,6 @@
 # artyfact-ci
 
-The Worker that builds and deploys app commits for the artyfact platform. It hosts the `artyfact-ci` Workflow (`ArtyfactCI`, built on `@cloudflare/ci`). The platform starts it through a cross-script Workflows binding (`env.CI`) whenever an app candidate is submitted or a promotion asks for a production deploy. Nothing here listens for pushes.
+The Worker that builds and deploys app commits for the artyfact platform. It hosts the `artyfact-ci` Workflow (`ArtyfactCI`, built on `@cloudflare/ci`). The platform starts it through a cross-script Workflows binding (`env.CI`) whenever an app candidate is submitted or a promotion asks for a production deploy. App pushes have no trigger here. The one push listener is the public site: the `artyfact-site-deploys` queue receives pushes to `artyfact/platform.builds` main and starts `artyfact-site-deploy`, which uploads that commit's `site/dist` as `artyfact-site` ([release-artifacts.md](../../docs/design/release-artifacts.md)).
 
 One run does this:
 

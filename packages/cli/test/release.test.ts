@@ -141,6 +141,19 @@ describe("artyfact release", () => {
     expect(h.out.join("\n")).not.toMatch(/art_v1_/);
   });
 
+  it("--site-via-ci pushes the site but deploys only the platform locally", async () => {
+    const h = harness("site-via-ci");
+    const r = await release({ siteViaCi: true }, h.io);
+    expect(r.action).toBe("created");
+    expect(h.lsTree()).toEqual(expect.arrayContaining(["site/wrangler.jsonc", "site/dist/index.html"]));
+    expect(h.deploys.map((d) => d.config)).toEqual(["platform/artyfact_platform/wrangler.json"]);
+    expect(r.deployed).toEqual(["artyfact-platform"]);
+    expect(h.out.join("\n")).toMatch(/artyfact-site: artyfact-ci deploys it from the push of platform\.builds@/);
+    h.deploys.length = 0;
+    await release({ siteViaCi: true }, h.io);
+    expect(h.out.join("\n")).toMatch(/nothing was pushed \(reused\)/);
+  });
+
   it("is idempotent: the same source commit reuses the existing release and deploys it again", async () => {
     const h = harness("twice");
     const first = await release({}, h.io);

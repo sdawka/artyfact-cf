@@ -19,6 +19,8 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | R2 bucket `artyfact-evidence` (binding `EVIDENCE`) | screenshots for visual checks | `npx wrangler r2 bucket create artyfact-evidence` before the first deploy |
 | Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `npm run dev` adds both; the deployed hosted demo has neither |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
+| Queue `artyfact-site-deploys` (consumer `artyfact-ci`) and Workflow `artyfact-site-deploy` | public site deploys from `platform.builds` | `npx wrangler queues create artyfact-site-deploys`, then deploy `artyfact-ci` |
+| Event subscription `artyfact-platform.builds-site-deploy` | `pushed` on `artyfact/platform.builds` → `artyfact-site-deploys` | `node scripts/site-deploy-subscription.mjs` (idempotent; `--dry-run` previews) |
 
 There is no D1. R2 holds only evidence images. The deployed Worker is the hosted demo (`HOSTED_DEMO=1` in `wrangler.jsonc`): System One, visual checks, intent translation and plan drafting are simulated, and no model key or binding is read, so a hosted run spends nothing on models. To judge with Clef or Jev, run the platform locally (`npm run dev`) on your own account with keys in `.dev.vars`; see the platform README for `S1_PROVIDER`. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
@@ -33,7 +35,9 @@ There is no D1. R2 holds only evidence images. The deployed Worker is the hosted
 
 ## Redeploy
 
-`npm run release`, run from a clean checkout of main, is the deploy path for both Workers; the first release ran on 2026-10-15 as tag `v20261015-c225282`. It builds the platform and the site, commits the outputs and a `release.json` to the Artifacts repo `artyfact/platform.builds` (tag `v<yyyymmdd>-<sha7>`, one per source commit, reused when it exists) and runs `wrangler deploy` for both Workers from that checkout, so the deployed version always comes from Artifacts. It refuses a dirty tree, prints no tokens, and `--dry-run` writes nothing remote. Needs `npx wrangler login` and `cf auth login` on the same account. Design and the optional Workers Builds hookup: [design/release-artifacts.md](design/release-artifacts.md).
+`npm run release`, run from a clean checkout of main, is the deploy path for both Workers; the first release ran on 2026-10-15 as tag `v20261015-c225282`, before tags became `v-<sha12>`. It builds the platform and the site, commits the outputs and a `release.json` to the Artifacts repo `artyfact/platform.builds` (tag `v-<sha12>`, one per source commit, reused when it exists) and runs `wrangler deploy` for both Workers from that checkout, so the deployed version always comes from Artifacts. It refuses a dirty tree, prints no tokens, and `--dry-run` writes nothing remote. Needs `npx wrangler login` and `cf auth login` on the same account. Design: [design/release-artifacts.md](design/release-artifacts.md).
+
+`npm run release -- --site-via-ci` deploys only the platform locally. The push to `platform.builds` main starts `artyfact-site-deploy` in `artyfact-ci`, which uploads the committed `site/dist` for that exact commit (no rebuild) with its `CF_TOKEN`. Check the outcome with `GET https://artyfact-ci.<subdomain>.workers.dev/site-deploys/latest` (or `/site-deploys/<builds-commit>`) and the `VERIFICATION_TOKEN` bearer: it records the commit, release tag, source commit and Worker version id. A reused release pushes nothing, so the site is not redeployed. `artyfact operator publish` pushes to the same `main`, so a verified release deploys the site the same way.
 
 `npm run deploy` (builds the platform, then `wrangler deploy` from the worktree) remains the manual fallback. Secrets and the Queue persist either way.
 

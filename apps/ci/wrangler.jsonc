@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // artyfact-ci builds and deploys app commits. The platform starts its Workflow through a cross-script binding
-  // (apps/platform/wrangler.jsonc `workflows[].script_name = "artyfact-ci"`), so there is no push trigger here.
+  // (apps/platform/wrangler.jsonc `workflows[].script_name = "artyfact-ci"`), so app pushes have no trigger here.
   "name": "artyfact-ci",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-12",
@@ -16,8 +16,12 @@
   "exports": { "CiSandbox": { "type": "durable-object", "storage": "sqlite" } },
   "workflows": [
     { "name": "artyfact-ci", "binding": "CI_WORKFLOW", "class_name": "ArtyfactCI" },
-    { "name": "artyfact-verification", "binding": "VERIFICATION_WORKFLOW", "class_name": "ArtyfactVerification" }
+    { "name": "artyfact-verification", "binding": "VERIFICATION_WORKFLOW", "class_name": "ArtyfactVerification" },
+    { "name": "artyfact-site-deploy", "binding": "SITE_DEPLOY_WORKFLOW", "class_name": "ArtyfactSiteDeploy" }
   ],
+  // Pushes to artyfact/platform.builds main, delivered by the Artifacts event subscription that
+  // scripts/site-deploy-subscription.mjs creates. Each commit starts one artyfact-site-deploy instance.
+  "queues": { "consumers": [{ "queue": "artyfact-site-deploys", "max_batch_size": 10, "max_retries": 3 }] },
   // Workspace snapshots and the install cache. BACKUP_BUCKET_NAME must equal bucket_name.
   "r2_buckets": [{ "binding": "BACKUP_BUCKET", "bucket_name": "artyfact-ci-cache" }],
   // Secrets (wrangler secret put): VERIFICATION_TOKEN (only the authenticated /verify API),

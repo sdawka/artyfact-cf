@@ -78,7 +78,7 @@ const REFUSED: Record<string, string> = {
 /** Durable Object migration fields an app may use; `transferred_classes` / `from_script` move another Worker's state. */
 const MIGRATION_KEYS: ReadonlySet<string> = new Set(["tag", "new_classes", "new_sqlite_classes", "renamed_classes", "deleted_classes"]);
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+export const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
 /** The all-zero id app repos commit in place of a real D1 database id (or any all-zero UUID-shaped string). */
 const PLACEHOLDER_D1_ID = /^[0-]*$/;
@@ -294,15 +294,15 @@ export function deployConfig(spec: DeploySpec, o: { workerName: string; accountI
 export const shQuote = (v: string) => `'${v.replaceAll("'", `'\\''`)}'`;
 
 /** `env -i` with only what Wrangler needs: no NODE_OPTIONS, NPM_CONFIG_*, repo PATH or `.env`-supplied overrides. */
-function cleanEnv(home: string, extra: string[] = []): string {
+export function cleanEnv(home: string, extra: string[] = []): string {
   return ["/usr/bin/env", "-i", `PATH=${SAFE_PATH}`, `HOME=${home}`, "CI=true", "WRANGLER_SEND_METRICS=false", ...extra].join(" ");
 }
 
-const refuse = (why: string) => `{ echo ${shQuote(`artyfact: refusing to deploy: ${why}`)} >&2; exit 97; }`;
-const noSymlinks = (dir: string, what: string) => `[ -z "$(find ${dir} -type l -print -quit)" ] || ${refuse(`${what} contains a symlink`)}`;
+export const refuse = (why: string) => `{ echo ${shQuote(`artyfact: refusing to deploy: ${why}`)} >&2; exit 97; }`;
+export const noSymlinks = (dir: string, what: string) => `[ -z "$(find ${dir} -type l -print -quit)" ] || ${refuse(`${what} contains a symlink`)}`;
 
 /** Every script starts here: fail fast, and resolve tools from the image's system PATH only. */
-const PRELUDE = ["set -eu", `export PATH=${SAFE_PATH}`, "unset NODE_OPTIONS NODE_PATH"];
+export const PRELUDE = ["set -eu", `export PATH=${SAFE_PATH}`, "unset NODE_OPTIONS NODE_PATH"];
 
 /** Step 1: bundle the repo with the pinned Wrangler, no credentials. Writes only `distDir(nonce)`. */
 export function bundleCommand(nonce: string): string {

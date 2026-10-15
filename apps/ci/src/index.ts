@@ -1,6 +1,8 @@
 /**
  * artyfact-ci: builds and deploys app commits for the artyfact platform. The platform starts the `artyfact-ci`
- * Workflow itself (cross-script Workflows binding) with {@link CiBuildParams}; no push trigger is configured.
+ * Workflow itself (cross-script Workflows binding) with {@link CiBuildParams}; app pushes have no trigger here. The one
+ * push trigger is the public site: pushes to `artyfact/platform.builds` main arrive on the `artyfact-site-deploys`
+ * queue and start `artyfact-site-deploy` (see site-deploy.ts).
  */
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
@@ -10,6 +12,10 @@ import type { VerificationRequest } from "@artyfact/model";
 import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
 import { runPipeline, type CiLike, type DoStep, type FetchLike } from "./pipeline";
 import { readVerificationGenome } from "./verification-artifacts";
+import {
+  handleSiteDeployBatch, handleSiteDeployHttp, recordSiteDeploy, runSiteDeploy, SITE, siteDeployInstanceId, siteDeployKey,
+  type SiteDeployInput, type SiteDeployParams, type SiteQueueMessage,
+} from "./site-deploy";
 import {
   authorizeVerification,
   createQueuedResult,
@@ -29,8 +35,10 @@ export interface CiEnv extends CiBindings {
   WORKERS_SUBDOMAIN: string;
   /** Bearer for build reports; the platform holds the same value. */
   CI_REPORT_TOKEN: string;
-  /** Dedicated bearer for POST/GET /verify; never shared with CI reports. */
+  /** Operator bearer for POST/GET /verify and the read-only GET /site-deploys; never shared with CI reports. */
   VERIFICATION_TOKEN: string;
+  /** One public site deploy per platform.builds commit, started by the `artyfact-site-deploys` queue consumer. */
+  SITE_DEPLOY_WORKFLOW: Workflow<SiteDeployParams>;
   /** Separate Workflow class for credentialless, non-deploying self verification. */
   VERIFICATION_WORKFLOW: Workflow<VerificationRequest>;
   /** App D1 databases: `systemId` -> `database_name` -> account id (a JSON var; see deploy-config `parseD1DatabaseIds`). */
@@ -42,6 +50,7 @@ export interface CiEnv extends CiBindings {
 /** The engine's payload with the platform's params riding along (the engine ignores extra fields). */
 type Payload = CiParams<CloudflareArtifacts> & { artyfact: CiBuildParams };
 type VerificationPayload = CiParams<CloudflareArtifacts> & { verification: VerificationRequest };
+type SiteDeployPayload = CiParams<CloudflareArtifacts> & { site: SiteDeployParams };
 
 /** Map the platform's params onto the engine's `CiParams` (Artifacts provider, push of `refs/heads/main`). */
 export function toCiParams(p: CiBuildParams): Payload {
@@ -119,9 +128,55 @@ export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv>
   }
 }
 
+/** Check out the exact platform.builds commit; the source stays pinned to the release repo in `artyfact`. */
+export function toSiteDeployCiParams(p: SiteDeployParams): SiteDeployPayload {
+  return {
+    provider: "cloudflare-artifacts", providerData: { namespace: SITE.namespace }, event: { type: "push" },
+    owner: SITE.namespace, repo: SITE.repo, sha: p.commit, remote: "cloudflare", trigger: "push", ref: p.commit,
+    site: p,
+  };
+}
+
+const isSiteDeployParams = (v: unknown): v is SiteDeployParams => !!v && typeof v === "object" && "commit" in v && !("provider" in v);
+
+export class ArtyfactSiteDeploy extends CIWorkflow<CloudflareArtifacts, CiEnv> {
+  override async run(event: WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step: WorkflowStep) {
+    const raw: unknown = event.payload;
+    const payload = isSiteDeployParams(raw) ? toSiteDeployCiParams(raw) : event.payload;
+    return super.run({ ...event, payload } as WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step);
+  }
+
+  protected async pipeline(event: WorkflowEvent<CiParams<CloudflareArtifacts>>, step: WorkflowStep, ci: CiContext): Promise<void> {
+    const site = (event.payload as Partial<SiteDeployPayload>).site;
+    if (!site) throw new Error("artyfact-site-deploy only runs commits its queue consumer accepted");
+    const repo = () => this.env.ARTIFACTS.get(SITE.repo);
+    await runSiteDeploy({
+      commit: site.commit, accountId: this.env.CLOUDFLARE_ACCOUNT_ID,
+      step: ((name: string, fn: () => Promise<unknown>) => step.do(name, fn as () => Promise<never>)) as DoStep,
+      ci: ci as unknown as SiteDeployInput["ci"],
+      readFile: async (path) => {
+        const blob = await (await repo()).readFile({ ref: site.commit, path });
+        return blob ? blob.text() : null;
+      },
+      mainHead: async () => (await (await repo()).log({ ref: "main", limit: 1 }))[0]?.hash ?? null,
+      record: (record) => recordSiteDeploy(this.env.BACKUP_BUCKET, record),
+    });
+  }
+}
+
 export default {
+  async queue(batch: MessageBatch, env: CiEnv): Promise<void> {
+    await handleSiteDeployBatch(batch.messages as readonly SiteQueueMessage[], {
+      recorded: async (commit) => !!await env.BACKUP_BUCKET.head(siteDeployKey(commit)),
+      // createBatch skips an instance id that already exists, so a redelivered push starts nothing new.
+      start: async (commit) => { await env.SITE_DEPLOY_WORKFLOW.createBatch([{ id: siteDeployInstanceId(commit), params: { commit } }]); },
+    });
+  },
+
   async fetch(request: Request, env: CiEnv): Promise<Response> {
-    if (new URL(request.url).pathname === "/health") return Response.json({ ok: true, service: "artyfact-ci" });
+    const { pathname } = new URL(request.url);
+    if (pathname === "/health") return Response.json({ ok: true, service: "artyfact-ci" });
+    if (pathname.startsWith("/site-deploys/")) return handleSiteDeployHttp(request, { token: env.VERIFICATION_TOKEN, bucket: env.BACKUP_BUCKET });
     return handleVerificationHttp(request, {
       token: env.VERIFICATION_TOKEN,
       authorize: (verification) => authorizeFromArtifacts(env, verification),

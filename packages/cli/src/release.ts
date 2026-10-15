@@ -16,6 +16,8 @@ import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
 
 export const BUILDS_REPO = "platform.builds";
+/** Deployed by artyfact-ci from each push to the builds repo's main when `--site-via-ci` is set. */
+export const SITE_WORKER = "artyfact-site";
 const DEFAULT_NS = "artyfact";
 const IDENTITY = ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
 
@@ -73,6 +75,8 @@ export interface ReleaseOptions {
   dryRun?: boolean;
   noBuild?: boolean;
   noDeploy?: boolean;
+  /** Push the outputs but leave artyfact-site to artyfact-ci, which deploys it from the pushed commit. */
+  siteViaCi?: boolean;
 }
 
 export interface ReleaseResult {
@@ -226,6 +230,12 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
       const deploy = io.deploy ?? wranglerDeploy(root);
       const env = { CLOUDFLARE_ACCOUNT_ID: account };
       for (const w of WORKERS) {
+        if (opts.siteViaCi && w.name === SITE_WORKER) {
+          io.out(action === "created"
+            ? `  ${w.name}: artyfact-ci deploys it from the push of ${repo}@${buildsCommit.slice(0, 7)} (GET /site-deploys/latest)`
+            : `  ${w.name}: nothing was pushed (${action}), so artyfact-ci does not redeploy it`);
+          continue;
+        }
         if (!existsSync(join(checkout, w.config))) throw new CliError(`${w.config} is missing from ${repo} at ${buildsCommit.slice(0, 7)}`);
         io.out(`  deploy ${w.name} from ${repo}@${buildsCommit.slice(0, 7)} (${w.config})${dryRun ? " [dry-run]" : ""}`);
         deploy(checkout, w.config, { dryRun, env });
@@ -245,11 +255,13 @@ export async function releaseCommand(args: string[], io: ReleaseIo): Promise<num
     args, strict: true, allowPositionals: false,
     options: {
       namespace: { type: "string" }, repo: { type: "string" },
-      "dry-run": { type: "boolean" }, "no-build": { type: "boolean" }, "no-deploy": { type: "boolean" }, json: { type: "boolean" },
+      "dry-run": { type: "boolean" }, "no-build": { type: "boolean" }, "no-deploy": { type: "boolean" }, "site-via-ci": { type: "boolean" },
+      json: { type: "boolean" },
     },
   });
   const r = await release({
     ns: values.namespace, repo: values.repo, dryRun: values["dry-run"], noBuild: values["no-build"], noDeploy: values["no-deploy"],
+    siteViaCi: values["site-via-ci"],
   }, io);
   if (values.json) io.out(JSON.stringify(r));
   return 0;
