@@ -141,6 +141,27 @@ describe("parts authoring", () => {
     expect(requests.at(-1)).toMatchObject({ method: "GET", url: "/api/systems/system.demo/parts/part.private/1", auth: `Bearer ${"a".repeat(64)}` });
   });
 
+  it("surfaces a private-read failure with the method, path, status and raw body", async () => {
+    const recipe = join(tmp, "missing-recipe.json");
+    writeFileSync(recipe, JSON.stringify({ id: "recipe.missing", contributions: [{ id: "gone", part: { id: "part.gone", version: "9" } }] }));
+    const result = await run(["parts", "compose", recipe, "--system", "system.demo", "--out", join(tmp, "missing-out")], { ARTYFACT_SECRET: "b".repeat(64) });
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('GET /api/systems/system.demo/parts/part.gone/9 -> 404 {"error":{"code":"not-found","message":"missing"}}');
+    expect(result.err).not.toContain("b".repeat(64));
+  });
+
+  it("reports an unreachable Parts catalog through the injected fetch without the credential", async () => {
+    const recipe = join(tmp, "offline-recipe.json");
+    writeFileSync(recipe, JSON.stringify({ id: "recipe.offline", contributions: [{ id: "astro", part: { id: astro.id, version: astro.version } }] }));
+    const out: string[] = [], err: string[] = [];
+    const offline = (async () => { throw new TypeError("connection refused"); }) as unknown as typeof fetch;
+    const code = await main(["parts", "compose", recipe, "--out", join(tmp, "offline-out")],
+      { cwd: tmp, env: { ARTYFACT_URL: base, ARTYFACT_ADMIN_TOKEN: "admin-offline" }, fetch: offline, out: (s) => out.push(s), err: (s) => err.push(s) });
+    expect(code).toBe(1);
+    expect(err.join("\n")).toContain(`cannot reach Parts catalog at ${base}: connection refused`);
+    expect(err.join("\n")).not.toContain("admin-offline");
+  });
+
   it("composes pinned catalog parts, saves provenance/baseline, and runs commands only when explicit", async () => {
     const recipe = join(tmp, "recipe.json");
     writeFileSync(recipe, JSON.stringify({ id: "recipe.astro-ui", contributions: [

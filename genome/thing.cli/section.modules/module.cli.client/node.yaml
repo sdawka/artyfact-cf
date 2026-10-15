@@ -7,3 +7,4 @@ fields:
 files:
   - src/api.ts
   - src/platform-url.ts
+  - src/transport.ts
