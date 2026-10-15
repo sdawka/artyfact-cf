@@ -5,10 +5,10 @@
 
 - Current: local bootstrap foundation implemented on `feat/local-bootstrap`, based on merged #84 / `c2252821`. [[roadmap]] carries acceptance; evidence in [[journals/2026-10-14-local-bootstrap]].
 - Verified: full local CI passed (402s); final operator/UI and source-model regressions passed. Independent verifier/operator reviews clear. Cloud verifier deployed and authenticated health smoke passed.
-- Next: ship [PR #85](https://github.com/sdawka/artyfact-cf/pull/85) to main after every CI check passes. Both live-run integration fixes are locally verified; rerun the cloud candidate, then resume the local review/analytics Task.
+- Next: ship [PR #85](https://github.com/sdawka/artyfact-cf/pull/85) to main after every CI check passes. Live testing also exposed the SDK's missing Git index; the verifier reconstructs it before installation. Rerun the cloud candidate, then resume the local review/analytics Task.
 - Remaining milestone: passing real Cloudflare execution (first attempt failed), initial and implementation human approvals, K2/Basin event improvement and approved local activation. Local operator is at http://127.0.0.1:1348; US$1 incremental cloud-test budget. Hosting follows later.
 - Tracking: canonical Markdown authoritative. RPC sync pending a confirmed separate Artyfact destination; preserve wrong-project conflict. Original checkout user edits untouched.
-- Last updated: 2026-10-14T21:20:00-04:00.
+- Last updated: 2026-10-14T21:32:00-04:00.
 
 ## Intent integrity release
 

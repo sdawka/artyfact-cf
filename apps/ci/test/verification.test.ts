@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { VerificationRequest, VerificationResult } from "@artyfact/model";
 import { verificationModelDigest } from "@artyfact/model";
 import {
@@ -48,6 +52,26 @@ describe("verification authorization", () => {
 });
 
 describe("verification plan", () => {
+  it("indexes the exported source before installation adds generated files", () => {
+    const root = mkdtempSync(join(tmpdir(), "artyfact-export-test-"));
+    const workspace = join(root, "workspace");
+    const bin = join(root, "bin");
+    try {
+      mkdirSync(workspace);
+      mkdirSync(bin);
+      writeFileSync(join(workspace, ".gitignore"), "tracked.txt\nnode_modules/\n");
+      writeFileSync(join(workspace, "tracked.txt"), "an ignored but committed source file\n");
+      writeFileSync(join(bin, "npm"), "#!/bin/sh\nmkdir -p node_modules\nprintf generated > node_modules/output\n", { mode: 0o755 });
+      writeFileSync(join(bin, "npx"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+      const command = planVerificationSteps({ ...base, checks: [] })[0]!.command;
+      execFileSync("sh", ["-c", command], { cwd: workspace, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdio: "pipe" });
+      const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: workspace, encoding: "utf8" }).split("\0").filter(Boolean);
+      expect(tracked).toEqual([".gitignore", "tracked.txt"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("runs setup, the full gate, and exact quoted checks in one bounded credentialless runner", () => {
     const request = { ...base, checks: [{ ...base.checks![0], command: `printf '%s\\n' "it's exact" # comment` }] };
     const steps = planVerificationSteps(request);

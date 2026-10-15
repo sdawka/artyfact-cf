@@ -63,6 +63,9 @@ const shellQuote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
 /** Fixed profile plus exact commands already authorized from the accepted Genome, in one unsnapshotted execution. */
 export function planVerificationSteps(request: VerificationRequest): VerificationPlannedStep[] {
   const commands = [
+    // Artifacts checkout exports the pinned tree without .git. Inventory tests need its exact source index,
+    // including committed files now matched by .gitignore, before installation creates generated files.
+    "git init -q && git add -f -A",
     "npm ci",
     "npx --no-install playwright install --with-deps chromium",
     "npm run ci -- --ultra-compact",
