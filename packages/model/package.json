@@ -8,8 +8,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@artyfact/ontology": "*",
-    "@artyfact/rules": "*",
+    "@artyfact/ontology": "workspace:*",
+    "@artyfact/rules": "workspace:*",
     "yaml": "^2.9.1",
     "zod": "^4.6.6"
   },

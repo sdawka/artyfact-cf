@@ -1,6 +1,6 @@
 /**
  * The Worker's Git push against the real Artifacts service (namespace `artyfact-test`).
- * Opt-in: ARTYFACT_INTEGRATION=1 npm test -w @artyfact/platform -- --project integration test/integration/git-push.test.ts
+ * Opt-in: ARTYFACT_INTEGRATION=1 pnpm --filter @artyfact/platform test --project integration test/integration/git-push.test.ts
  * Needs `wrangler` logged in. Creates one scratch repo `b1-push-<run>`, seeds it with git, then drives `pushCommit` (the
  * exact code the editor runs in the Worker) over smart HTTP with a 300 s write token, and deletes the repo afterwards.
  * Tokens travel only in the environment / headers and are never printed.

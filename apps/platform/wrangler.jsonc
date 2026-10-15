@@ -19,7 +19,7 @@
   "flagship": [{ "binding": "FLAGS", "app_id": "ce754c03-3f63-4a52-a84f-371727239d4a" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   // No Workers AI (AI) or Browser Run (BROWSER) here: the deployed Worker is the hosted demo (HOSTED_DEMO=1), whose
-  // judgments are simulated. `npm run dev` adds both bindings and HOSTED_DEMO=0 in vite.config.ts, so local runs use
+  // judgments are simulated. `pnpm run dev` adds both bindings and HOSTED_DEMO=0 in vite.config.ts, so local runs use
   // Clef, Jev and Browser Run on your own account.
   // Evidence images: screenshots agents attach at submit and the platform's own captures (create the bucket first).
   "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],

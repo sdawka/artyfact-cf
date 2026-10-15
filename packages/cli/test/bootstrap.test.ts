@@ -9,7 +9,7 @@ describe("scripts/bootstrap.sh", () => {
   it("is a valid two-line wrapper over artyfact init for the examples layout", () => {
     expect(spawnSync("bash", ["-n", script]).status).toBe(0);
     const lines = readFileSync(script, "utf8").trim().split("\n").filter((l) => !l.startsWith("#"));
-    expect(lines).toEqual([`cd "$(dirname "$0")/.." && exec npx --no-install artyfact init --genome examples/peopling-system --app examples/peopling-app "$@"`]);
+    expect(lines).toEqual([`cd "$(dirname "$0")/.." && exec pnpm exec artyfact init --genome examples/peopling-system --app examples/peopling-app "$@"`]);
   });
 
   it("puts nothing token-bearing on an argv", () => {

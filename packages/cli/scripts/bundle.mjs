@@ -5,7 +5,7 @@
 import { build } from "esbuild";
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { builtinModules } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkg = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,18 +26,22 @@ const result = await build({
   legalComments: "eof",
   logLevel: "warning",
   metafile: true,
+  absWorkingDir: pkg,
 });
 for (const dir of ["system", "thing", "rule-packs"]) cpSync(join(templates, dir), join(dist, "templates", dir), { recursive: true });
 // The license, and the license of every npm package bundled into artyfact.mjs.
 const repo = join(pkg, "..", "..");
 cpSync(join(repo, "LICENSE"), join(dist, "LICENSE"));
-const bundled = new Set();
+// Each input path ends in node_modules/<name>/<file>; the last such segment is the package the file belongs to
+// (pnpm nests packages under node_modules/.pnpm/<id>/node_modules/<name>, so the first match is not enough).
+const bundled = new Map();
 for (const input of Object.keys(result.metafile.inputs)) {
-  const m = /node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(input);
-  if (m) bundled.add(m[1]);
+  const matches = [...input.matchAll(/node_modules\/((?:@[^/]+\/)?[^/.][^/]*)\//g)];
+  const m = matches.at(-1);
+  if (m) bundled.set(m[1], resolve(pkg, input.slice(0, m.index + m[0].length)));
 }
-const notices = [...bundled].sort().map((name) => {
-  const dir = join(repo, "node_modules", name);
+const notices = [...bundled.keys()].sort().map((name) => {
+  const dir = bundled.get(name);
   const { version, license } = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
   const file = readdirSync(dir).find((f) => /^licen[cs]e/i.test(f));
   if (!file || !existsSync(join(dir, file))) throw new Error(`${name} ships no license file`);

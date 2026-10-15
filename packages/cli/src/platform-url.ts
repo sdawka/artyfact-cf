@@ -34,7 +34,7 @@ export async function resolvePlatform(
     note(`no artyfact platform found on localhost:${DEFAULT_PORT}–${LAST_PORT}; the import line uses ${fallback}`);
     return fallback;
   }
-  throw new CliError(`no artyfact platform found on localhost:${DEFAULT_PORT}–${LAST_PORT}; start it with \`npm run dev\` or pass --platform`);
+  throw new CliError(`no artyfact platform found on localhost:${DEFAULT_PORT}–${LAST_PORT}; start it with \`pnpm --filter @artyfact/platform dev\` or pass --platform`);
 }
 
 async function isPlatform(base: string, fetchFn: typeof fetch): Promise<boolean> {

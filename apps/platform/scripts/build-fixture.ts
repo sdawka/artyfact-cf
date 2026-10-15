@@ -2,7 +2,7 @@
 // loadGenome + the bundled meta@1 templates, readiness from validate(model) (the System's pinned template packs).
 // Also writes src/fixtures/peopling.files.json ({ entries, files }) from the same tree, so the Code view
 // can browse the Genome in fixture mode. `hash` is the git blob id of the content.
-// Run: npm run build:fixture -w @artyfact/platform
+// Run: pnpm --filter @artyfact/platform build:fixture
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";

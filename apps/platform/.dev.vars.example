@@ -4,7 +4,7 @@ ADMIN_TOKEN=
 # Cloudflare account id (`wrangler whoami` / `cf auth whoami`); used to build fork git remotes.
 # Overrides the empty `ACCOUNT_ID` var in wrangler.jsonc. If unset, the remote returned by the fork call is used.
 ACCOUNT_ID=
-# Local runs are never the hosted demo: `npm run dev` sets HOSTED_DEMO=0 and adds the AI (Workers AI) and BROWSER
+# Local runs are never the hosted demo: `pnpm run dev` sets HOSTED_DEMO=0 and adds the AI (Workers AI) and BROWSER
 # (Browser Run) bindings, billed to the account you are logged in with. The deployed wrangler.jsonc sets HOSTED_DEMO=1:
 # simulated judgments, no model keys read, no AI or Browser Run.
 # System One provider. S1_PROVIDER picks one: auto (default: TypeSafe, then Clef, then OpenRouter) | clef | jev |

@@ -62,7 +62,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/platform -- test/do.test.ts
+          command: pnpm --filter @artyfact/platform test test/do.test.ts
   - id: C.platform.routes
     title: API routes answer their contract
     claim: Each /api route returns the documented status and body, including 401, 403 and 404 for callers without access or unknown Systems.
@@ -79,7 +79,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/platform -- test/routes.test.ts
+          command: pnpm --filter @artyfact/platform test test/routes.test.ts
   - id: C.platform.loop
     title: The agent loop runs end to end
     claim: Start work, checkpoint, submit and promote run against the fake Artifacts namespace and produce one System commit.
@@ -96,7 +96,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/platform -- test/integration/loop.test.ts
+          command: pnpm --filter @artyfact/platform test test/integration/loop.test.ts
   - id: C.platform.e2e-fake
     title: Fake-platform use cases pass in a browser
     claim: The Playwright @fake specs drive Home, Work, Code, Compare and describe-a-change against FAKE_ARTIFACTS=1 without failures.
@@ -113,7 +113,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm run e2e:fake -w @artyfact/platform
+          command: pnpm --filter @artyfact/platform e2e:fake
   - id: C.thing.platform.checks
     title: Changed nodes meet their checks
     claim: Changed nodes meet the checks their kinds declare.

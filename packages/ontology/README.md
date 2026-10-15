@@ -333,7 +333,7 @@ An explainer turns one confirmed finding into at most three sentences that name 
 
 `test/fixtures/semantic/` holds degraded copies of the three vocabularies with planted problems and clean controls: the Peopling YAML directory, tidepool's product graph and the `assistant-valid` world snapshot. Each `*.expectations.json` names every planted problem's rule, subjects, expected level and expected defect (an id or a list of alternatives), the controls, and `calls`, the provider-call envelope for one run. A plant on one of the template's checks names it in `check` and counts only through that check's own finding; a pattern check's plant is found without a provider. A plant reached through a set or the sections root names that stage-1 `entry`; so does a plant on a companion question such as `parent.summary`, which settles as its own finding when its answer does not pass. `test/semantic/vocabularies.ts` sets the probe options per vocabulary: `SETTINGS` (v2, with each vocabulary's glossary) and `SETTINGS_V1`. Without a key, `test/semantic/probe.test.ts` pins the v2 stage-1 candidate counts per fixture and rule, check candidates included, and checks that every plant has a stage-1 route. It also checks that the v1 pack emits exactly the candidates its options select. `test/judge/catalogue.test.ts` checks the generated questions and that each vocabulary's v2 template passes `meta@1` with no findings.
 
-`test/semantic/live.test.ts` is skipped unless `ONTOLOGY_LIVE=1` and `OPENROUTER_API_KEY` are both set (`npm run test:live` sets the first), so `npm test` never calls a paid API because a key happens to be in the environment. It judges each degraded fixture through the v2 funnel with default `limits`, taking the provider from `providerFromEnv` and the explainer from `explainerFromEnv`. Detection works per plant:
+`test/semantic/live.test.ts` is skipped unless `ONTOLOGY_LIVE=1` and `OPENROUTER_API_KEY` are both set (`pnpm run test:live` sets the first), so `pnpm test` never calls a paid API because a key happens to be in the environment. It judges each degraded fixture through the v2 funnel with default `limits`, taking the provider from `providerFromEnv` and the explainer from `explainerFromEnv`. Detection works per plant:
 
 - **Confident** means a finding on the planted subject or subjects carries the planted defect at the planted level. A prefix match counts, so a plant of `specificity` matches `specificity.abstract.intentOnly`.
 - **Review** means a finding on the planted subjects, or on its `entry`, is in review. It must also have a harmful answer on the planted rule or on any step of its `judgment.path`, or carry a defect on the planted defect's branch. The branch includes ancestors, because a review finding stops at its question's family defect: `instance` on a `node.kind` plant of `instance.otherKind`, or `consistency` on a `pair.relation` plant of `consistency.contradiction`. Confident detection keeps the strict rule.
@@ -350,8 +350,8 @@ Results go to `test/fixtures/semantic/live-results.v2.<model>.json` with `model`
 | `EXPLAIN=0` | Turns explanations off |
 
 ```sh
-OPENROUTER_API_KEY=… npm run test:live -w @artyfact/ontology
-OPENROUTER_API_KEY=… OPENROUTER_MODEL=cloudflare/clef npm run test:live -w @artyfact/ontology
+OPENROUTER_API_KEY=… pnpm --filter @artyfact/ontology test:live
+OPENROUTER_API_KEY=… OPENROUTER_MODEL=cloudflare/clef pnpm --filter @artyfact/ontology test:live
 ```
 
 The committed v1 run made 261 calls before retries: 233 for Peopling, 18 for tidepool and 10 for the world snapshot. The v2 plants added since raise the v1 counts to 236, 21 and 11, which `probe.test.ts` pins. Those requests totalled about 430,000 characters, roughly 110,000 input tokens. Decision models bill input tokens only, so a v1 run cost about half a cent on `perplexity/pplx-decider-v1.1-27b` at $0.04 per million and about three cents on `cloudflare/clef` at $0.24 per million.
@@ -379,6 +379,6 @@ Levels are `error`, `missing`, `warning`, `review`, `info` and `pass`; `review` 
 ## Tests
 
 ```sh
-npm test -w @artyfact/ontology
-npx tsc -b packages/ontology
+pnpm --filter @artyfact/ontology test
+pnpm exec tsc -b packages/ontology
 ```

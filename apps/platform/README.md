@@ -4,17 +4,17 @@ One Cloudflare Worker with Static Assets: Hono serves `/api/*`, a React 19 SPA s
 
 ## Run
 ```
-npm install            # from the repo root
+pnpm install           # from the repo root
 cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # then set ADMIN_TOKEN=$(openssl rand -hex 32)
-npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if taken; the CLI finds it)
+pnpm --filter @artyfact/platform dev   # http://localhost:1337 (next free port if taken; the CLI finds it)
 ```
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
-- `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
-- The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
-- `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
-- The `ARTIFACTS` binding is `remote: true`, and Workers AI (`AI`) and Browser Run (`BROWSER`) are remote-only, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. `wrangler.jsonc` has no `AI` or `BROWSER`: it is the deployed hosted demo (`HOSTED_DEMO=1`). `npm run dev` adds both bindings and `HOSTED_DEMO=0` in `vite.config.ts`, so local runs are real and billed to your account. Nothing else needs a login: `FAKE_ARTIFACTS=1` drops `ARTIFACTS` too (no platform captures; System One is the fake), and tests use `wrangler.test.jsonc`, the same config without those bindings (keep the two in sync). Tests pass mocks of `AI` and `BROWSER`; the `EVIDENCE` R2 bucket runs locally.
-- `FAKE_ARTIFACTS=1 npx vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Peopling is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, the fake System One (`FAKE_S1=1`), and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
-- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
+- `pnpm --filter @artyfact/platform test` (workerd + jsdom projects), `pnpm run typecheck`, `pnpm run build`.
+- The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 pnpm exec vitest run --project integration` (uses `wrangler.integration.jsonc`).
+- `pnpm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
+- The `ARTIFACTS` binding is `remote: true`, and Workers AI (`AI`) and Browser Run (`BROWSER`) are remote-only, so `pnpm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. `wrangler.jsonc` has no `AI` or `BROWSER`: it is the deployed hosted demo (`HOSTED_DEMO=1`). `pnpm run dev` adds both bindings and `HOSTED_DEMO=0` in `vite.config.ts`, so local runs are real and billed to your account. Nothing else needs a login: `FAKE_ARTIFACTS=1` drops `ARTIFACTS` too (no platform captures; System One is the fake), and tests use `wrangler.test.jsonc`, the same config without those bindings (keep the two in sync). Tests pass mocks of `AI` and `BROWSER`; the `EVIDENCE` R2 bucket runs locally.
+- `FAKE_ARTIFACTS=1 pnpm exec vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Peopling is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, the fake System One (`FAKE_S1=1`), and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
+- `pnpm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `pnpm run e2e` runs Playwright against it; no Cloudflare credentials needed. `pnpm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
@@ -107,7 +107,7 @@ Left for later: cross-System dependencies. A Thing template's `scaffold.repo` ma
 - `src/` SPA; `src/theme/` whimsy theme (rules in `src/theme/README.md`).
 - `test/` Worker tests; `src/**/*.test.ts` UI tests.
 
-Amendment review panel fixtures (no backend): `npm run dev:amendment -w @artyfact/platform`, then open `http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings`. It uses its own Vite config because the Cloudflare plugin's SPA fallback hides extra html pages.
+Amendment review panel fixtures (no backend): `pnpm --filter @artyfact/platform dev:amendment`, then open `http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings`. It uses its own Vite config because the Cloudflare plugin's SPA fallback hides extra html pages.
 
 ## Local self-development operator
 

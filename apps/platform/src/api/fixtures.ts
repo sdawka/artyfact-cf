@@ -1,4 +1,4 @@
-// Generated from examples/peopling-system by scripts/build-fixture.ts (npm run build:fixture).
+// Generated from examples/peopling-system by scripts/build-fixture.ts (pnpm run build:fixture).
 import type { UiBundle } from "@/model/types";
 import raw from "@/fixtures/peopling.model.json";
 

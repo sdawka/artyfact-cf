@@ -1,6 +1,6 @@
 # artyfact
 
-Once published, `npm i -g artyfact` or `npx artyfact@latest --help` works without a clone; in the monorepo, `npx artyfact` runs the source. Claude Code can load the Genome skill as a plugin with `/plugin marketplace add sdawka/artyfact-cf` and then `/plugin install artyfact@artyfact`.
+Once published, `npm i -g artyfact` or `npx artyfact@latest --help` works without a clone; in the monorepo, `pnpm exec artyfact` runs the source. Claude Code can load the Genome skill as a plugin with `/plugin marketplace add sdawka/artyfact-cf` and then `/plugin install artyfact@artyfact`.
 
 `artyfact init|platform-sync|evolution|plan|task|ontology|operations|skill|validate-genome`
 plus compatible historical `start|checkpoint|submit|build-report|status|compose|parts` commands. Platform URL from `--platform`, else
@@ -21,7 +21,7 @@ npx artyfact platform-sync [--namespace ns]
 ```
 
 `init` reads the System id from the Genome's root `node.yaml`, pushes the node tree as `<slug>.genome`, derives the repo names (`src/naming.ts`, shared with the Worker), checks that
-`npx wrangler whoami` and `cf auth whoami` agree on the account (set `CLOUDFLARE_ACCOUNT_ID` when several are
+`wrangler whoami` and `cf auth whoami` agree on the account (set `CLOUDFLARE_ACCOUNT_ID` when several are
 visible), and creates the namespace (`--namespace`, else `ARTIFACTS_NAMESPACE`, else `artyfact`) and repos when
 missing. When creating reports that the namespace exists, init confirms it with `cf artifacts namespaces list`, which
 prints one page without a next cursor, so a namespace beyond the first page is refused rather than assumed. It writes `platform` only when that repo is missing or empty; an existing one is left alone, and
@@ -36,7 +36,7 @@ left alone. Otherwise init commits on top of the head, but only when that head i
 recorded in `<project>/.artyfact/init.json`. History it did not push stops init with a message; `--adopt` commits on
 top of it instead. Files are selected by the checkout's own ignore rules, plus `node_modules`, `.wrangler`, `dist`,
 and secret files (`.dev.vars`, `.env` and any `.dev.vars.*` / `.env.*` except `*.example`), even when tracked.
-Symlinks travel as links only when their target is relative and inside the project; others are skipped and listed. Write tokens come from `npx wrangler artifacts repos issue-token --json` and reach git only
+Symlinks travel as links only when their target is relative and inside the project; others are skipped and listed. Write tokens come from `wrangler artifacts repos issue-token --json` and reach git only
 through `GIT_CONFIG_*`. They are never printed or put on an argv.
 
 `--from-template` reads the Thing template's `scaffold.yaml` from `platform`. With a `path`, it copies that subtree of
@@ -62,7 +62,7 @@ A Genome with no `worker-fullstack` artifact imports without an app repo. `init`
 
 ## `release`
 
-`artyfact release` (root: `npm run release`) builds `@artyfact/platform` and `@artyfact/site`, commits the outputs and a `release.json` (version, source commit, self-Genome tree hash, built-at, Worker configs, tool versions) to the Artifacts repo `<namespace>/platform.builds` as `main` with the tag `v<yyyymmdd>-<sha7>` (UTC date), and runs `wrangler deploy --config …` for each Worker with its working directory in that checkout. A tag that exists is fetched and deployed again instead of rebuilt. It refuses a dirty source tree (`--allow-dirty` overrides), `--dry-run` reads at most with a read token and deploys with `wrangler deploy --dry-run`, `--no-build` reuses the outputs on disk, `--no-deploy` only pushes (for a Workers Builds connection), and `--json` prints the result. Tokens never reach stdout or argv. Design: `docs/design/release-artifacts.md`.
+`artyfact release` (root: `pnpm run release`) builds `@artyfact/platform` and `@artyfact/site`, commits the outputs and a `release.json` (version, source commit, self-Genome tree hash, built-at, Worker configs, tool versions) to the Artifacts repo `<namespace>/platform.builds` as `main` with the tag `v<yyyymmdd>-<sha7>` (UTC date), and runs `wrangler deploy --config …` for each Worker with its working directory in that checkout. A tag that exists is fetched and deployed again instead of rebuilt. It refuses a dirty source tree (`--allow-dirty` overrides), `--dry-run` reads at most with a read token and deploys with `wrangler deploy --dry-run`, `--no-build` reuses the outputs on disk, `--no-deploy` only pushes (for a Workers Builds connection), and `--json` prints the result. Tokens never reach stdout or argv. Design: `docs/design/release-artifacts.md`.
 
 ## Parts
 

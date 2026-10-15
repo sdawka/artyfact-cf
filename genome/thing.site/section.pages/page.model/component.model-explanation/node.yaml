@@ -23,7 +23,7 @@ criteria:
         engine: vitest
         triggers: [candidate, promotion]
         inputs:
-          command: npm test -w @artyfact/site -- test/model-content.test.tsx test/public-model.test.tsx
+          command: pnpm --filter @artyfact/site test test/model-content.test.tsx test/public-model.test.tsx
   - id: C.site.model.clear-communication
     title: Clear communication
     claim: A visitor can explain Artyfact and trace this page from System through Thing to component, distinguishing declared criteria, automated checks and human review. Visitor comprehension review remains pending; structural tests alone do not establish it.

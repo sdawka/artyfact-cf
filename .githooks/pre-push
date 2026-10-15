@@ -3,6 +3,6 @@
 # CI_LOCAL=full runs every job (what hosted CI runs). Skip once with git's own `--no-verify` flag.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 if [ "$CI_LOCAL" = "full" ]; then
-  exec npm run ci -- --changed
+  exec pnpm run ci --changed
 fi
-exec npm run ci -- --fast
+exec pnpm run ci --fast

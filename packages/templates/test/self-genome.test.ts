@@ -186,7 +186,7 @@ describe("the Artyfact self-Genome", () => {
       expect(graph.links).toContainEqual(expect.objectContaining({ from: c.id, rel: "subject", to: "component.model-explanation" }));
     }
     expect(criteria[0]).toMatchObject({ target: "artifact", gates: ["candidate", "promotion"] });
-    expect(criteria[0]!.hooks?.[0]).toMatchObject({ engine: "vitest", inputs: { command: "npm test -w @artyfact/site -- test/model-content.test.tsx test/public-model.test.tsx" } });
+    expect(criteria[0]!.hooks?.[0]).toMatchObject({ engine: "vitest", inputs: { command: "pnpm --filter @artyfact/site test test/model-content.test.tsx test/public-model.test.tsx" } });
     expect(criteria[1]).toMatchObject({ target: "observation", deferred: true, gates: ["outcome"] });
     expect(criteria[1]!.hooks).toBeUndefined();
     expect(criteria[1]!.claim).toContain("review remains pending");

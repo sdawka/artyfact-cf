@@ -10,14 +10,14 @@ Target length about 9 minutes, hard limits 5 to 10. Two parts: about 3 minutes o
 
 ## Pre-flight checklist
 - [ ] artyfact.ing open in a tab, scrolled to the top.
-- [ ] `npx wrangler login` and `cf auth login` show the same account (runbook step 0).
-- [ ] For the optional local visual-check beat: `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID` and the model keys, and `npm run dev` provides the Workers AI and Browser Run bindings. Never show it.
+- [ ] `pnpm exec wrangler login` and `cf auth login` show the same account (runbook step 0).
+- [ ] For the optional local visual-check beat: `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID` and the model keys, and `pnpm run dev` provides the Workers AI and Browser Run bindings. Never show it.
 - [ ] Reset to a clean state first (runbook "Reset"), so no earlier forks or plans exist.
 - [ ] `validate-genome` and `init` are done before recording (steps 1 and 2). Leave the import review pending so step 4 is live.
 - [ ] The `export` block from step 0 is run in every terminal: ops, sse. The admin token is a shell variable in ops only and is passed inline to the commands that need it. Never export it in a shell that starts an agent.
 - [ ] A claim's write token and lease last 15 minutes (`leaseSeconds` default 900 in `apps/platform/worker/lifecycle-service.ts`). Claim on camera and submit within 15 minutes. If a token expires, run `artyfact task resume` (runbook "Troubleshooting").
 - [ ] Decide whether `claude -p` runs live or a prepared edit stands in for the agent. A live agent must finish inside the 15 minutes. Say which on camera.
-- [ ] Do not expect real judgments on the hosted platform. They are simulated. Clef, Jev and Browser Run run only on your own account with `npm run dev`; `S1_PROVIDER` picks the judge.
+- [ ] Do not expect real judgments on the hosted platform. They are simulated. Clef, Jev and Browser Run run only on your own account with `pnpm run dev`; `S1_PROVIDER` picks the judge.
 - [ ] After recording, delete `./work` and `$RUN`.
 
 ## Part 1: the site (0:00 to 3:00)

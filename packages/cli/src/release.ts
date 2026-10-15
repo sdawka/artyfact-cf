@@ -62,7 +62,7 @@ export interface ReleaseIo {
   cloud?: Cloud;
   /** Monorepo root (defaults to this package's). */
   root?: string;
-  /** Builds the workspaces (default: `npm run build -w` each). */
+  /** Builds the workspaces (default: `pnpm --filter <name> build` each). */
   build?: (root: string) => void;
   /** Deploys one Worker with cwd in the release checkout (default: wrangler from the monorepo's node_modules). */
   deploy?: (checkout: string, config: string, opts: { dryRun: boolean; env: Record<string, string | undefined> }) => void;
@@ -110,16 +110,18 @@ export function modelDigestAt(root: string, commit: string, prefix: string): str
 
 function defaultBuild(root: string): void {
   for (const w of ["@artyfact/platform", "@artyfact/site"]) {
-    const r = spawnSync("npm", ["run", "build", "-w", w], { cwd: root, stdio: "inherit" });
-    if (r.status !== 0) throw new CliError(`npm run build -w ${w} failed`);
+    const r = spawnSync("pnpm", ["--filter", w, "build"], { cwd: root, stdio: "inherit" });
+    if (r.status !== 0) throw new CliError(`pnpm --filter ${w} build failed`);
   }
 }
 
 /** `wrangler deploy --config <config>` with cwd in the checkout; wrangler comes from the monorepo (the checkout has no node_modules). */
+/** pnpm links each workspace's dependencies under its own node_modules, so wrangler is resolved from apps/platform. */
+const WRANGLER_DIR = "apps/platform/node_modules/wrangler";
 function wranglerDeploy(root: string) {
   return (checkout: string, config: string, opts: { dryRun: boolean; env: Record<string, string | undefined> }) => {
-    const bin = join(root, "node_modules/wrangler/bin/wrangler.js");
-    if (!existsSync(bin)) throw new CliError("wrangler is not installed; run npm install");
+    const bin = join(root, WRANGLER_DIR, "bin/wrangler.js");
+    if (!existsSync(bin)) throw new CliError("wrangler is not installed; run pnpm install");
     const args = [bin, "deploy", "--config", config, ...(opts.dryRun ? ["--dry-run"] : [])];
     const r = spawnSync(process.execPath, args, { cwd: checkout, stdio: "inherit", env: { ...process.env, ...opts.env } });
     if (r.status !== 0) throw new CliError(`wrangler deploy --config ${config} failed`);
@@ -128,7 +130,7 @@ function wranglerDeploy(root: string) {
 
 function wranglerVersion(root: string): string | undefined {
   try {
-    return (JSON.parse(readFileSync(join(root, "node_modules/wrangler/package.json"), "utf8")) as { version?: string }).version;
+    return (JSON.parse(readFileSync(join(root, WRANGLER_DIR, "package.json"), "utf8")) as { version?: string }).version;
   } catch {
     return undefined;
   }

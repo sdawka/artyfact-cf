@@ -190,7 +190,7 @@ describe("approved activation", () => {
     expect(() => operatorVars(join(tmp, "big.env"), {})).toThrow(/at most 64 KiB/);
   });
 
-  it("gives npm only the ambient allowlist, never operator credentials", () => {
+  it("gives pnpm only the ambient allowlist, never operator credentials", () => {
     expect(childEnv({
       PATH: "/bin", HOME: "/home/op", NODE_OPTIONS: "--max-old-space-size=4096", npm_config_cache: "/cache", RANDOM: "x",
       CLOUDFLARE_API_TOKEN: "cf", CLOUDFLARE_ACCOUNT_ID: "acct", ARTYFACT_ADMIN_TOKEN: "admin", ADMIN_TOKEN: "admin", VERIFICATION_TOKEN: "v",
@@ -294,7 +294,7 @@ describe("approved activation", () => {
     });
     expect(code).toBe(0);
     expect(calls).toHaveLength(2);
-    expect(runs[0]!.args).toEqual(["run", "dev", "-w", "@artyfact/platform", "--", "--host", "127.0.0.1", "--port", "1444", "--strictPort"]);
+    expect(runs[0]!.args).toEqual(["--filter", "@artyfact/platform", "run", "dev", "--host", "127.0.0.1", "--port", "1444", "--strictPort"]);
     expect(runs[0]!.env.HOSTED_DEMO).toBe("0");
     expect(runs[0]!.env.ARTYFACT_PERSIST_STATE_DIR).toBe(join(realpathSync(tmp), "run-live-state"));
     expect(runs[0]!.env.ARTYFACT_ADMIN_TOKEN).toBeUndefined();
