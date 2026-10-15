@@ -1,43 +1,51 @@
-import { Select, Button, Checkbox, Input, Textarea } from "@/components/ui";
+import { Button, Checkbox, IconButton, Input, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CreateEvolutionRequest, Evolution, WorkResponse } from "../../../../shared/api";
-import { useAdminTokenField } from "@/api/adminToken";
+import { useAdminToken } from "@/api/adminToken";
 import { qk, useCreateEvolution } from "@/api/queries";
+import { Panel } from "@/components/Panel/Panel";
 import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
-import { startWorkError } from "./StartWorkPanel";
+import { startWorkError, TOKEN_REASON } from "./StartWorkPanel";
 import styles from "../work.module.css";
 
-const KINDS = ["genome-amendment"] as const;
 const RISKS = ["low", "medium", "high"] as const;
 
-/** Admin form to propose a new Evolution; `onCreated` receives it (the caller selects it). */
-export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution: Evolution): void; onCancel?(): void }) {
+/**
+ * Propose a new Genome Evolution by hand; `onCreated` receives it (the caller selects it). A Panel that replaces the
+ * region it is about; `onCancel` is its back link (`backLabel` names that region, default "Back").
+ * Acceptance criteria default to the System's for the target until the person chooses them.
+ */
+export function NewEvolutionPanel({ onCreated, onCancel, backLabel = "Back" }: { onCreated(evolution: Evolution): void; onCancel?(): void; backLabel?: string }) {
   const uid = useId();
   const m = useModel();
   const create = useCreateEvolution();
   const qc = useQueryClient();
   const { systemId } = useSystemRoute();
+  const { token } = useAdminToken();
   const [title, setTitle] = useState("");
   const [intent, setIntent] = useState("");
   const [nodeInput, setNodeInput] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
-  const [kind, setKind] = useState<(typeof KINDS)[number]>("genome-amendment");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
-  // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
+  // null = the System's defaults: the field is omitted and the server applies them for the target.
   const [picked, setPicked] = useState<string[] | null>(null);
-  // Component state only: never persisted, cleared on success.
-  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
+  const [filter, setFilter] = useState("");
 
   const criteria = m.index.entries.filter((e) => e.kind === "criterion");
+  const q = filter.trim().toLowerCase();
+  const shown = q ? criteria.filter((c) => c.id.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : criteria;
 
   const reason = m.bundle.source === "fixture"
     ? "Creating an Evolution needs the platform API. The UI is showing fixture data."
-    : !title.trim() || !intent.trim()
-      ? "Enter a title and an intent."
-      : null;
+    : !token
+      ? TOKEN_REASON
+      : !title.trim() || !intent.trim()
+        ? "Enter a title and an intent."
+        : null;
 
   const addNode = () => {
     const id = nodeInput.trim();
@@ -48,13 +56,12 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reason) return;
-    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }), ...(picked && { acceptanceCriteria: picked }) };
+    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind: "genome-amendment", risk, ...(nodes.length && { affectedNodes: nodes }), ...(picked && { acceptanceCriteria: picked }) };
     create.mutate(
-      { body, ...(adminToken && { adminToken }) },
+      { body, adminToken: token },
       {
         onSuccess: (res) => {
-          resetAdminToken();
-          // Show the card at once; the invalidated board refetch then replaces this entry.
+          // Show the row at once; the invalidated board refetch then replaces this entry.
           qc.setQueryData<WorkResponse>(qk.evolutions(systemId), (prev) =>
             prev && !prev.evolutions.some((e) => e.id === res.evolution.id) ? { ...prev, evolutions: [...prev.evolutions, res.evolution] } : prev);
           onCreated(res.evolution);
@@ -64,9 +71,8 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   };
 
   return (
-    <section className={styles.panel} aria-labelledby={`${uid}-h`}>
-      <h2 id={`${uid}-h`}>New Evolution</h2>
-      <p className={styles.muted}>An Evolution changes the Genome. After acceptance, plan implementation in a separate Realization.</p>
+    <Panel title="New Evolution" {...(onCancel && { onBack: onCancel, backLabel })}>
+      <p className={styles.listNote}>An Evolution changes the Genome. After acceptance, plan the implementation as a Plan in Work.</p>
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-t`}>Title</label>
@@ -97,56 +103,66 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
               {nodes.map((id) => (
                 <li key={id} className={styles.inlineRow}>
                   <NodeChip id={id} size="sm" interactive={false} showId />
-                  <Button type="button" variant="secondary" aria-label={`Remove ${id}`} onClick={() => setNodes(nodes.filter((n) => n !== id))}>×</Button>
+                  <IconButton label={`Remove ${id}`} variant="ghost" size="compact" onClick={() => setNodes(nodes.filter((n) => n !== id))}><Cross2Icon aria-hidden="true" /></IconButton>
                 </li>
               ))}
             </ul>
           )}
         </div>
         {criteria.length > 0 && (
-          <fieldset className={styles.fieldset}>
+          <fieldset className={styles.choice}>
             <legend>Acceptance criteria</legend>
-            <span className={styles.inlineRow}>
-              <Button type="button" variant="secondary" onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</Button>
-              <Button type="button" variant="secondary" onClick={() => setPicked([])}>Clear</Button>
-              <span className={styles.muted}>Leave untouched to use the System's defaults for this target</span>
-            </span>
-            <ul className={styles.plain}>
-              {criteria.map((c) => (
-                <li key={c.id}>
-                  <label className={styles.check}>
-                    <Checkbox
-                      checked={!!picked?.includes(c.id)}
-                      onChange={(e) => { const cur = picked ?? []; setPicked(e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)); }}
-                    />
-                    <code>{c.id}</code> <span className={styles.muted}>{c.name}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <p className={styles.listNote} role="status">
+              {picked === null ? "Using the System's defaults for this target." : `${picked.length} of ${criteria.length} chosen.`}
+              {picked !== null && <> <Button variant="ghost" size="compact" onClick={() => setPicked(null)}>Use the System's defaults</Button></>}
+            </p>
+            <details className={styles.disclosure}>
+              <summary>Choose criteria</summary>
+              <div className={styles.disclosureBody}>
+                <div className={styles.field}>
+                  <label htmlFor={`${uid}-f`}>Filter criteria</label>
+                  <Input id={`${uid}-f`} type="search" value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" />
+                </div>
+                <span className={styles.inlineRow}>
+                  <Button variant="ghost" size="compact" onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</Button>
+                  <Button variant="ghost" size="compact" onClick={() => setPicked([])}>Clear</Button>
+                </span>
+                <ul className={styles.plain}>
+                  {shown.map((c) => (
+                    <li key={c.id}>
+                      <label className={styles.check}>
+                        <Checkbox
+                          checked={!!picked?.includes(c.id)}
+                          onChange={(e) => { const cur = picked ?? []; setPicked(e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)); }}
+                        />
+                        <span>{c.name} <code className={styles.idMeta}>{c.id}</code></span>
+                      </label>
+                    </li>
+                  ))}
+                  {shown.length === 0 && <li className={styles.listNote}>No criterion matches “{filter}”.</li>}
+                </ul>
+              </div>
+            </details>
           </fieldset>
         )}
-        <div className={styles.field}>
-          <label htmlFor={`${uid}-k`}>Kind</label>
-          <Select id={`${uid}-k`} value={kind} onChange={(value) => setKind(value as (typeof KINDS)[number])} options={KINDS.map((value) => ({ value, label: value }))} />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`${uid}-r`}>Risk</label>
-          <Select id={`${uid}-r`} value={risk} onChange={(value) => setRisk(value as (typeof RISKS)[number])} options={RISKS.map((value) => ({ value, label: value }))} />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`${uid}-a`}>Admin token</label>
-          <Input id={`${uid}-a`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
-        </div>
+        <fieldset className={styles.choice}>
+          <legend>Risk</legend>
+          <span className={styles.radios}>
+            {RISKS.map((r) => (
+              <label key={r} className={styles.check}>
+                <input type="radio" name={`${uid}-risk`} value={r} checked={risk === r} onChange={() => setRisk(r)} /> {r}
+              </label>
+            ))}
+          </span>
+        </fieldset>
         <div className={styles.actions}>
-          <Button type="submit" variant="primary" disabled={!!reason || create.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
+          <Button type="submit" variant="primary" disabled={create.isPending} reason={reason ?? undefined}>
             {create.isPending ? "Creating…" : "Create Evolution"}
           </Button>
-          {onCancel && <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>}
-          {reason && <span id={`${uid}-why`} className={styles.reason}>{reason}</span>}
+          {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
         </div>
         {create.isError && <p role="alert" className={styles.error}>{startWorkError(create.error).replace("Start work", "Creating an Evolution")}</p>}
       </form>
-    </section>
+    </Panel>
   );
 }

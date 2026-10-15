@@ -1,3 +1,4 @@
+import { createContext, useContext, type ReactNode } from "react";
 import { useInRouterContext } from "react-router";
 import { kindColour, titleOf, useKindViews } from "@/model/kinds";
 import { useModelOptional } from "@/model/useModel";
@@ -18,7 +19,19 @@ export interface NodeChipProps {
   onSelect?: (id: string) => void;
   /** `false` renders static text (no button, no brackets). */
   interactive?: boolean;
+  /** `false` hides the kind glyph (verdict rows: a criterion's ✓ beside "not-run" reads as a pass). Default: context. */
+  glyph?: boolean;
   className?: string;
+}
+
+const GlyphContext = createContext(true);
+
+/**
+ * Hide (or show) the kind glyph of every NodeChip inside: wrap verdict rows, gate tables and evidence lists in
+ * `<KindGlyphs hidden>` so only the verdict carries a ✓. The kind stays in the chip's accessible name and title.
+ */
+export function KindGlyphs({ hidden = false, children }: { hidden?: boolean; children: ReactNode }) {
+  return <GlyphContext.Provider value={!hidden}>{children}</GlyphContext.Provider>;
 }
 
 /** Glyph + name for any model object. Clicking focuses it unless `interactive={false}`. */
@@ -33,13 +46,15 @@ function FocusChip(props: NodeChipProps) {
   return <Chip {...props} onSelect={(id) => setFocus(id)} />;
 }
 
-function Chip({ id, label, kind, showId, size = "md", onSelect, interactive, className }: NodeChipProps) {
+function Chip({ id, label, kind, showId, size = "md", onSelect, interactive, glyph, className }: NodeChipProps) {
+  const glyphs = useContext(GlyphContext);
+  const showGlyph = glyph ?? glyphs;
   const entry = useModelOptional()?.byId(id);
   const info = useKindViews().of(kind ?? entry?.kind ?? "unknown");
   const name = label ?? (entry ? titleOf(entry, info) : id);
   const content = (
     <>
-      <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>
+      {showGlyph && <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>}
       <span className={styles.name}>{name}</span>
       {showId && name !== id && <code className={styles.id}>{id}</code>}
       <span className="sr-only">, {info.label}</span>

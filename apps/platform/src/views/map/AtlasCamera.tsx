@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Controls, useReactFlow, type Viewport } from "@xyflow/react";
 import { useSystemReducedMotion } from "@artyfact/effects";
 import { useEffectsPreference } from "@/effects/effectsPreference";
@@ -20,10 +20,12 @@ export const saveAtlasCamera = (key: string, viewport: Viewport) => {
 };
 
 
-export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel, onTravel, onCancelTravel, locate, onLocate }: {
+export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel, onTravel, onCancelTravel, locate, onOutside }: {
   cameraKey: string; layout: AtlasLayout; canvas: HTMLElement | null; graph: MapGraph; focusId: string | null;
   travel: AtlasTravel | null; onTravel: (request: AtlasTravel) => boolean | void; onCancelTravel: () => void;
-  locate: { id: string; sequence: number } | null; onLocate: (id: string) => void;
+  locate: { id: string; sequence: number } | null;
+  /** Connected nodes currently outside the visible pane (all externals at Environment scope), for the toolbar's Outside menu. */
+  onOutside?: (ids: string[]) => void;
 }) {
   const rf = useReactFlow();
   const { index } = useModel();
@@ -39,7 +41,8 @@ export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel,
   const motionDuration = cameraDuration(enabled, reduced, 240);
   const active = useRef<string | null>(null);
   const located = useRef<number | null>(null);
-  const [outside, setOutside] = useState<string[]>([]);
+  const reportOutside = useRef<(ids: string[]) => void>(() => {});
+  reportOutside.current = onOutside ?? (() => {});
   useLayoutEffect(() => {
     if (!canvas || !rf.viewportInitialized) return;
     const fit = () => {
@@ -131,13 +134,35 @@ export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel,
     return () => { canvas.removeEventListener("pointerdown", interrupt, true); canvas.removeEventListener("wheel", interrupt, true); canvas.removeEventListener("touchstart", interrupt, true); };
   }, [canvas, rf, cameraKey]);
   useEffect(() => () => { sequence.current.cancel(); }, []);
+  // When the pane resizes (Details opens beside the Map), keep the selected node visible: recentre only if it no longer fits.
+  const recentre = useRef({ focusId, layout });
+  recentre.current = { focusId, layout };
   useEffect(() => {
-    if (!canvas || (!focusId && graph.scope !== ENVIRONMENT_SCOPE)) { setOutside([]); return; }
+    if (!canvas || typeof ResizeObserver === "undefined") return;
+    let last = { w: canvas.clientWidth, h: canvas.clientHeight };
+    const ro = new ResizeObserver(() => {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h || (w === last.w && h === last.h) || traveling.current || !rf.viewportInitialized) { last = { w, h }; return; }
+      last = { w, h };
+      const box = recentre.current.focusId ? recentre.current.layout.boxes[recentre.current.focusId] : undefined;
+      if (!box) return;
+      const view = rf.getViewport();
+      const left = box.x * view.zoom + view.x, top = box.y * view.zoom + view.y;
+      if (left >= 0 && top >= 0 && left + box.width * view.zoom <= w && top + box.height * view.zoom <= h) return;
+      const next = anchoredViewport(box, { x: w / 2, y: h / 2 }, view.zoom);
+      void rf.setViewport(next, { duration: cameraDuration(enabled, reduced, 180) });
+      saveAtlasCamera(cameraKey, next);
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [canvas, rf, cameraKey, enabled, reduced]);
+  useEffect(() => {
+    if (!canvas || (!focusId && graph.scope !== ENVIRONMENT_SCOPE)) { reportOutside.current([]); return; }
     const update = () => {
       const viewport = rf.getViewport();
       const connected = new Set(graph.scope === ENVIRONMENT_SCOPE ? graph.nodes.filter((node) => node.role === "external").map((node) => node.id) : boundaryContextIds(graph, focusId, index));
       const width = canvas.clientWidth || canvas.offsetWidth, height = canvas.clientHeight || canvas.offsetHeight;
-      setOutside([...connected].filter((id) => {
+      reportOutside.current([...connected].filter((id) => {
         const b = layout.boxes[id];
         if (!b) return false;
         const x = b.x * viewport.zoom + viewport.x, y = b.y * viewport.zoom + viewport.y;
@@ -153,8 +178,5 @@ export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel,
   }, [canvas, focusId, graph, layout, rf, index]);
   const saveControlCamera = () => requestAnimationFrame(() => saveAtlasCamera(cameraKey, rf.getViewport()));
   const controls = <Controls showInteractive={false} position="bottom-right" onZoomIn={saveControlCamera} onZoomOut={saveControlCamera} onFitView={saveControlCamera} />;
-  if (graph.scope === ENVIRONMENT_SCOPE) return <>{controls} <div className={styles.actors} aria-label="Environment actors">
-    <span>Outside System</span>{graph.nodes.filter((node) => node.role === "external").map((node) => <button key={node.id} onClick={() => onLocate(node.id)}>{node.name}{outside.includes(node.id) && <span aria-hidden="true"> ↗</span>}</button>)}
-  </div></>;
-  return <>{controls}{outside.length ? <div className={styles.offscreen} aria-label="Offscreen connections">{outside.map((id) => <button key={id} onClick={() => onLocate(id)}>Locate {graph.nodes.find((n) => n.id === id)?.name ?? id} <span aria-hidden="true">↗</span></button>)}</div> : null}</>;
+  return controls;
 }

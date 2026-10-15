@@ -36,6 +36,8 @@ export interface CrossLinkData extends Record<string, unknown> {
   flow?: boolean;
   /** False when the chip would collide with another (the hovered node's edges are placed first). */
   showLabel?: boolean;
+  /** Which end is an Outside/external node: when it is beyond the pan area the line ends as a short stub. */
+  outsideEnd?: "source" | "target";
   /** elk route (absolute); straight smooth-step fallback when absent. */
   points?: ElkPoint[];
 }

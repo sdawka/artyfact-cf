@@ -10,8 +10,14 @@
  * keep the Durable Objects in step).
  */
 import { PLATFORM_REPO, systemRepoNames } from "@artyfact/cli/naming";
+import { reportBuild } from "../deployments";
 import { setEditorTransport } from "../editor";
-import { importSystem, registryStub } from "../service";
+import { manifestExists } from "../hooks/manifest-exists";
+import { toEvaluation } from "../hooks/provenance";
+import { ingestEvents } from "../phenome";
+import { hooksOf } from "../promotion";
+import { genomeAt, importSystem, refreshRegistry, registryStub, startWork, systemStub } from "../service";
+import { buildCandidateManifest, manifestHash } from "./candidates";
 import { setArtifactsOverride } from "./client";
 import { FakeArtifacts } from "./fake";
 import { fakeReceivePack, type FakeReceivePack } from "./fake-receive-pack";
@@ -117,7 +123,77 @@ async function boot(env: Env): Promise<FakeArtifacts> {
   setEditorTransport({ fetch: git.fetch });
   for (const { systemId } of systems) {
     const { genomeRepo, appRepo } = systemRepoNames(systemId);
-    if (!(await registryStub(env).hasSystem(systemId))) await importSystem(env, { systemId, genomeRepo, appRepo, review: false });
+    if (await registryStub(env).hasSystem(systemId)) continue;
+    await importSystem(env, { systemId, genomeRepo, appRepo, review: false });
+    if (systemId === exampleSystemId) await seedActivity(env, ns, systemId);
   }
   return ns;
+}
+
+/** Ids of the activity {@link seedActivity} records on Peopling (tests and e2e specs key on them). */
+export const FAKE_ACTIVITY = {
+  build: "build.seed.production",
+  event: "seed-1",
+  evolution: "evolution.1",
+  criterion: "C.webapp.exists",
+  agent: "agent:seed",
+  /** The file the seed candidate adds to the app (a path nothing else touches, so later candidates do not conflict). */
+  path: "NOTES.md",
+} as const;
+
+/**
+ * Populated Deployments and Evaluations on a fresh fake Peopling, through the same services the routes use: one passed
+ * production build of the imported app commit with its realized output (CI reporter), which records the System's live
+ * deployment; one runtime event from that deployment (admin ingest, attributed to the output, so later events of the
+ * same commit without that output group as their own version); and one realization of `evolution.1` whose candidate
+ * carries a single evaluation, the manifest assay of `C.webapp.exists` run on the candidate's tree. The candidate stays
+ * open (evaluated).
+ */
+async function seedActivity(env: Env, ns: FakeArtifacts, systemId: string): Promise<void> {
+  const stub = systemStub(env, systemId);
+  const state = await stub.state();
+  const appCommit = state?.appSource?.commit;
+  if (!state || !appCommit) throw new Error(`fake seed: ${systemId} has no app commit`);
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+
+  const { build } = await reportBuild(env, systemId, null, {
+    id: FAKE_ACTIVITY.build, status: "passed", kind: "production", commit: appCommit, buildId: appCommit,
+    url: "https://peopling.fake.workers.dev",
+    steps: [{ name: "install", status: "passed", durationMs: 8_000 }, { name: "build", status: "passed", durationMs: 6_000 }, { name: "deploy", status: "passed", durationMs: 4_000 }],
+    startedAt: at(12), finishedAt: at(10), output: { locator: "workers-version:fake-seed", digest: "sha256:fake-seed" },
+  }, "ci");
+  const deployment = await stub.liveProduction();
+  if (!deployment?.output || !build.thingId || !build.artifactId) throw new Error("fake seed: the production build recorded no live deployment of its output");
+
+  const ingested = await ingestEvents(env, systemId, { kind: "admin" }, {
+    events: [{
+      id: FAKE_ACTIVITY.event, systemId, thingId: build.thingId, artifactId: build.artifactId, buildId: appCommit, commit: appCommit,
+      ...(state.head && { systemCommit: state.head }), deploymentId: deployment.id, emittedAt: at(5),
+      kind: "journey.step", subject: "screen.people", payload: { step: "open" },
+    }],
+  });
+  if (ingested.accepted !== 1) throw new Error(`fake seed: runtime event dropped: ${JSON.stringify(ingested.dropped)}`);
+
+  const started = await startWork(env, systemId, FAKE_ACTIVITY.evolution, { agentLabel: FAKE_ACTIVITY.agent, target: "app" }, "http://localhost");
+  const rid = started.realization.id;
+  const rec = await stub.realization(rid);
+  if (!rec) throw new Error(`fake seed: realization ${rid} missing`);
+  const files = { ...exampleApp, [FAKE_ACTIVITY.path]: "# Notes\n\nSeeded by the fake platform.\n" };
+  const fork = ns.repo(rec.forkRepo);
+  const commit = fork.commit(files, "Add notes");
+  const built = await buildCandidateManifest(fork, {
+    realizationId: rid, evolutionId: rec.evolutionId, target: rec.target, repo: rec.forkRepo, baseRepo: rec.baseRepo, baseCommit: rec.baseCommit, commit,
+  }, []);
+  const manifest = { ...built, manifestHash: await manifestHash(built) };
+  const { candidate } = await stub.recordCandidate({ realizationId: rid, commit, manifest, changedPaths: manifest.changedPaths, changedNodes: manifest.changedNodes });
+
+  const model = (await genomeAt(env, systemId, state.genomeCommit, state.genomeSource)).model;
+  const criterion = model.criteria.find((c) => c.id === FAKE_ACTIVITY.criterion);
+  const hook = criterion && hooksOf(model, criterion).find((h) => h.engine === "manifest");
+  if (!criterion || !hook) throw new Error(`fake seed: ${FAKE_ACTIVITY.criterion} has no manifest hook`);
+  const enc = new TextEncoder();
+  const outcome = manifestExists(Object.entries(files).map(([path, text]) => ({ path, size: enc.encode(text).length })), hook.inputs);
+  const evaluation = toEvaluation({ candidate: candidate.id, hook, criterion, targetRef: `app@${commit}`, startedAt: at(2), finishedAt: at(2) }, outcome);
+  await stub.recordEvaluations(candidate.id, [evaluation], "evaluated");
+  await refreshRegistry(env, systemId);
 }

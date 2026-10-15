@@ -1,5 +1,7 @@
-.view { display: flex; flex-direction: column; gap: var(--spacing-4); }
-.view h1 { margin: 0; }
-.banner { margin: var(--spacing-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.view { --page-header-gap: 0px; display: flex; flex-direction: column; gap: var(--spacing-8); }
+.purpose { max-width: calc(var(--measure-body) + var(--spacing-12)); }
+.statement p { margin: 0 0 var(--spacing-2); font: var(--type-body); max-width: var(--measure-body); }
+.statement ul { margin: 0; padding-inline-start: var(--spacing-5); color: var(--color-text-secondary); font: var(--type-ui); }
+.statement .label, .label { margin: var(--spacing-3) 0 var(--spacing-1); font: var(--type-meta); color: var(--color-text-subtle); }
 .scroll { overflow-x: auto; padding: var(--spacing-1); }
-.scroll:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.scroll:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

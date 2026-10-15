@@ -4,8 +4,10 @@ import { mockApi } from "./mockApi";
 
 test.describe("views", () => {
   test("overview: P1, three meters with distinct captions, literal unknown", async ({ page }, testInfo) => {
-    await open(page, "/overview", "Overview");
-    await expect(page.getByRole("heading", { name: "P1 Purpose" })).toBeVisible();
+    await open(page, "/overview", "Peopling");
+    // The Purpose lead sits under the System name; the full Purpose is collapsed.
+    await expect(page.getByText(/Help an individual keep in touch/)).toBeVisible();
+    await expect(page.getByText("Purpose in full")).toBeVisible();
     const meters = ["Model readiness", "Implementation conformance", "Outcome progress"];
     for (const title of meters) await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
     // Each meter has its own "what it is not" caption, so the three texts are all different.
@@ -29,34 +31,14 @@ test.describe("views", () => {
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
-    // No evaluations are promoted: the pass counter renders as a zero count in the disabled grey.
+    // Phenome tiles carry words for non-zero counts only; with no evaluations promoted there is no pass count, and nothing is green.
     const counters = page.locator(".react-flow [data-counter]");
     await expect(counters.first()).toBeVisible();
-    expect(await counters.count()).toBeGreaterThan(0);
-    const passCounters = page.locator('.react-flow [data-counter="pass"]');
-    await expect(passCounters.first()).toBeVisible();
-    await expect(page.locator('.react-flow [data-counter="pass"]:not([data-zero])')).toHaveCount(0);
-    const grey = await page.evaluate(() => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--color-text-disabled)";
-      document.body.append(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    // Positively: not-run counters are present, non-zero, and paint the not-run token.
-    const notRun = page.locator('.react-flow [data-counter="notRun"]:not([data-zero])');
+    await expect(page.locator('.react-flow [data-counter="pass"]')).toHaveCount(0);
+    await expect(page.locator('.react-flow [data-tone="pass"]')).toHaveCount(0);
+    const notRun = page.locator('.react-flow [data-counter="notRun"]');
     await expect(notRun.first()).toBeVisible();
-    const notRunColor = await page.evaluate(() => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--verdict-not-run)";
-      document.body.append(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    for (const el of await notRun.all()) await expect(el).toHaveCSS("color", notRunColor);
-    for (const el of await passCounters.all()) await expect(el).toHaveCSS("color", grey);
+    await expect(notRun.first()).toContainText(/\d+ not run/);
     await checkA11yAndShoot(page, testInfo, "map-phenome");
   });
 
@@ -100,22 +82,22 @@ test.describe("views", () => {
     await open(page, "/code?path=node.yaml", "Code");
     const content = page.locator(".cm-content");
     await expect(content).toHaveAttribute("aria-readonly", "true");
-    await expect(page.getByText("read-only · canonical")).toBeVisible();
+    await expect(page.getByText("Read-only, canonical")).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(content).toHaveAttribute("aria-readonly", "false");
     await content.click();
     await page.keyboard.press("ControlOrMeta+End");
     await page.keyboard.type("\n# edited in the browser");
-    await expect(page.getByText("editing · 1 pending")).toBeVisible();
-    await page.getByRole("link", { name: "Commit…" }).click();
-    const sheet = page.getByRole("complementary", { name: "Commit" });
+    await expect(page.getByText("Editing, 1 pending")).toBeVisible();
+    await page.getByRole("link", { name: "Commit changes" }).click();
+    const sheet = page.getByRole("region", { name: /^Commit 1 file$/ });
     await expect(sheet.getByRole("button", { name: "Commit", exact: true })).toBeDisabled();
     await expect(sheet.getByText("Commit needs the platform API.")).toBeVisible();
     await checkA11yAndShoot(page, testInfo, "code-commit");
   });
 
   test("the success-tone detector can see a pass tone (guards the never-green checks) @fixture", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     // The fixture has no non-zero pass count, so plant one: the detector must flag both a tagged and a painted element.
     await page.evaluate(() => {
       const tagged = document.createElement("span");
@@ -130,7 +112,7 @@ test.describe("views", () => {
   });
 
   test("overview paints no zero count in the success tone @fixture", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const conformance = page.getByRole("region", { name: "Implementation conformance" });
     await expect(conformance).toContainText("pass");
     expect(await conformance.locator('[data-tone="pass"]').count()).toBe(0);
@@ -139,7 +121,7 @@ test.describe("views", () => {
 
   test("evaluations empty state is never green @fixture", async ({ page }, testInfo) => {
     await open(page, "/evaluations", "Evaluations");
-    await expect(page.getByText("No evaluations yet — nothing is known")).toBeVisible();
+    await expect(page.getByText("No evaluations yet.", { exact: true })).toBeVisible();
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
   });
@@ -185,9 +167,11 @@ test.describe("views", () => {
     await checkA11yAndShoot(page, testInfo, "compare-system");
   });
 
-  test("deployments: empty state says unknown and nothing is green", async ({ page }, testInfo) => {
+  test("deployments: one empty state with a next step, and nothing is green", async ({ page }, testInfo) => {
     await open(page, "/phenome", "Deployments");
-    await expect(page.getByText(/No deployments recorded/)).toContainText("unknown");
+    await expect(page.getByText("No builds or deployments yet.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Review" })).toBeVisible();
+    await expect(page.getByText(/— unknown/)).toHaveCount(0);
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "deployments");
   });

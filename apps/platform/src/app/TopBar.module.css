@@ -1,4 +1,5 @@
 .search { white-space: nowrap; }
-.retry { color: var(--color-text-secondary); }
-.kbd { color: var(--color-text-subtle); font-size: var(--font-size-xs); }
-@media (max-width: 1023px) { .searchLabel, .kbd { display: none; } .search { width: 44px; padding: 0 !important; } }
+.kbd { display: inline-flex; color: var(--color-text-subtle); }
+.fixture { display: inline-flex; align-items: center; gap: var(--spacing-2); }
+@media (max-width: 1279px) { .kbd { display: none; } }
+@media (max-width: 1023px) { .searchLabel, .moreLabel { display: none; } .search, .more { width: var(--control-height); padding: 0; } }

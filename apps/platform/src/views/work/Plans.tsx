@@ -1,36 +1,103 @@
 import { Button } from "@/components/ui";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { RealizationPlan } from "../../../shared/lifecycle";
 import { useAdminToken } from "@/api/adminToken";
+import { Row, RowList } from "@/components/RowList/RowList";
+import { Section } from "@/components/Section/Section";
+import { StatusText } from "@/components/StatusText/StatusText";
 import { useSystemRoute } from "@/model/useSelection";
+import { useStayHref } from "@/model/useThingFilter";
 import { useWorkData } from "./data";
 import { useParam } from "./lib";
 import { DraftPanel } from "./plan/DraftPanel";
-import { FIXTURE_REASON, planError, plural, TOKEN_REASON } from "./plan/lib";
+import { awaitingAgent, FIXTURE_REASON, planError, plural, TOKEN_REASON } from "./plan/lib";
 import { PlanDetail } from "./plan/PlanDetail";
-import { useApiMode, usePlan, usePlans } from "./plan/queries";
-import { TaskStatus } from "./plan/TaskStatus";
+import { useApiMode, usePlan } from "./plan/queries";
+import { selectionText, tasksAwaitText } from "./plan/signals";
 import styles from "./work.module.css";
-import planStyles from "./plan/plan.module.css";
+
+/** Why plan writes are refused (fixture data, no admin token), or null. */
+export function usePlanWriteReason(): string | null {
+  const { token } = useAdminToken();
+  const api = useApiMode();
+  return !api ? FIXTURE_REASON : !token ? TOKEN_REASON : null;
+}
 
 /**
- * Realizations: the System's RealizationPlans. "Plan implementation" opens the draft flow (`?panel=plan`); `?plan=`
- * opens a stored plan. Reads follow the System's visibility; every write needs the admin token.
+ * The Plans group of the Work list pane: the System's RealizationPlans, each a row link (`?plan=`) with its status,
+ * task count and the tasks that await an agent (the rail's count). "Plan implementation" opens the draft (`?panel=plan`).
  */
-export function Plans() {
+export function PlansSection({ plans, loading, error, current, now }: {
+  plans: readonly RealizationPlan[];
+  loading: boolean;
+  error: unknown;
+  current: string | null;
+  now: number;
+}) {
+  const href = useStayHref();
+  const api = useApiMode();
+  const [panel, setPanel] = useParam("panel");
+  const drafting = panel === "plan";
+  return (
+    <Section
+      title="Plans"
+      count={api ? plans.length : undefined}
+      description="Task plans that implement an accepted Genome."
+      actions={
+        <Button
+          size="compact"
+          aria-pressed={drafting}
+          reason={!api ? FIXTURE_REASON : undefined}
+          onClick={() => setPanel(drafting ? null : "plan", { evolution: null, realization: null, plan: null, task: null })}
+        >
+          Plan implementation
+        </Button>
+      }
+    >
+      {loading && <p className={styles.listNote} role="status">Loading plans…</p>}
+      {!!error && <p role="alert" className={styles.error}>{planError("Reading plans", error)}</p>}
+      {api && !loading && !error && plans.length === 0 && <p className={styles.listNote}>No plan yet. Plan implementation drafts one from an accepted Genome Evolution.</p>}
+      {plans.length > 0 && (
+        <RowList label="Realization plans">
+          {plans.map((p) => {
+            const waiting = awaitingAgent(p, now);
+            const submitted = p.tasks.filter((t) => t.status === "submitted").length;
+            return (
+              <Row
+                key={p.id}
+                to={href("work", { plan: p.id })}
+                current={current === p.id}
+                title={p.title}
+                meta={<span className={styles.rowMeta}><StatusText status={p.status} glyph="" /><span>{plural(p.tasks.length, "task")}</span></span>}
+                tone="attention"
+                status={waiting || submitted ? (
+                  <span className={styles.rowStatus}>
+                    {waiting > 0 && <StatusText status="awaits-agent" tone="attention" label={tasksAwaitText(waiting)} />}
+                    {submitted > 0 && <StatusText status="submitted" tone="attention" glyph="◕" label={selectionText(submitted)} />}
+                  </span>
+                ) : undefined}
+              />
+            );
+          })}
+        </RowList>
+      )}
+    </Section>
+  );
+}
+
+/** The detail pane for plans: the draft Panel (`?panel=plan`) or the stored plan (`?plan=`). */
+export function PlanPane({ planId, drafting }: { planId: string | null; drafting: boolean }) {
   const { systemId } = useSystemRoute();
-  const { token } = useAdminToken();
   const api = useApiMode();
   const qc = useQueryClient();
   const { evolutions } = useWorkData();
-  const [selected, setPlan] = useParam("plan");
-  const [panel, setPanel] = useParam("panel");
-  const drafting = panel === "plan";
+  const [, setPlan] = useParam("plan");
+  const [, setPanel] = useParam("panel");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const plans = usePlans(systemId, api);
-  const detail = usePlan(systemId, selected, api);
-  const writeReason = !api ? FIXTURE_REASON : !token ? TOKEN_REASON : null;
+  const detail = usePlan(systemId, planId, api);
+  const writeReason = usePlanWriteReason();
 
   const run = (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -48,59 +115,26 @@ export function Plans() {
       });
   };
 
+  if (drafting) {
+    return (
+      <DraftPanel
+        evolutions={evolutions}
+        writeReason={writeReason}
+        onCancel={() => setPanel(null)}
+        onCreated={(p) => {
+          void qc.invalidateQueries({ queryKey: ["plans", systemId] });
+          void qc.invalidateQueries({ queryKey: ["systems"] });
+          setPlan(p.id, { panel: null, task: null });
+        }}
+      />
+    );
+  }
   return (
-    <section aria-labelledby="realization-plans" className={styles.panel}>
-      <div className={styles.detailHead}>
-        <h2 id="realization-plans">Realizations</h2>
-        <Button
-          type="button"
-          variant="secondary"
-          aria-pressed={drafting}
-          disabled={!api}
-          aria-describedby={!api ? "realization-plans-fixture" : undefined}
-          onClick={() => setPanel(drafting ? null : "plan", { evolution: null, realization: null })}
-        >
-          Plan implementation
-        </Button>
-      </div>
-      <p>A Realization implements a pinned accepted Genome. Its Tasks run in isolated forks; Task Attempts preserve retry history.</p>
-      {!api && <p id="realization-plans-fixture" className={styles.muted}>{FIXTURE_REASON}</p>}
-      {api && !token && (
-        <p className={styles.muted}>
-          Set the admin token to draft, select, integrate or promote plans.
-        </p>
-      )}
-      {plans.isLoading && <p role="status">Loading Realizations…</p>}
-      {plans.error && <p role="alert">{planError("Reading plans", plans.error)}</p>}
-      {plans.data && plans.data.plans.length === 0 && <p className={styles.muted}>No Realization plan yet. Plan implementation drafts one.</p>}
-      {plans.data && plans.data.plans.length > 0 && (
-        <ul className={planStyles.planList} aria-label="Realization plans">
-          {plans.data.plans.map((p) => (
-            <li key={p.id} className={styles.inlineRow}>
-              <Button type="button" variant="ghost" aria-pressed={selected === p.id} onClick={() => setPlan(selected === p.id ? null : p.id, { task: null })}>{p.title}</Button>
-              <span>{p.status}</span>
-              <span className={styles.muted}>{plural(p.tasks.length, "task")}</span>
-              {p.tasks.some((t) => t.status === "submitted") && <TaskStatus status="submitted" title="A task awaits selection" />}
-            </li>
-          ))}
-        </ul>
-      )}
-      {drafting && (
-        <DraftPanel
-          evolutions={evolutions}
-          writeReason={writeReason}
-          onCancel={() => setPanel(null)}
-          onCreated={(p) => {
-            void qc.invalidateQueries({ queryKey: ["plans", systemId] });
-            void qc.invalidateQueries({ queryKey: ["systems"] });
-            setPlan(p.id, { panel: null, task: null });
-          }}
-        />
-      )}
-      {detail.isLoading && <p role="status">Loading plan…</p>}
-      {detail.error && <p role="alert">{planError("Reading the plan", detail.error)}</p>}
+    <>
+      {detail.isLoading && <p className={styles.listNote} role="status">Loading plan…</p>}
+      {detail.error && <p role="alert" className={styles.error}>{planError("Reading the plan", detail.error)}</p>}
       {detail.data && <PlanDetail plan={detail.data} writeReason={writeReason} busy={busy} error={error} run={run} />}
       {!detail.data && error && <p role="alert" className={styles.error}>{error}</p>}
-    </section>
+    </>
   );
 }

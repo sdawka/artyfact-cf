@@ -4,7 +4,12 @@ import { useReadiness } from "@/api/queries";
 import { Derivation, type DerivationTree } from "@/components/Derivation/Derivation";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
-import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
+import { NodeLink } from "../NodeLink";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { RowList, Row } from "@/components/RowList/RowList";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { Button } from "@/components/ui";
+import { verdictTone, type UiVerdict } from "@/model/status";
 import type { IndexEntry } from "@/model/index";
 import type { Criterion } from "@/model/types";
 import { useModel } from "@/model/useModel";
@@ -25,9 +30,9 @@ interface Scoped { criterion: Criterion; via?: { id: string; why: string } }
 
 function ExplainButton({ open, onToggle, controls, label }: { open: boolean; onToggle: () => void; controls: string; label: string }) {
   return (
-    <button type="button" className={`u-brackets ${styles.button}`} aria-expanded={open} aria-controls={controls} onClick={onToggle}>
+    <Button variant="ghost" size="compact" aria-expanded={open} aria-controls={controls} onClick={onToggle}>
       {open ? "Hide" : "Explain"}<span className="sr-only"> {label}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -69,27 +74,32 @@ function ObligationItem({ relation, tuple, subject }: { relation: string; tuple:
   );
 }
 
-function CriterionCard({ s }: { s: Scoped }) {
+const VERDICT_GLYPH: Record<UiVerdict, string> = { pass: "✓", fail: "×", unknown: "?", stale: "↻", "not-run": "–", waived: "⊘" };
+
+const INHERITED = "inherited from ancestor";
+
+function CriterionRow({ s }: { s: Scoped }) {
   const m = useModel();
   const c = s.criterion;
+  const verdict = m.verdictOf(c.id);
+  const tone = verdictTone(verdict);
+  const same = c.ownerId === c.subjectId;
   return (
-    <li className={styles.card}>
-      <div className={styles.head}>
-        <NodeChip id={c.id} size="sm" />
-        <VerdictBadge verdict={m.verdictOf(c.id)} />
-      </div>
-      <div className={styles.lines}>
-        <div><span className={styles.label}>Owner</span> <NodeChip id={c.ownerId} size="sm" /></div>
-        <div><span className={styles.label}>Subject</span> <NodeChip id={c.subjectId} size="sm" /></div>
-        <div><span className={styles.label}>Target</span> {c.targetKind} · gates {c.gates.join(", ") || "none"}</div>
-      </div>
-      {s.via && <div className={styles.muted}>{s.via.why} <NodeChip id={s.via.id} size="sm" /></div>}
-    </li>
+    <Row
+      title={<NodeLink id={c.id} />}
+      status={<StatusText status={verdict} tone={tone === "subtle" ? "neutral" : tone} glyph={VERDICT_GLYPH[verdict]} />}
+      meta={<MetaLine items={[
+        { label: same ? "Owner and subject" : "Owner", value: <NodeLink id={c.ownerId} /> },
+        ...(same ? [] : [{ label: "Subject", value: <NodeLink id={c.subjectId} /> }]),
+        { label: "Target", value: `${c.targetKind}, gates ${c.gates.join(", ") || "none"}` },
+        ...(s.via && s.via.why !== INHERITED ? [{ value: <>{s.via.why} <NodeLink id={s.via.id} /></> }] : []),
+      ]} />}
+    />
   );
 }
 
-/** Inspector "Rules & claims": criteria in the node's lineage, derived obligations and findings, each with why. */
-export function RulesTab({ entry }: { entry: IndexEntry }) {
+/** Everything the Rules tab lists for a node, and the total the tab label counts. */
+export function useRules(entry: IndexEntry) {
   const m = useModel();
   const { data } = useReadiness();
   const id = entry.id;
@@ -98,7 +108,7 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
   const add = (c: Criterion, via?: Scoped["via"]) => { if (!scoped.has(c.id)) scoped.set(c.id, { criterion: c, via }); };
   for (const c of m.criteriaFor(id)) add(c);
   for (const c of m.criteriaOwnedBy(id)) add(c);
-  for (const a of m.path(id).slice(0, -1).reverse()) for (const c of m.criteriaFor(a.id)) add(c, { id: a.id, why: "inherited from ancestor" });
+  for (const a of m.path(id).slice(0, -1).reverse()) for (const c of m.criteriaFor(a.id)) add(c, { id: a.id, why: INHERITED });
   for (const l of m.crossLinks(id)) {
     if (l.rel !== "invokes") continue;
     const other = l.from === id ? l.to : l.from;
@@ -112,8 +122,19 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
   );
   const findings = m.bundle.readiness.modelReadiness.findings.filter((f) => f.subject === id);
   const claims = m.index.model.claims.filter((c) => c.activities.includes(id));
+  return { scoped, derived, obligations, findings, claims, total: scoped.size + obligations.length + findings.length + claims.length };
+}
 
-    if (derived && !scoped.size && !obligations.length && !findings.length && !claims.length) {
+/** Inspector "Rules": criteria in the node's lineage, derived obligations and findings, each with why. */
+export function RulesTab({ entry }: { entry: IndexEntry }) {
+  const id = entry.id;
+  const { scoped, derived, obligations, findings, claims } = useRules(entry);
+
+  const all = [...scoped.values()];
+  const direct = all.filter((s) => s.via?.why !== INHERITED);
+  const inherited = new Map<string, Scoped[]>();
+  for (const s of all) if (s.via?.why === INHERITED) inherited.set(s.via.id, [...(inherited.get(s.via.id) ?? []), s]);
+  if (derived && !scoped.size && !obligations.length && !findings.length && !claims.length) {
     return <EmptyState title="No criteria, derived obligations, findings or claims reference this object." />;
   }
   return (
@@ -121,7 +142,13 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
       {scoped.size > 0 && (
         <section aria-label="Criteria" className={styles.section}>
           <h3 className={styles.title}>Criteria</h3>
-          <ul className={styles.list}>{[...scoped.values()].map((s) => <CriterionCard key={s.criterion.id} s={s} />)}</ul>
+          {direct.length > 0 && <RowList label="Criteria" density="compact">{direct.map((s) => <CriterionRow key={s.criterion.id} s={s} />)}</RowList>}
+          {[...inherited].map(([ancestor, rows]) => (
+            <div key={ancestor} className={styles.section}>
+              <h4 className={styles.subtitle}>Inherited from <NodeLink id={ancestor} /></h4>
+              <RowList label={`Criteria inherited from ${ancestor}`} density="compact">{rows.map((s) => <CriterionRow key={s.criterion.id} s={s} />)}</RowList>
+            </div>
+          ))}
         </section>
       )}
       {!derived && (

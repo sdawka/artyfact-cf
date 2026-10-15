@@ -1,0 +1,5 @@
+.status { display: inline-flex; align-items: baseline; gap: var(--spacing-1); font: var(--type-ui); color: var(--color-text-subtle); white-space: nowrap; }
+.status[data-tone="attention"] { color: var(--color-attention); }
+.status[data-tone="fail"] { color: var(--verdict-fail); }
+.status[data-tone="pass"] { color: var(--verdict-pass); }
+.glyph { display: inline-block; min-width: 1em; text-align: center; }

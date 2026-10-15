@@ -1,0 +1,14 @@
+id: affordance.not-found.open-home
+kind: affordance
+fields:
+  name: Open Home
+  description: The page's primary; on the route error page Try again (or Reload) is primary and Open Home secondary.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Home opens
+  failure: []
+links:
+  - rel: references
+    to: screen.home

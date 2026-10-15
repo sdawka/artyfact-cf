@@ -18,3 +18,16 @@ export function durationMs(e: Evaluation): number | undefined {
 
 export const VERDICT_FILTERS: UiVerdict[] = ["pass", "fail", "unknown", "stale", "not-run", "waived"];
 export const EXECUTION_FILTERS = ["not-run", "queued", "running", "completed", "deferred", "error"] as const;
+
+/** A provenance key for people: `engineVersion` → "Engine version", `selected_by` → "Selected by". */
+export function humanKey(k: string): string {
+  const words = k.replace(/[_-]+/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim().toLowerCase();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : k;
+}
+
+/** An ISO time to the minute in UTC ("2026-01-01 00:00 UTC"); anything unparseable stays as given. */
+export function stamp(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  return `${new Date(t).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}

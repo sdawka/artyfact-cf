@@ -2,16 +2,18 @@ id: affordance.home.needs-you-row
 kind: affordance
 fields:
   name: Needs you row
-  description: A ledger row opens the Review (or Deployments for a failed deploy) of the System it names.
+  description: "A whole-row link in the ledger that ends with its destination word: Review (awaiting review, import, tasks awaiting selection), Work (tasks awaiting an agent), Promote (a plan awaiting promotion, opens Review) or Deployments (deployed behind, deploy failed)."
   actor: user
   trigger: click
   preconditions:
     - The ledger lists a pending decision
   effects:
-    - The matching screen opens for that System
+    - The named screen opens at head for that System
   failure: []
 links:
   - rel: references
     to: screen.review
+  - rel: references
+    to: screen.work
   - rel: references
     to: screen.phenome

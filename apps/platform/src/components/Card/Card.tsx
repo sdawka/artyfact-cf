@@ -31,7 +31,8 @@ interface LinkedCard extends CardBase {
 export type CardProps = StaticCard | LinkedCard;
 
 /**
- * Opaque surface with a subtle border, radius md and no shadow. Never nest a Card in a Card.
+ * Opaque surface with a subtle border, radius md, padding 20 and no shadow. Never nest a Card in a Card. For one
+ * distinct object (about six or fewer on screen) or a signature surface; never for homogeneous items you compare (use RowList).
  * `state` sets `data-state`; `to` turns the whole surface into a single link whose accessible name is the title.
  */
 export function Card({ as: Tag = "section", title, headingLevel = 2, actions, state, to, className, children }: CardProps) {

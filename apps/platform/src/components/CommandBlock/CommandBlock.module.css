@@ -1,0 +1,6 @@
+/* Commands to paste (moved out of views/work/work.module.css `.cli` / `.cliLine`; same look). */
+.block { display: grid; gap: var(--spacing-2); padding: var(--spacing-3); border: 1px solid var(--color-brand-primary); border-radius: var(--border-radius-md); }
+.block h3 { margin: 0; }
+.block p { margin: 0; }
+.line { margin: 0; padding: var(--spacing-2); overflow-x: auto; font-family: var(--font-code); font-size: var(--font-size-sm); background: var(--color-background); border-radius: var(--border-radius-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2); }

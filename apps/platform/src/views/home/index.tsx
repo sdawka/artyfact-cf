@@ -2,13 +2,16 @@ import { Button } from "@/components/ui";
 import { Link } from "react-router";
 import type { PartSummary, SystemSummary } from "../../../shared/api";
 import { useParts, useSystems } from "@/api/queries";
-import { Card } from "@/components/Card/Card";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { EntryLayout } from "@/components/EntryLayout/EntryLayout";
 import { LoadingState } from "@/components/LoadingState/LoadingState";
-import { useNow } from "@/model/time";
+import { PageHeader } from "@/components/PageHeader/PageHeader";
+import { Section } from "@/components/Section/Section";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { relTime, useNow } from "@/model/time";
 import { HomeHeader } from "./HomeHeader";
 import { NeedsYou } from "./NeedsYou";
-import { SystemCard } from "./SystemCard";
+import { SystemRow, SystemsHeader } from "./SystemRow";
 import { sortByAttention } from "./signifiers";
 import styles from "./home.module.css";
 
@@ -22,12 +25,13 @@ export interface HomeContentProps {
   onRetry?(): void;
 }
 
-/** The body of Home for each state: loading, error, empty, or the card grid. */
+/** The body of Home for each state: loading, error, empty, or the ledger and the Systems register. */
 export function HomeContent({ systems, isLoading, isError, onRetry }: HomeContentProps) {
   const now = useNow(60_000);
   if (isError)
     return (
       <EmptyState
+        kind="error"
         title="Could not reach the platform API."
         action={onRetry && <Button type="button" variant="secondary" onClick={onRetry}>Try again</Button>}
       />
@@ -35,7 +39,11 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
   if (isLoading || !systems) return <LoadingState label="Loading Systems…" />;
   if (systems.length === 0)
     return (
-      <EmptyState title="No Systems yet." surface action={<a className="u-marker" href={INIT_DOCS}>Import one with artyfact init</a>}>
+      <EmptyState
+        title="No Systems yet."
+        surface
+        action={<span className={styles.emptyActions}><a className="u-marker" href={INIT_DOCS}>Import one with artyfact init</a><Link to="/start">Start a System</Link></span>}
+      >
         <p>
           Run <code>npx artyfact init --dir &lt;project&gt;</code> in a project with a root <code>node.yaml</code>.
         </p>
@@ -44,9 +52,12 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
   return (
     <>
       <NeedsYou systems={systems} />
-      <ul className={styles.grid} aria-label="Systems">
-        {sortByAttention(systems).map((s) => <SystemCard key={s.systemId} system={s} now={now} />)}
-      </ul>
+      <Section title="Systems" count={systems.length}>
+        <SystemsHeader />
+        <ul className={styles.register} aria-label="Systems">
+          {sortByAttention(systems).map((s) => <SystemRow key={s.systemId} system={s} now={now} />)}
+        </ul>
+      </Section>
     </>
   );
 }
@@ -59,19 +70,35 @@ export interface PartsContentProps {
 
 /** The public catalog only contains shared packages; System-private packages are intentionally absent. */
 export function PartsContent({ parts, isLoading, isError }: PartsContentProps) {
-  if (isError) return <EmptyState title="Could not load reusable Parts." />;
-  if (isLoading || !parts) return <LoadingState label="Loading reusable Parts…" />;
+  const now = useNow(60_000);
+  if (isError) return <EmptyState title="Could not load Shared Parts." />;
+  if (isLoading || !parts) return <p className={styles.quiet} role="status">Loading Parts…</p>;
   const sharedParts = parts.filter((part) => part.scope.kind === "shared");
-  if (sharedParts.length === 0) return <EmptyState title="No reusable Parts published yet."><p>System-private Parts stay inside their System.</p></EmptyState>;
-  return <ul className={styles.grid} aria-label="Reusable Parts">
-    {sharedParts.map((part) => (
-      <Card as="li" key={`${part.partId}@${part.version}`} to={`/parts/${encodeURIComponent(part.partId)}/${encodeURIComponent(part.version)}`} title={part.name || part.partId} headingLevel={3}>
-        <p className={styles.meta}><code>{part.partId}@{part.version}</code><span>Shared</span></p>
-        {part.description && <p className={styles.partDescription}>{part.description}</p>}
-        <p className={styles.footer}><span>{part.dependencies.length} dependencies</span><span>published {part.publishedAt || "unknown"}</span></p>
-      </Card>
-    ))}
-  </ul>;
+  if (sharedParts.length === 0) return <EmptyState title="No Shared Parts published yet."><p>Private Parts stay inside their System.</p></EmptyState>;
+  return <>
+    <div className={`${styles.regHead} ${styles.partCols}`} aria-hidden="true">
+      <span>Name</span><span>Version</span><span>Description</span><span>Dependencies</span><span>Published</span>
+    </div>
+    <ul className={styles.register} aria-label="Shared Parts">
+      {sharedParts.map((part) => {
+        const deps = part.dependencies.length;
+        return (
+          <li key={`${part.partId}@${part.version}`} className={styles.regRow}>
+            <Link to={`/parts/${encodeURIComponent(part.partId)}/${encodeURIComponent(part.version)}`} className={`u-selectable ${styles.regLink} ${styles.partCols}`} aria-label={part.name || part.partId}>
+              <span className={styles.cellName}>
+                <span className={styles.rowTitle}>{part.name || part.partId}</span>
+                <MetaLine items={[{ value: `${part.partId}@${part.version}`, code: true }]} />
+              </span>
+              <span className={styles.cell}><span className={styles.cellLabel}>Version </span><code>{part.version}</code></span>
+              <span className={`${styles.cell} ${styles.cellDescription}`}>{part.description || <span className={styles.quiet}>No description.</span>}</span>
+              <span className={styles.cell}>{deps === 0 ? "no dependencies" : `${deps} ${deps === 1 ? "dependency" : "dependencies"}`}</span>
+              <span className={styles.cell} title={part.publishedAt || undefined}>{part.publishedAt ? relTime(part.publishedAt, now) : "unknown"}</span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  </>;
 }
 
 /** `/`: every System on this platform, outside the System shell. */
@@ -79,18 +106,17 @@ export default function HomeView() {
   const { data, isLoading, isError, refetch } = useSystems();
   const parts = useParts();
   return (
-    <div className={styles.page}>
-      <HomeHeader />
-      <main id="main" className={styles.main} tabIndex={-1}>
-        <h1 className={styles.h1}>Systems</h1>
-        <p><Link className="u-marker" to="/start">Start a System</Link></p>
-        <HomeContent systems={data} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} />
-        <section className={styles.parts} aria-labelledby="parts-title">
-          <h2 id="parts-title" className={styles.h2}>Reusable Parts</h2>
-          <PartsContent parts={parts.data} isLoading={parts.isLoading} isError={parts.isError} />
-        </section>
-      </main>
-    </div>
+    <EntryLayout header={<HomeHeader />}>
+      <PageHeader
+        title="Systems"
+        purpose="Systems on this platform and what waits on you."
+        context={null}
+        primary={<Button asChild variant="primary"><Link to="/start">Start a System</Link></Button>}
+      />
+      <HomeContent systems={data} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} />
+      <Section title="Shared Parts" id="parts">
+        <PartsContent parts={parts.data} isLoading={parts.isLoading} isError={parts.isError} />
+      </Section>
+    </EntryLayout>
   );
 }
-

@@ -1,3 +1,5 @@
+/* Graph nodes are flat: no resting, hover or status glow, no accent rails. Selection is the one thing that lights up
+   (a 2px outline plus the selection glow); candidates awaiting review keep their apricot brackets (overlays). */
 .node,
 .group {
   position: relative;
@@ -6,12 +8,9 @@
   height: 100%;
   border: 1px solid var(--color-border-subtle);
   border-radius: 3px;
-  background: var(--color-surface-secondary);
-  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--color-text-primary) 5%, transparent), 0 3px 12px color-mix(in oklch, var(--color-background) 70%, transparent);
+  background: var(--graph-node-bg);
   color: var(--color-text-primary);
-  transition:
-    opacity var(--motion-duration-fast) var(--motion-easing-ease-out),
-    box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out);
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out), background-color var(--motion-duration-fast) var(--motion-easing-ease-out);
 }
 .node {
   display: flex;
@@ -21,23 +20,22 @@
   overflow: hidden;
   cursor: pointer;
 }
-.node[data-role="outside"] { background: var(--color-surface-primary); }
+.node[data-role="outside"] { background: var(--surface-panel); }
+.node:hover { background: var(--surface-raised); }
 .external {
   background: transparent;
   border-style: dashed;
 }
+.external:hover { background: var(--surface-panel); }
 .group {
-  background: color-mix(in oklch, var(--color-surface-primary) 60%, transparent);
+  background: var(--surface-panel);
   border-color: var(--color-border);
 }
-/* Status stays quiet; selection is a single inset ring inside the packed tile. */
-.node[data-status="fail"] { box-shadow: var(--shadow-glow-error-soft); }
-.node[data-status="pass"] { box-shadow: var(--shadow-glow-success-soft); }
-.node:hover { box-shadow: var(--shadow-glow-accent-soft); }
 .node[data-dim],
 .group[data-dim] { opacity: 0.35; }
+/* Proteome: a quiet neutral ring where realizations exist (the count is in the tile). */
 .node[data-ring],
-.group[data-ring] { outline: 1px solid var(--color-brand-primary); outline-offset: -2px; }
+.group[data-ring] { outline: 1px solid var(--color-border-strong); outline-offset: -2px; }
 
 .title {
   display: flex;
@@ -51,7 +49,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-heading);
   font-size: var(--font-size-lg);
+  line-height: 1.25;
 }
 .meta {
   display: flex;
@@ -62,22 +62,23 @@
 }
 .kind {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font: var(--type-meta);
 }
+/* "Open, 22 inside": a text link-button, not a boxed control; the whole tile still selects and double-click opens. */
 .open {
   flex: none;
   min-height: 28px;
-  padding: var(--spacing-1) var(--spacing-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: var(--type-meta);
+  text-decoration: underline;
+  text-decoration-color: var(--color-link-underline);
+  text-underline-offset: 3px;
   cursor: pointer;
 }
-.open:hover { color: var(--color-brand-primary); border-color: var(--color-brand-primary); background: var(--color-background-hover); }
-.open:active { background: color-mix(in oklch, var(--color-brand-primary) 12%, var(--color-surface-primary)); }
+.open:hover { text-decoration-color: currentColor; }
 .open:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .badges:empty { display: none; }
 
@@ -85,18 +86,20 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-1);
+  height: 80px;
+  box-sizing: border-box;
   padding: var(--spacing-3) var(--spacing-4);
-  background: color-mix(in oklch, var(--color-brand-secondary) 30%, var(--color-surface-primary));
-  border-bottom: 1px solid var(--color-brand-secondary);
-  box-shadow: inset 4px 0 var(--color-brand-primary);
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--color-border);
 }
-.groupHead .name { font-size: var(--font-size-base); }
+.groupHead .title .name { font-size: var(--font-size-xl); }
 .empty {
   margin: 0;
   padding: var(--spacing-3) var(--spacing-4);
-  color: var(--color-text-subtle);
-  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font: var(--type-meta);
 }
+.empty a { color: var(--color-link); text-decoration-color: var(--color-link-underline); text-underline-offset: 3px; }
 
 .handle {
   opacity: 0;
@@ -113,7 +116,7 @@
   top: 0;
   left: var(--spacing-2);
   color: var(--color-text-subtle);
-  font-size: var(--font-size-xs);
+  font: var(--type-hint);
   white-space: nowrap;
 }
 .band {
@@ -129,28 +132,20 @@
   top: var(--spacing-2);
   left: var(--spacing-3);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font: var(--type-hint);
   white-space: nowrap;
-}
-@media (prefers-reduced-motion: reduce) {
-  .node, .group { transition: none; }
 }
 
 /* Atlas containment is an actual packed surface. Shared geometry is supplied by atlasLayout. */
 .node[data-role="child"] { border-width: 0 1px 1px 0; border-color: var(--color-border); }
-.node[data-selected], .group[data-selected] { outline: 2px solid var(--color-brand-primary); outline-offset: -3px; box-shadow: none; background: color-mix(in oklch, var(--color-brand-primary) 7%, var(--color-surface-secondary)); }
-.name { font-family: var(--font-heading); font-size: var(--font-size-lg); line-height: 1.25; }
 .purpose { margin: var(--spacing-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.preview { display: flex; flex-wrap: wrap; gap: var(--spacing-1); padding: var(--spacing-2) 0 0; margin: var(--spacing-2) 0 0; border-top: 1px solid var(--color-border-subtle); list-style: none; color: var(--color-text-secondary); font-size: var(--font-size-sm); max-height: 58px; overflow: hidden; }
-.preview li { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px var(--spacing-2); border-left: 2px solid var(--color-brand-secondary); background: var(--color-surface-primary); line-height: 1.4; }
+/* What Enter will reveal: plain names, no boxes, no rules. */
+.preview { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-3); padding: var(--spacing-2) 0 0; margin: var(--spacing-2) 0 0; border-top: 1px solid var(--color-border-faint); list-style: none; color: var(--color-text-secondary); font: var(--type-meta); max-height: 58px; overflow: hidden; }
+.preview li { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
 .badges { position: absolute; bottom: var(--spacing-2); left: var(--spacing-4); right: var(--spacing-3); }
-.groupHead { height: 80px; box-sizing: border-box; }
-.groupHead .title .name { font-family: var(--font-heading); font-size: var(--font-size-xl); }
 
-.node[data-system] { background: color-mix(in oklch, var(--color-brand-secondary) 18%, var(--color-surface-secondary)); box-shadow: inset 4px 0 var(--color-brand-primary); }
+/* The System is told apart by size and display-face name alone. */
 .node[data-system] .name { font-size: var(--font-size-2xl); }
-.node[data-system] .kind { color: var(--color-brand-primary); font-weight: 600; }
-.node[data-system][data-selected] { background: color-mix(in oklch, var(--color-brand-primary) 7%, var(--color-surface-secondary)); box-shadow: none; }
 
 /* Two separate footer baselines keep candidate review and evidence readable at 216px. */
 .node[data-candidate-overlap] { padding-bottom: 56px; }
@@ -158,27 +153,26 @@
 /* Directional relation strokes sit inside the authored box and never affect layout or hit testing. */
 .node::after, .group::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  border: 1px solid transparent; transition: border-color 160ms ease-out, box-shadow 200ms ease-out;
+  border: 1px solid transparent; transition: border-color 160ms ease-out;
 }
 .node[data-related]::after, .group[data-related]::after {
   border-width: var(--relation-top, 1px) var(--relation-right, 1px) var(--relation-bottom, 1px) var(--relation-left, 1px);
-  border-color: color-mix(in oklch, var(--color-brand-secondary) 80%, var(--color-text-primary));
-  box-shadow: inset 0 0 14px color-mix(in oklch, var(--color-brand-secondary) 16%, transparent);
+  border-color: var(--color-border-strong);
 }
-.node[data-related], .group[data-related] {
-  box-shadow: 0 0 16px color-mix(in oklch, var(--color-brand-secondary) 20%, transparent), inset 0 0 12px color-mix(in oklch, var(--color-brand-secondary) 6%, transparent);
+.node[data-emphasized]::after, .group[data-emphasized]::after { border-color: var(--color-text-primary); }
+
+/* Selection: outline plus the selection glow, and one surface step. */
+.node[data-selected], .group[data-selected] {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: -5px;
+  box-shadow: var(--shadow-glow-selection);
+  background: var(--surface-raised);
 }
-.node[data-emphasized], .group[data-emphasized], .node[data-system][data-selected] {
-  box-shadow: 0 0 22px color-mix(in oklch, var(--color-brand-primary) 27%, transparent), inset 0 0 24px color-mix(in oklch, var(--color-brand-primary) 8%, transparent);
-}
-.node[data-emphasized]::after, .group[data-emphasized]::after { border-color: var(--color-brand-primary); }
-.node[data-selected], .group[data-selected] { outline: 2px solid var(--color-brand-primary); outline-offset: -5px; }
 :global([data-effects="off"]) .node, :global([data-effects="off"]) .group { box-shadow: none; transition: none; }
-:global([data-effects="off"]) .node::after, :global([data-effects="off"]) .group::after { box-shadow: none; transition: none; }
-@media (prefers-reduced-motion: reduce) { .node::after, .group::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .node, .group, .node::after, .group::after { transition: none; } }
 @media (forced-colors: active) {
   .node, .group { box-shadow: none; }
-  .node[data-related]::after, .group[data-related]::after { border-color: LinkText; box-shadow: none; }
+  .node[data-related]::after, .group[data-related]::after { border-color: LinkText; }
   .node[data-emphasized]::after, .group[data-emphasized]::after { border-color: Highlight; }
   .node[data-selected], .group[data-selected] { outline: 2px solid Highlight; }
 }

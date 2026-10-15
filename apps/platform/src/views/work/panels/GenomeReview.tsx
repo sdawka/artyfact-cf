@@ -2,14 +2,14 @@ import { Button, Input, Textarea } from "@/components/ui";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { Finding, SystemImportReview, SystemImportReviewAcceptResponse, ProposalPlanNode } from "../../../../shared/api";
-import { useAdminTokenField } from "@/api/adminToken";
+import { useAdminToken, useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError } from "@/api/client";
-import { useAcceptImportReview, useImportReview } from "@/api/queries";
+import { useAcceptImportReview, useImportReview, useSystems } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { LevelBadge } from "@/inspector/bodies/FindingBody";
 import { useModel } from "@/model/useModel";
-import { useKeepParams } from "@/model/useSelection";
+import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import { acceptImportBlocker, decidedTree, importDecisions, importSummary } from "../../review/importReview";
 import { AgreementTree, cascade, walk } from "../intent/agreement";
 import styles from "./AmendmentReview.module.css";
@@ -34,14 +34,44 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * or reject, children inherit), its readiness findings and the app paths no node maps, then accept with an
  * interpretation. Rejected nodes become `remove` ops of a Genome amendment that the accept commits at once.
  */
-export function GenomeReview() {
-  const q = useImportReview();
-  if (q.isPending) return <EmptyState title="Loading the import review…" live />;
-  if (q.isError || !q.data) {
-    const missing = q.error instanceof ApiRequestError && q.error.status === 404;
+/**
+ * Whether this System has an import review, from its summary: `false` when the summary loaded and names none (no request
+ * is made, so a missing review is a normal state rather than a 404), `undefined` while the summary loads, `null` when
+ * the summary does not say (then the review itself is asked).
+ */
+export function useHasImportReview(): boolean | null | undefined {
+  const { systemId } = useSystemRoute();
+  const systems = useSystems();
+  // A review read (or accepted) this session wins over the summary the client keeps from its first answer.
+  const cached = useImportReview({ enabled: false }).data;
+  if (cached) return true;
+  if (systems.isPending) return undefined;
+  const summary = systems.data?.find((s) => s.systemId === systemId);
+  return summary ? !!summary.importReview : null;
+}
+
+export function GenomeReview({ onBack }: { onBack?: () => void } = {}) {
+  const has = useHasImportReview();
+  const q = useImportReview({ enabled: has === true || has === null });
+  const missing = (has === false && !q.data) || (q.error instanceof ApiRequestError && q.error.status === 404);
+  if (missing) {
     return (
-      <EmptyState title={missing ? "This System has no import review." : "The import review is unavailable."}>
-        {!missing && <code>{q.error?.message ?? "unknown error"}</code>}
+      <section className={styles.panel} aria-labelledby="import-missing">
+        <h2 id="import-missing" className={styles.title}>Import review</h2>
+        <EmptyState
+          title="No import review on this System."
+          action={onBack && <Button type="button" variant="secondary" onClick={onBack}>Back to queue</Button>}
+        >
+          A pending Genome import appears here.
+        </EmptyState>
+      </section>
+    );
+  }
+  if (has === undefined || q.isPending) return <EmptyState title="Loading the import review…" live />;
+  if (q.isError || !q.data) {
+    return (
+      <EmptyState kind="error" title="Could not load the import review." onRetry={() => void q.refetch()}>
+        <code>{q.error?.message ?? "unknown error"}</code>
       </EmptyState>
     );
   }
@@ -176,9 +206,10 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
 }) {
   const href = useKeepParams();
   const [interpretation, setInterpretation] = useState("");
+  const { token: headerToken } = useAdminToken();
   const [adminToken, setAdminToken] = useAdminTokenField();
   const [error, setError] = useState<string | null>(null);
-  const ids = { interp: useId(), why: useId(), token: useId() };
+  const ids = { interp: useId(), token: useId() };
   const acceptWhy = outcome ? null : fixture ? "Accepting needs the platform API. The UI is showing fixture data." : blocker;
 
   const doAccept = () => {
@@ -189,10 +220,13 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
 
   return (
     <div className={styles.decision}>
-      <div className={styles.fieldBlock}>
-        <label htmlFor={ids.token}>Admin token</label>
-        <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
-      </div>
+      {/* The header token is the one source; this field only appears while it is unset. */}
+      {!headerToken && (
+        <div className={styles.fieldBlock}>
+          <label htmlFor={ids.token}>Admin token</label>
+          <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
+        </div>
+      )}
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.interp}>Accepted interpretation</label>
         <p id={`${ids.interp}-hint`} className={styles.muted}>Recorded with the import. Say how this Genome should be read.</p>
@@ -210,13 +244,12 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
         <Button
           type="button"
           variant="primary"
-          disabled={!!outcome || !!acceptWhy || accept.isPending}
-          aria-describedby={acceptWhy ? ids.why : undefined}
+          reason={acceptWhy ?? undefined}
+          disabled={!!outcome || accept.isPending}
           onClick={doAccept}
         >
           {accept.isPending ? "Accepting…" : rejected.length ? `Accept import, remove ${rejected.length} rejected` : "Accept import"}
         </Button>
-        {acceptWhy && <p id={ids.why} className={styles.muted}>{acceptWhy}</p>}
       </div>
       {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
       {!outcome && (

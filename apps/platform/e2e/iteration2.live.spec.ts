@@ -26,8 +26,8 @@ test.describe("iteration 2 on a live deployment", () => {
     await systemCard(page, /Peopling/).first().click();
     await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/things\/thing\.webapp$/);
     await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
-    await page.getByRole("link", { name: "System overview", exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Scope" }).getByRole("link", { name: "Peopling", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     await checkPage(page, testInfo, "live-overview");
   });
 
@@ -35,7 +35,6 @@ test.describe("iteration 2 on a live deployment", () => {
     await createEvolution(page, title, "Live end-to-end check of the describe-a-change loop.", ["screen.people"], token, base);
     await page.getByRole("button", { name: "Start work" }).first().click();
     await page.getByLabel("Agent label").fill("e2e-live");
-    await page.getByLabel("Admin token").fill(token);
     await page.getByRole("button", { name: "Start work" }).last().click();
     await expect(page.getByRole("heading", { name: "Task Packet", exact: true })).toBeVisible();
     await checkPage(page, testInfo, "live-packet", undefined, ['[class*="markdown"] > pre']);
@@ -54,17 +53,19 @@ test.describe("iteration 2 on a live deployment", () => {
     await page.getByLabel("Your name").fill("E2E");
     await page.getByLabel("Admin token").fill(token);
     await page.getByRole("button", { name: "Commit", exact: true }).click();
-    await expect(page).toHaveURL(/\/work\?.*realization=/, { timeout: 60_000 });
+    // Work's realization deep link opens the review on Review.
+    await expect(page).toHaveURL(/\/review\?.*realization=/, { timeout: 60_000 });
     realization = new URL(page.url()).searchParams.get("realization") ?? "";
     expect(realization).not.toBe("");
-    await expect(page.getByTestId(`realization-${realization}`)).toBeVisible();
+    await expect(page.getByRole("region", { name: `Review ${realization}` })).toBeVisible();
     await checkPage(page, testInfo, "live-candidate");
   });
 
   test("the preview build leaves unknown once CI reports @live", async ({ page }, testInfo) => {
     test.skip(!withCi, "ARTYFACT_CI=1 is not set (apps/ci is not deployed)");
     test.setTimeout(6 * 60_000);
-    await page.goto(`${base}/work?realization=${realization}`);
+    await page.goto(`${base}/work`);
+    await page.getByRole("region", { name: "Plans and Evolutions" }).getByRole("link", { name: new RegExp(`^${title}`) }).click();
     const row = page.getByTestId(`realization-${realization}`);
     await expect(row.getByText("build unknown")).toHaveCount(0, { timeout: 5 * 60_000 });
     await expect(row.getByText(/build (passed|failed|error|running|queued)/)).toBeVisible();

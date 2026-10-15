@@ -1,8 +1,7 @@
 .stack, .section { display: grid; gap: var(--spacing-3); }
 .title { margin: 0; color: var(--color-text-secondary); font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
 .list { display: grid; gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
-.card, .item { display: grid; gap: var(--spacing-2); justify-items: start; min-width: 0; font-size: var(--font-size-sm); }
-.card { padding: var(--spacing-3); background: var(--color-surface-secondary); border-radius: var(--border-radius-md); }
+.item { display: grid; gap: var(--spacing-2); justify-items: start; min-width: 0; font: var(--type-ui); }
 .head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
 .lines { display: grid; gap: var(--spacing-1); }
 .label { display: inline-block; min-width: 4.5em; color: var(--color-text-subtle); }
@@ -21,3 +20,4 @@
   cursor: pointer;
 }
 .button:hover { border-color: var(--color-border); }
+.subtitle { margin: var(--spacing-2) 0 0; color: var(--color-text-subtle); font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }

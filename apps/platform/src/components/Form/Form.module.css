@@ -1,0 +1,16 @@
+/* Shared form primitives (moved out of views/work/work.module.css; same rules, no visual change). */
+.form { display: grid; gap: var(--spacing-4); max-width: 40rem; }
+.field { display: grid; gap: var(--spacing-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.check { min-height: var(--control-height); display: flex; gap: var(--spacing-2); align-items: center; font-size: var(--font-size-sm); }
+.fieldset { margin: 0; padding: var(--spacing-3); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
+.reason, .reasons { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.reasons { margin: 0; padding-left: var(--spacing-4); }
+.reasons code, .box code { font-family: var(--font-code); overflow-wrap: anywhere; }
+.error { color: var(--verdict-fail); }
+.muted { color: var(--color-text-subtle); }
+/* Bordered group inside a view (the former work `.panel`). New code uses the Panel component. */
+.box { display: grid; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
+.box h3, .box h4 { margin: 0; }
+.box h4 { margin-top: var(--spacing-1); font-size: var(--font-size-sm); color: var(--color-text-subtle); font-weight: var(--font-weight-medium); }
+.box p { margin: 0; }

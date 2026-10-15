@@ -109,16 +109,17 @@ describe("System atlas", () => {
     expect(params.get("focus")).toBe("component.ContactCollection");
   });
 
-  it("reveals selected connections and retains original endpoint paths with Locate", async () => {
+  it("reveals selected connections and retains original endpoint paths with Show on map", async () => {
     renderApp(`${MAP}?scope=screen.people`);
     await ready("component.AddContactDialog");
     expect(document.querySelectorAll("[data-edge-type]")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show all connections" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "All connections" }));
     await waitFor(() => expect(document.querySelectorAll("[data-edge-type]").length).toBeGreaterThan(0));
     fireEvent.click(nodeEl("component.AddContactDialog")!);
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
     expect(screen.getByRole("region", { name: "Selected connections" }).textContent).toContain("Peopling");
-    expect(screen.getAllByRole("button", { name: /^Locate / }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /^Show .* on map$/ }).length).toBeGreaterThan(0);
   });
 
   it("selected scope lists descendant boundary endpoints with outside context discovery", async () => {
@@ -126,8 +127,8 @@ describe("System atlas", () => {
     await ready("component.ContactCollection");
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
     const list = screen.getByRole("region", { name: "Selected connections" });
-    expect(within(list).getAllByRole("button", { name: "Locate ContactRecord" }).length).toBeGreaterThan(0);
-    expect(within(list).getAllByRole("button", { name: "Locate Create or edit private contact" }).length).toBeGreaterThan(0);
+    expect(within(list).getAllByRole("button", { name: "Show ContactRecord on map" }).length).toBeGreaterThan(0);
+    expect(within(list).getAllByRole("button", { name: "Show Create or edit private contact on map" }).length).toBeGreaterThan(0);
     const canvas = screen.getByTestId("atlas-canvas");
     const renderer = document.querySelector<HTMLElement>(".react-flow__renderer")! as HTMLElement & { __zoom: { x: number; y: number; k: number } };
     const record = box("entity.ContactRecord");
@@ -136,7 +137,9 @@ describe("System atlas", () => {
     const shift = canvas.offsetWidth + 32 - (record.x * renderer.__zoom.k + renderer.__zoom.x);
     fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaX: -shift / 0.5, deltaY: 0 });
     expect(record.x * renderer.__zoom.k + renderer.__zoom.x).toBeGreaterThan(canvas.offsetWidth);
-    await waitFor(() => expect(within(screen.getByLabelText("Offscreen connections")).getByRole("button", { name: "Locate ContactRecord" })).toBeTruthy());
+    const outside = await screen.findByRole("button", { name: /^Outside \(/ });
+    fireEvent.keyDown(outside, { key: "Enter" });
+    expect(await screen.findByRole("menuitem", { name: "Show ContactRecord on map" })).toBeTruthy();
   });
 
   it('Tree Locate selects a direct child hidden by a filter without changing scope', async () => {
@@ -177,7 +180,7 @@ describe("System atlas", () => {
   await waitFor(() => expect(viewport()).not.toBe(initial));
   const panned = viewport();
   fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
-  await screen.findByRole('heading', { name: 'Overview', level: 1 });
+  await screen.findByRole('heading', { name: 'Peopling', level: 1 });
   await act(() => router.navigate(-1));
   await waitFor(() => expect(nodeEl('affordance.AddContactDialog.save')).not.toBeNull());
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
@@ -186,9 +189,21 @@ describe("System atlas", () => {
   expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("affordance.AddContactDialog.save");
 });
 
-  it("restores a camera changed by a single ordinary-wheel tick after Enter and Up", async () => {
+  it("Enter clicked immediately after mount survives the scope-param normalisation", async () => {
     renderApp(MAP);
     await ready(SYS);
+    fireEvent.click(screen.getByRole("button", { name: "Enter Peopling" }));
+    await ready("thing.webapp");
+    expect(screen.getByTestId("atlas-canvas").getAttribute("data-scope")).toBe(SYS);
+  });
+
+  it("restores a camera changed by a single ordinary-wheel tick after Enter and Up", async () => {
+    const { router } = renderApp(MAP);
+    await ready(SYS);
+    // The scope param is normalized by a replace navigation; a travel started before it lands is (correctly) superseded.
+    await waitFor(() => expect(router.state.location.search).toContain("scope=environment"));
+    // Replace navigations can still be queued behind the first render; let the location key settle.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
     const viewport = () => document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
     const initial = viewport();
     fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaY: 90 });
@@ -205,7 +220,7 @@ describe("System atlas", () => {
     await ready("component.AddContactDialog");
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
     const list = screen.getByRole("region", { name: "Selected connections" });
-    const target = within(list).getAllByRole("button", { name: /^Locate / })[0]!;
+    const target = within(list).getAllByRole("button", { name: /^Show .* on map$/ })[0]!;
     fireEvent.click(target);
     await waitFor(() => expect(router.state.location.search).not.toContain("scope=screen.people"));
     const selected = new URLSearchParams(router.state.location.search).get("focus")!;
@@ -217,7 +232,7 @@ describe("System atlas", () => {
     const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
     await ready("component.AddContactDialog");
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
-    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Locate / })[0]!);
+    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Show .* on map$/ })[0]!);
     await ready("affordance.AddContactDialog.save");
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
     const viewport = () => document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
@@ -226,7 +241,7 @@ describe("System atlas", () => {
     await waitFor(() => expect(viewport()).not.toBe(initial));
     const panned = viewport();
     fireEvent.click(screen.getByRole("link", { name: /^Overview$/ }));
-    await screen.findByRole("heading", { name: "Overview", level: 1 });
+    await screen.findByRole("heading", { name: "Peopling", level: 1 });
     await act(() => router.navigate(-1));
     await ready("affordance.AddContactDialog.save");
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
@@ -238,7 +253,7 @@ describe("System atlas", () => {
     const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
     await ready("component.AddContactDialog");
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
-    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Locate / })[0]!);
+    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Show .* on map$/ })[0]!);
     await act(() => router.navigate(`${MAP}?scope=screen.people&focus=component.ContactCollection`));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
     const params = new URLSearchParams(router.state.location.search);
@@ -251,7 +266,7 @@ describe("System atlas", () => {
     await ready("component.AddContactDialog");
     fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
     const region = screen.getByRole("region", { name: "Selected connections" });
-    fireEvent.click(within(region).getAllByRole("button", { name: /^Locate / })[0]!);
+    fireEvent.click(within(region).getAllByRole("button", { name: /^Show .* on map$/ })[0]!);
     // Leave before the approach commits; a later visit must obey the new URL selection.
     await act(() => router.navigate(`${MAP}?scope=component.AddContactDialog&focus=affordance.AddContactDialog.cancel`));
     await ready("affordance.AddContactDialog.cancel");
@@ -313,9 +328,9 @@ describe("Candidate overlay", () => {
     };
     renderApp(`${MAP}?focus=screen.people&candidates=cand.a,cand.b`, undefined, seed);
     await ready("component.AddContactDialog");
-    await waitFor(() => expect(within(nodeEl("component.AddContactDialog") as HTMLElement).getByText("overlap · 2")).toBeTruthy());
+    await waitFor(() => expect(within(nodeEl("component.AddContactDialog") as HTMLElement).getByText("Overlap, 2 candidates")).toBeTruthy());
     // The chip is a way into Review with both candidates preselected for composition.
-    const chip = within(nodeEl("component.AddContactDialog") as HTMLElement).getByRole("link", { name: "overlap · 2" });
+    const chip = within(nodeEl("component.AddContactDialog") as HTMLElement).getByRole("link", { name: "Overlap, 2 candidates" });
     expect(new URLSearchParams(chip.getAttribute("href")!.split("?")[1]).get("candidates")).toBe("cand.a,cand.b");
     expect(chip.getAttribute("href")).toContain("/review?");
     expect(flowNode("component.AddContactDialog")!.getAttribute("aria-label")).toContain("touched by cand.a and cand.b (overlap)");

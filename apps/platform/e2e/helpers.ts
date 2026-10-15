@@ -41,7 +41,8 @@ export async function successToneElements(page: Page): Promise<string[]> {
       const tagged = el.matches('[data-tone="pass"], [data-verdict="pass"]');
       const painted = ([cs.color, cs.backgroundColor, cs.borderTopColor, cs.fill].includes(pass) || cs.backgroundColor === passBg) && el.textContent?.trim() !== "";
       if (tagged || painted) {
-        const evidence = el.textContent?.trim() || el.getAttribute("title") || "";
+        // A StatusText glyph is aria-hidden and bare: report the status it belongs to.
+        const evidence = el.closest("[data-status]")?.textContent?.trim() || el.textContent?.trim() || el.getAttribute("title") || "";
         hits.push(`${el.tagName.toLowerCase()}.${el.className}: ${evidence.slice(0, 40)}`);
       }
     }

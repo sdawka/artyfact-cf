@@ -45,24 +45,27 @@ test.describe("describe a change by intent @fake", () => {
 
     await acceptAgreed.click();
 
-    // Work: the candidate row with its gates, opened for review, under an Evolution that lists the touched node.
-    await expect(page).toHaveURL(/\/work\?.*realization=/);
-    const rid = new URL(page.url()).searchParams.get("realization")!;
-    await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
-    const row = page.getByTestId(`realization-${rid}`);
+    // Work selects the accepted Evolution; its attempt row hands the candidate to Review.
+    // Work may already have selected another Evolution on arrival (kept under the panel): read the id once the new one shows.
+    const heading = page.getByRole("heading", { level: 2, name: new RegExp(`^${message}`) });
+    await expect(heading).toBeVisible();
+    await expect(page).toHaveURL(/\/work\?.*evolution=/);
+    const evoId = new URL(page.url()).searchParams.get("evolution")!;
+    // The Evolution's own detail names the touched node.
+    await expect(page.getByRole("region", { name: message }).getByText("People").first()).toBeVisible();
+    const row = page.locator('[data-testid^="realization-"]').first();
     await expect(row).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: message })).toBeVisible();
-    // The candidate's gates: the Evaluations tab lists the criteria with their verdicts (fake provider, so nothing is green without a pass).
+    const rid = (await row.getAttribute("data-testid"))!.replace(/^realization-/, "");
+    await checkPage(page, testInfo, "intent-accepted", undefined, ['[class*="markdown"] > pre']);
+    await row.getByRole("link", { name: /Open in Review/ }).click();
+    // The candidate's gates on Review: the Evaluations tab lists the criteria with their verdicts (fake provider, so nothing is green without a pass).
     const review = page.getByRole("region", { name: `Review ${rid}` });
+    await expect(review).toBeVisible();
     await review.getByRole("tab", { name: "Evaluations" }).click();
     await expect(review.getByRole("row", { name: /Changed nodes meet their checks/ })).toContainText("pass");
     await expect(review.getByRole("row", { name: /People screen/ }).first()).toContainText("not-run");
-    // The Evolution's own panel names the touched node.
-    await expect(page.getByRole("heading", { level: 2, name: message }).locator("..").getByText("People").first()).toBeVisible();
-    await checkPage(page, testInfo, "intent-accepted", undefined, ['[class*="markdown"] > pre']);
 
     // Genome approval cannot start implementation. A separate plan pins that accepted revision and scopes the local Task.
-    const evoId = new URL(page.url()).searchParams.get("evolution")!;
     const work = await (await request.get(`/api/systems/${SYS}/work`)).json() as { evolutions: { id: string; affectedNodes: string[]; kind: string }[] };
     const evo = work.evolutions.find((e) => e.id === evoId)!;
     expect(evo.kind).toBe("genome-amendment");
@@ -81,9 +84,9 @@ test.describe("describe a change by intent @fake", () => {
     expect(packet.permittedGlobs).toContain("public/people/**");
     expect(packet.genome.commit).toBe(plan.genome.commit);
     await page.goto(`${BASE}/work?plan=${encodeURIComponent(plan.id)}`);
-    await expect(page.getByRole("heading", { name: definition.title })).toBeVisible();
-    await page.getByTestId("task-task.people").getByRole("button", { name: "Implement People copy" }).click();
-    await expect(page.getByTestId("task-detail").getByText(/local:e2e · working/)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${definition.title}`) })).toBeVisible();
+    await page.getByTestId("task-task.people").getByRole("button", { name: /^Implement People copy/ }).click();
+    await expect(page.getByTestId("task-detail").getByRole("row", { name: /local:e2e\s+working/ })).toBeVisible();
 
   });
 
@@ -93,7 +96,7 @@ test.describe("describe a change by intent @fake", () => {
     // #s1low is a fake System One directive: low confidence, so the router asks instead of routing.
     await page.getByLabel("What should change?").fill("Change what the People screen says #s1low");
     await page.getByRole("button", { name: "Propose changes" }).click();
-    await expect(page.getByRole("heading", { name: "Questions" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Questions/ })).toBeVisible();
     await expect(page.getByText("Which of these is it about")).toBeVisible();
     await expect(page.getByRole("button", { name: "Accept agreed" })).toHaveCount(0);
     const proposalId = new URL(page.url()).searchParams.get("proposal")!;
@@ -106,6 +109,6 @@ test.describe("describe a change by intent @fake", () => {
     // The reply runs a new turn: the proposal stays open and its question is replaced (the directive still keeps confidence low).
     await expect.poll(async () => (await get()).questions.map((q) => q.id)).toEqual(["q.2"]);
     expect((await get()).status).toBe("open");
-    await expect(page.getByRole("heading", { name: "Questions" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Questions/ })).toBeVisible();
   });
 });

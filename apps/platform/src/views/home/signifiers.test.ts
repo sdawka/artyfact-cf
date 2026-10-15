@@ -11,7 +11,7 @@ describe("cardSummary headline", () => {
   it("is quiet for a summary from a server without iteration-2 fields", () => {
     expect(cardSummary(base)).toMatchObject({ headline: "quiet", tone: "quiet" });
     expect(cardSummary(base).reviewHref).toBeUndefined();
-    expect(cardSummary(base).deploy).toMatchObject({ label: "not deployed, unknown", tone: "neutral" });
+    expect(cardSummary(base).deploy).toMatchObject({ label: "not deployed", tone: "neutral" });
   });
 
   it("puts attention before evolving before not built", () => {
@@ -47,7 +47,7 @@ describe("cardSummary deploy line", () => {
     expect(d("behind")).toMatchObject({ glyph: "●", label: "deployed, behind", tone: "attention" });
     expect(d("failed")).toMatchObject({ glyph: "×", label: "deploy failed", tone: "fail" });
     expect(d("pending")).toMatchObject({ label: "deploying", tone: "neutral" });
-    expect(d("none")).toMatchObject({ label: "not deployed, unknown", tone: "neutral" });
+    expect(d("none")).toMatchObject({ label: "not deployed", tone: "neutral" });
   });
 
   it("folds the build in; only a passed build is success", () => {

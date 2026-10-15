@@ -2,9 +2,10 @@ id: component.review.promotion
 kind: component
 fields:
   name: Promotion
-  description: "The promotion panel: manifest hash, base against head, the gates table and the reasons Promote is disabled."
+  description: "The promotion desk (?panel=promote): h2 Promote <Evolution> with the gates summary and Promote in its header, then Blocking, Candidates, Base and head, Required gates, Advisories and the Rationale. After promoting: Promoted <title>, the System commit, Open in Changelog and Open Deployments."
   states:
     - loading
     - loaded
     - error
     - 409 stale base
+    - ↑ promoted (subtle)

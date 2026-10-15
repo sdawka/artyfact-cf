@@ -2,11 +2,10 @@ id: screen.thing
 kind: screen
 fields:
   name: Thing workspace
-  description: One Thing of the System with its four cards and the same views scoped to it. Actionable targets wear corner brackets and the page has one primary button; the Thing switcher and System overview link navigate immediately, and the side rail resolves to this Thing's views.
+  description: "One Thing of the System. The context line reads the System (a link to its Overview) and a Thing select that switches Thing; the h1 is the Thing's name with its description and an Output status. Describe a change is the primary and Map a secondary. Sections: Genome (id, template, Parts, composition), Source, Realized outputs and Phenome evidence, then Related views. The rail resolves to this Thing's views and shows In <Thing> · Leave; Thing-scoped views filter to the Thing with Show all."
   route: /s/:systemId/r/:rev/things/:thingId
   states:
     - loading
     - loaded
-    - empty
     - error
-    - unknown Thing
+    - "unknown Thing: This Thing is not in <rev>."

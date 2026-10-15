@@ -1,9 +1,10 @@
 import { Button, Textarea } from "@/components/ui";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import type { IntentAcceptResponse } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
 import { useCreateIntent, useIntent } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { Panel } from "@/components/Panel/Panel";
 import { useModel } from "@/model/useModel";
 import { useParam } from "../lib";
 import { intentError } from "./lib";
@@ -31,15 +32,14 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   // An accept that deferred, dropped or failed to defer changes: the panel stays open on this status until the admin moves on.
   const [done, setDone] = useState<{ res: IntentAcceptResponse; counts: AcceptedCounts; from: string | null } | null>(null);
   const settled = done && done.from === proposalId ? done : null;
-  const heading = useRef<HTMLHeadingElement>(null);
-  // Opening the panel (also from a deep link) moves focus to its heading.
-  useEffect(() => heading.current?.focus(), []);
-
-  const reason = fixture ? FIXTURE_REASON : !message.trim() ? "Describe the change first." : null;
+  // An empty message only says why after a submit attempt; beside an empty box the reason is noise.
+  const [tried, setTried] = useState(false);
+  const reason = fixture ? FIXTURE_REASON : tried && !message.trim() ? "Describe the change first." : null;
 
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (reason) return;
+    if (!message.trim()) setTried(true);
+    if (reason || !message.trim()) return;
     create.mutate(
       { body: { message: message.trim(), ...(anchor && { anchor }) }, ...(token && { adminToken: token }) },
       { onSuccess: (p) => { setMessage(""); setProposalId(p.id); } },
@@ -54,22 +54,17 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   const deferredCount = settled ? settled.counts.deferred : 0;
 
   return (
-    <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
-      <div className={workStyles.detailHead}>
-        <h2 id={`${uid}-h`} ref={heading} tabIndex={-1}>Describe a change</h2>
-        <span className={workStyles.inlineRow}>
-          {proposalId && !fixture && (
-            <Button type="button" variant="secondary" onClick={() => setProposalId(null)}>Start over</Button>
-          )}
-          <Button type="button" variant="secondary" onClick={onClose}>Back to board</Button>
-        </span>
-      </div>
-
+    <Panel
+      title="Describe a change"
+      onBack={onClose}
+      backLabel="Back to Work"
+      secondary={proposalId && !fixture ? <Button type="button" variant="secondary" onClick={() => setProposalId(null)}>Start over</Button> : undefined}
+    >
       {anchor && (
         <p className={workStyles.inlineRow}>
           <span className={workStyles.muted}>Starting from</span>
           <NodeChip id={anchor} size="sm" showId interactive={false} />
-          <Button type="button" variant="secondary" onClick={() => setAnchor(null)}>Clear anchor</Button>
+          <Button type="button" variant="ghost" size="compact" onClick={() => setAnchor(null)}>Clear anchor</Button>
         </p>
       )}
 
@@ -77,18 +72,19 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         <form onSubmit={submit} className={workStyles.form}>
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-m`}>What should change?</label>
-            <Textarea id={`${uid}-m`} rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={fixture} />
+            <Textarea
+              id={`${uid}-m`}
+              rows={4}
+              value={message}
+              onChange={(e) => { setMessage(e.target.value); if (e.target.value.trim()) setTried(false); }}
+              placeholder="Owners can archive a contact without deleting it."
+              disabled={fixture}
+            />
           </div>
           <div className={workStyles.actions}>
-            <Button
-              type="submit"
-              variant={shown ? "secondary" : "primary"}
-              disabled={!!reason || create.isPending}
-              aria-describedby={reason ? `${uid}-why` : undefined}
-            >
+            <Button type="submit" variant={shown ? "secondary" : "primary"} disabled={create.isPending} reason={reason ?? undefined}>
               {create.isPending ? "Proposing…" : "Propose changes"}
             </Button>
-            {reason && <span id={`${uid}-why`} className={workStyles.reason}>{reason}</span>}
           </div>
           {create.isError && <p role="alert" className={workStyles.error}>{intentError(create.error)}</p>}
         </form>
@@ -105,11 +101,11 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
           {settled.res.deferralError && <p className={workStyles.error}>The deferred changes were not kept: {settled.res.deferralError}.</p>}
           <span className={workStyles.inlineRow}>
             {settled.res.deferred && (
-              <Button type="button" variant="primary" className="u-brackets" onClick={() => setProposalId(settled.res.deferred!.proposal)}>
+              <Button type="button" variant="primary" onClick={() => setProposalId(settled.res.deferred!.proposal)}>
                 Continue with deferred
               </Button>
             )}
-            <Button type="button" variant="secondary" className="u-brackets" onClick={() => onAccepted(settled.res)}>
+            <Button type="button" variant={settled.res.deferred ? "secondary" : "primary"} onClick={() => onAccepted(settled.res)}>
               Open the accepted change
             </Button>
           </span>
@@ -126,6 +122,6 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
           onAccepted={accepted}
         />
       )}
-    </section>
+    </Panel>
   );
 }

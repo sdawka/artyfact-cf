@@ -1,8 +1,14 @@
 import { useId } from "react";
 import { Link } from "react-router";
+import { Count } from "@/components/Count/Count";
+import { Kbd } from "@/components/Kbd/Kbd";
+import { MetaLine, type MetaItem } from "@/components/MetaLine/MetaLine";
+import { Row, RowList } from "@/components/RowList/RowList";
+import { StatusText } from "@/components/StatusText/StatusText";
 import { useKeepParams, useSelection } from "@/model/useSelection";
+import { useStayHref } from "@/model/useThingFilter";
 import { ConflictChips } from "../work/ConflictChips";
-import { importLabel, waitingCount, type QueueGroup, type QueueRow } from "./queue";
+import { importLabel, waitingCount, type QueueGroup, type QueueKind, type QueueRow } from "./queue";
 import styles from "./review.module.css";
 
 interface Props {
@@ -20,13 +26,28 @@ interface Props {
   loading?: boolean;
 }
 
-/** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it on the right. */
+/** The row's type: a small chip, glyph plus word. Never ✓ (that means pass). */
+const KIND: Record<QueueKind, { glyph: string; word: string }> = {
+  candidate: { glyph: "◇", word: "candidate" },
+  stale: { glyph: "↻", word: "stale" },
+  amendment: { glyph: "✎", word: "amendment" },
+  promotion: { glyph: "↑", word: "promotion" },
+  import: { glyph: "⤓", word: "import" },
+  integrity: { glyph: "◎", word: "integrity" },
+  "task-selection": { glyph: "◇", word: "task" },
+  "plan-promotion": { glyph: "↑", word: "plan" },
+};
+
+/** Marks a queue row target for j / k navigation. */
+export const QUEUE_ROW = "data-queue-row";
+
+/** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it in the detail pane. */
 export function QueueList({ groups, evolutionId, realizationId, promoting, importing, planId, taskId, integrityId, error, loading = false }: Props) {
   const count = waitingCount(groups);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
       <h2 id="queue-title" className={styles.queueTitle}>
-        Waiting on you <span className={styles.count}>{count}</span>
+        Waiting on you <Count n={count} tone="attention" />
       </h2>
       {groups.length ? (
         groups.map((g) => (
@@ -35,84 +56,117 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, impor
       ) : (
         <p className={styles.muted} {...(loading && { role: "status" })}>{error ? "The decision queue could not be fully loaded." : loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
       )}
+      {groups.length > 0 && (
+        <p className={styles.keys}>
+          <span><Kbd keys={["j"]} /> <Kbd keys={["k"]} /> move</span>
+          <span><Kbd keys={["Enter"]} /> open</span>
+        </p>
+      )}
     </section>
   );
 }
 
 function Group({ group, evolutionId, realizationId, promoting, importing, planId, taskId, integrityId }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
   const id = useId();
+  const href = useKeepParams();
+  // The group head opens its Evolution (or plan) in Work; the import group belongs to no Evolution.
+  const to = group.planId
+    ? href("work", { plan: group.planId, task: null, evolution: null, realization: null, panel: null, candidates: null })
+    : group.evolution
+      ? href("work", { evolution: group.evolution, realization: null, panel: null, plan: null, task: null })
+      : null;
+  const ready = group.rows.filter((r) => r.kind === "candidate").length;
   return (
     <section className={styles.group} aria-labelledby={id}>
-      <h3 id={id} className={styles.groupTitle}>{group.title}</h3>
-      <ul className={styles.rows}>
+      <h3 id={id} className={styles.groupTitle}>
+        {to ? <Link to={to} className={styles.groupLink}>{group.title}</Link> : group.title}
+      </h3>
+      <RowList label={`${group.title} decisions`} className={styles.rows}>
         {group.rows.map((row) => {
           const current = row.kind === "integrity" ? row.integrity?.id === integrityId : row.plan ? row.plan.id === planId && (row.task?.id ?? null) === (taskId ?? null) : row.kind === "import"
             ? !!importing
             : row.kind === "promotion"
               ? promoting && evolutionId === group.evolution
               : !promoting && !importing && !!row.realization && row.realization.id === realizationId;
-          return <li key={row.key}><Row row={row} title={group.title} current={current} /></li>;
+          return <QueueItem key={row.key} row={row} title={group.title} current={current} ready={ready} />;
         })}
-      </ul>
+      </RowList>
     </section>
   );
 }
 
-function Row({ row, title, current }: { row: QueueRow; title: string; current: boolean }) {
-  const href = useKeepParams();
-  const { candidates: selected } = useSelection();
-  const to = row.kind === "integrity" ? href("review", {integrity:row.integrity!.id, plan:null,task:null,evolution:null,realization:null,panel:null}) : row.plan ? href("review", {plan: row.plan.id, task: row.task?.id ?? null, evolution:null, realization:null, panel:null}) : row.kind === "import"
-    ? href("review", { evolution: null, realization: null, panel: "import", plan:null, task:null })
+/** Where a row opens: the integrity review, the plan or Task review, the import review, the promotion desk or the candidate review. */
+export function useRowHref() {
+  // Rows stay on Review, so they keep a lifted Thing filter ("Show all").
+  const href = useStayHref();
+  return (row: QueueRow) => row.kind === "integrity"
+    ? href("review", { integrity: row.integrity!.id, plan: null, task: null, evolution: null, realization: null, panel: null })
+    : row.plan ? href("review", { plan: row.plan.id, task: row.task?.id ?? null, evolution: null, realization: null, panel: null, integrity: null }) : row.kind === "import"
+    ? href("review", { evolution: null, realization: null, panel: "import", plan: null, task: null, integrity: null })
     : row.kind === "promotion"
-      ? href("review", { evolution: row.evolution, realization: null, panel: "promote", plan:null, task:null })
-      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null, plan:null, task:null });
-  if (row.plan) return <Link to={to} className={styles.row} data-kind={row.kind} data-testid={`queue-${row.key}`} aria-current={current ? "true" : undefined}><strong>{row.task?.title ?? "Promote implementation"}</strong><span>{row.task ? "Task result awaits selection" : "Plan awaits promotion"}</span></Link>;
-  if (row.integrity) return <Link to={to} className={styles.row} data-kind="integrity" data-testid={`queue-${row.key}`} aria-current={current ? "true" : undefined}><strong>Integrity review</strong><span>{row.integrity.state === "completed" ? `automated ${row.integrity.report?.status ?? "result"}; human agreement pending` : `${row.integrity.state} check`}</span></Link>;
-  const r = row.realization;
-  const ready = row.kind === "promotion";
-  if (row.importReview) {
-    return (
-      <Link to={to} className={styles.row} data-kind={row.kind} data-testid="queue-import" aria-current={current ? "true" : undefined}>
-        <span className={styles.rowTop}>
-          <span className={styles.kind} data-kind={row.kind}>{importLabel(row.importReview.nodes)}</span>
-          <span className={styles.muted}>awaits an admin</span>
-        </span>
-        <span className={styles.rowMeta}>
-          Genome <code>{row.importReview.genomeCommit.slice(0, 7)}</code> · new work waits until it is accepted
-        </span>
-      </Link>
-    );
-  }
-  return (
-    <Link
-      to={to}
-      className={styles.row}
-      data-kind={row.kind}
-      data-testid={r ? `queue-${r.id}` : `queue-promotion-${row.evolution}`}
-      aria-current={current ? "true" : undefined}
-    >
-      <span className={styles.rowTop}>
-        <span className={styles.kind} data-kind={row.kind}>{row.kind}</span>
-        {r && <strong className={styles.agent}>{r.agent.id}</strong>}
-        {r && <span className={styles.muted}>{r.agent.role}</span>}
-        {ready && <span className={styles.muted}>ready to promote</span>}
-        {ready && <span className="sr-only">{title} ({row.evolution})</span>}
-      </span>
-      {row.candidateId && (
-        <span className={styles.rowMeta}>
-          <code>{row.candidateId}</code>
-          {selected.includes(row.candidateId) && <span className={styles.selected}>selected for composition</span>}
-        </span>
-      )}
-      <ConflictChips conflicts={row.conflicts} compact />
-      <BaseLine behind={row.behind} />
-    </Link>
-  );
+      ? href("review", { evolution: row.evolution, realization: null, panel: "promote", plan: null, task: null, integrity: null })
+      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null, plan: null, task: null, integrity: null });
 }
 
-/** "base = head" in the neutral tone; "behind by N" (or "behind head" when the distance is unknown) needs attention. */
-function BaseLine({ behind }: { behind: number | null | undefined }) {
-  if (behind === undefined) return null;
-  if (behind === 0) return <span className={styles.rowMeta}>base = head</span>;
-  return <span className={styles.behind}>{behind === null ? "behind head" : `behind by ${behind}`}</span>;
+function Chip({ kind }: { kind: QueueKind }) {
+  const k = KIND[kind];
+  return <span className={styles.kind} data-kind={kind}><span className="u-glyph" aria-hidden="true">{k.glyph}</span>{k.word}</span>;
+}
+
+/** The outcome sentence: what deciding this row is about. */
+function outcome(row: QueueRow, ready: number): string {
+  if (row.plan) return row.task ? `${row.task.title}: result awaits selection` : "Plan awaits promotion";
+  switch (row.kind) {
+    case "import": return `${importLabel(row.importReview!.nodes)} awaits an admin`;
+    case "integrity": return row.integrity!.state === "completed"
+      ? `Integrity review: automated ${row.integrity!.report?.status ?? "result"}, agreement pending`
+      : `Integrity check ${row.integrity!.state}`;
+    case "amendment": return "Genome amendment awaits an admin";
+    case "promotion": return `Ready to promote, ${ready} candidate${ready === 1 ? "" : "s"} evaluated`;
+    case "stale": return "Built on an earlier head";
+    default:
+      return row.realization?.status === "submitted" ? "Submitted, checks pending" : "Evaluated candidate to review";
+  }
+}
+
+function QueueItem({ row, title, current, ready }: { row: QueueRow; title: string; current: boolean; ready: number }) {
+  const rowHref = useRowHref();
+  const { candidates: selected } = useSelection();
+  const r = row.realization;
+  const testId = row.plan || row.integrity ? `queue-${row.key}` : row.importReview ? "queue-import" : r ? `queue-${r.id}` : `queue-promotion-${row.evolution}`;
+  const meta: MetaItem[] = [];
+  // A base behind head is the 409 precondition: it leads the meta line, in attention.
+  if (row.behind !== undefined && row.behind !== 0) {
+    meta.push({ value: <StatusText status="behind" tone="attention" glyph="↻" label={row.behind === null ? "behind head" : `behind by ${row.behind}`} /> });
+  }
+  if (row.importReview) {
+    meta.push({ label: "Genome", value: row.importReview.genomeCommit.slice(0, 7), code: true, title: row.importReview.genomeCommit });
+    meta.push({ value: "new work waits until it is accepted" });
+  }
+  if (r) meta.push({ value: <span className={styles.agent}>{r.agent.id}</span> }, { value: r.agent.role });
+  if (row.candidateId) meta.push({ value: <code className={styles.id} title={row.candidateId}>{row.candidateId}</code> });
+  if (row.behind === 0) meta.push({ value: "base = head" });
+  if (row.candidateId && selected.includes(row.candidateId)) meta.push({ value: <StatusText status="selected" tone="attention" glyph="●" label="in promotion" /> });
+  return (
+    <Row
+      to={rowHref(row)}
+      current={current}
+      targetProps={{ "data-kind": row.kind, "data-testid": testId, [QUEUE_ROW]: "" }}
+      className={styles.row}
+      title={
+        <span className={styles.rowTop}>
+          <Chip kind={row.kind} />
+          <span className={styles.outcome}>{outcome(row, ready)}</span>
+          {row.kind === "promotion" && <span className="sr-only">{title} ({row.evolution})</span>}
+        </span>
+      }
+      meta={(meta.length > 0 || row.conflicts.length > 0) && (
+        <>
+          {meta.length > 0 && <MetaLine items={meta} className={styles.rowMeta} />}
+          <ConflictChips conflicts={row.conflicts} compact />
+        </>
+      )}
+      status={row.kind === "promotion" ? <span className={styles.trail}>Promote</span> : undefined}
+    />
+  );
 }

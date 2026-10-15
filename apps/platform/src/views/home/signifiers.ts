@@ -71,7 +71,7 @@ function deployLine(s: CardSummary): DeployLine {
       line = { status: "deploy-pending", label: "deploying", tone: "neutral" };
       break;
     default:
-      line = { status: "not-deployed", label: "not deployed, unknown", tone: "neutral" };
+      line = { status: "not-deployed", label: "not deployed", tone: "neutral" };
   }
   const b = s.latestBuild;
   if (b) {

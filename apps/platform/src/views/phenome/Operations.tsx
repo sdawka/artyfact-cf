@@ -1,44 +1,75 @@
-import { Select, Button, Checkbox, Input, Textarea } from "@/components/ui";
-import {useState} from 'react';
-import {useParams} from 'react-router';
-import {useQuery,useInfiniteQuery,useQueryClient} from '@tanstack/react-query';
-import {useAdminToken} from '@/api/adminToken';import {scopedRequest} from '@/api/lifecycle';import {useSystemRoute} from '@/model/useSelection';import {useModel} from '@/model/useModel';
-import {operationsPaths,type OperationsBindingsResponse,type RuntimeMetricsResponse,type MeasurementsResponse,type FlagsResponse,type OperationalFlag,type FlagRule,type CreateFlagRequest,type UpdateFlagRequest,type OperationsAuditResponse} from '../../../shared/operations';
-import styles from '../work/work.module.css';
-export function Operations(){
- const {systemId,rev}=useSystemRoute();const {thingId}=useParams();
- return <ScopedOperations key={`${systemId}/${rev}/${thingId??''}`} thingId={thingId}/>;
+import { useId, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAdminToken } from "@/api/adminToken";
+import { scopedRequest } from "@/api/lifecycle";
+import { formStyles } from "@/components/Form/Form";
+import { Section } from "@/components/Section/Section";
+import { Button, Select } from "@/components/ui";
+import { useModel } from "@/model/useModel";
+import { useSystemRoute } from "@/model/useSelection";
+import { operationsPaths, type OperationsBindingsResponse } from "../../../shared/operations";
+import { BindingOperations } from "./BindingOperations";
+import styles from "./phenome.module.css";
+
+/** Runtime metrics and feature flags. `thingId` limits the bindings to that Thing's artifacts. Remounts per scope. */
+export function Operations({ thingId }: { thingId?: string }) {
+  const { systemId, rev } = useSystemRoute();
+  return <ScopedOperations key={`${systemId}/${rev}/${thingId ?? ""}`} thingId={thingId} />;
 }
-function ScopedOperations({thingId}:{thingId?:string}){
- const {systemId}=useSystemRoute();const {token}=useAdminToken();const model=useModel();const enabled=!!token&&model.bundle.source==='api';const [picked,setPicked]=useState('');
- const bindings=useQuery({queryKey:['operation-bindings',systemId,token],queryFn:()=>scopedRequest<OperationsBindingsResponse>(operationsPaths.bindings(systemId),token),enabled});
- const artifacts=thingId?new Set(model.bundle.model.things.find(t=>t.id===thingId)?.artifacts.map(a=>a.artifact)??[]):null;
- const eligible=bindings.data?.bindings.filter(b=>!artifacts||artifacts.has(b.bindingId))??[];
- const binding=eligible.some(b=>b.bindingId===picked)?picked:eligible[0]?.bindingId??'';
- return <section className={styles.panel} aria-labelledby="operations-title"><h2 id="operations-title">Runtime metrics and feature flags</h2><p>Observe your running app and change its Flagship controls independently of Genome Evolutions. Counts do not prove expected effects.</p>
- {!enabled&&<p>Set the admin token to load runtime observations and operational controls.</p>}{bindings.isLoading&&<p role="status">Loading operational bindings…</p>}{bindings.error&&<p role="alert">{(bindings.error as Error).message}</p>}
- {bindings.data&&!binding&&<p>{thingId?'No operational bindings for this Thing.':'No operational bindings for this System.'}</p>}
- {!!binding&&<><div className={styles.field}><label htmlFor="operation-binding">Artifact binding</label><Select id="operation-binding" value={binding} onChange={setPicked} options={eligible.map(b=>({value:b.bindingId,label:`${b.bindingId}${b.configured?'':' (not configured)'}`}))}/></div><BindingOperations key={binding} binding={binding} enabled={enabled}/></>}
- </section>;
+
+/** Why nothing loads yet: the header's admin token is the one source, so the controls wait on it with that reason. */
+function TokenGate() {
+  const id = useId();
+  return (
+    <div className={styles.tokenGate}>
+      <p id={id} className={styles.quiet}>Observations and flag controls need the admin token.</p>
+      <div className={styles.opsBar}>
+        <Button disabled aria-describedby={id}>Refresh metrics</Button>
+        <Button reason="Set the admin token in the header." aria-describedby={id}>Create boolean flag</Button>
+      </div>
+    </div>
+  );
 }
-function BindingOperations({binding,enabled}:{binding:string;enabled:boolean}){
- const {systemId}=useSystemRoute();const {token}=useAdminToken();const qc=useQueryClient();const [hours,setHours]=useState('24');const [flag,setFlag]=useState<OperationalFlag|null>();const [key,setKey]=useState('');const [description,setDescription]=useState('');const [reason,setReason]=useState('');const [rules,setRules]=useState('[]');const [defaultVariation,setDefaultVariation]=useState('off');const [flagEnabled,setFlagEnabled]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
- const window=()=>{const to=new Date(),from=new Date(to.getTime()-Number(hours)*3600000);return `?${new URLSearchParams({from:from.toISOString(),to:to.toISOString()})}`;};
- const metrics=useQuery({queryKey:['operations','metrics',systemId,binding,hours,token],queryFn:()=>scopedRequest<RuntimeMetricsResponse>(operationsPaths.metrics(systemId,binding)+window(),token),enabled:enabled&&!!binding});
- const measurements=useInfiniteQuery({queryKey:['operations','measurements',systemId,binding,hours,token],initialPageParam:undefined as number|undefined,queryFn:({pageParam})=>scopedRequest<MeasurementsResponse>(operationsPaths.measurements(systemId,binding)+window()+(pageParam===undefined?'':`&before=${pageParam}`),token),getNextPageParam:page=>page.nextBefore,enabled:enabled&&!!binding});
- const flags=useInfiniteQuery({queryKey:['operations','flags',systemId,binding,token],initialPageParam:undefined as string|undefined,queryFn:({pageParam})=>scopedRequest<FlagsResponse>(operationsPaths.flags(systemId,binding)+(pageParam?`?cursor=${encodeURIComponent(pageParam)}`:''),token),getNextPageParam:page=>page.nextCursor,enabled:enabled&&!!binding});
- const measurementPage=measurements.data?.pages.at(-1),measurementRows=measurements.data?.pages.flatMap(page=>page.measurements)??[];
- const flagPage=flags.data?.pages.at(-1),flagRows=flags.data?.pages.flatMap(page=>page.flags)??[];
- const audit=useQuery({queryKey:['operations','audit',systemId,binding,token],queryFn:()=>scopedRequest<OperationsAuditResponse>(operationsPaths.audit(systemId,binding),token),enabled:enabled&&!!binding});
- const edit=(f:OperationalFlag|null)=>{setFlag(f);setKey(f?.key??'');setDescription(f?.description??'');setRules(JSON.stringify(f?.rules??[],null,2));setDefaultVariation(f?.default_variation??'off');setFlagEnabled(f?.enabled??true);setReason('');setError('');};
- const save=async(disable=false)=>{if(!enabled||!binding)return;setBusy(true);setError('');try{if(flag){const body:UpdateFlagRequest={expectedVersion:flag.version,reason,patch:disable?{enabled:false}:{enabled:flagEnabled,default_variation:defaultVariation,description,rules:JSON.parse(rules) as FlagRule[]}};await scopedRequest(operationsPaths.flag(systemId,binding,flag.key),token,'PATCH',body);}else{const body:CreateFlagRequest={reason,flag:{key,description,enabled:flagEnabled,default_variation:defaultVariation,variations:{off:false,on:true},rules:JSON.parse(rules) as FlagRule[]}};await scopedRequest(operationsPaths.flags(systemId,binding),token,'POST',body);}setFlag(undefined);await qc.invalidateQueries({queryKey:['operations']});}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
- return <><Button variant="secondary" disabled={busy} onClick={()=>void qc.invalidateQueries({queryKey:['operations']})}>Refresh observations and flags</Button><div className={styles.field}><label htmlFor="operation-window">Observation window</label><Select id="operation-window" value={hours} onChange={setHours} options={[{value:"1",label:"Last hour"},{value:"24",label:"Last 24 hours"},{value:"168",label:"Last 7 days"}]} /></div>
- {metrics.isLoading&&<p role="status">Loading metrics…</p>}{metrics.error&&<p role="alert">{(metrics.error as Error).message}</p>}{metrics.data&&<><p>{metrics.data.state}</p>{metrics.data.reason&&<p>{metrics.data.reason}</p>}<p className={styles.muted}>Fetched {metrics.data.fetchedAt??'unknown'}; retained for {metrics.data.retentionDays??'unknown'} days.</p><dl><dt>Requests</dt><dd>{metrics.data.requests??'unavailable'}</dd><dt>Invocation errors</dt><dd>{metrics.data.invocationErrors??'unavailable'}</dd><dt>CPU p50 / p99 (microseconds)</dt><dd>{metrics.data.cpu.p50??'unavailable'} / {metrics.data.cpu.p99??'unavailable'}</dd></dl><p className={styles.muted}>Sampled script aggregates span app versions. Output lineage is unavailable.</p></>}
- <h3>Custom measurements</h3>{measurements.error&&<p role="alert">{(measurements.error as Error).message}</p>}{measurementPage&&<><p>{measurementPage.state}{measurementPage.reason?`: ${measurementPage.reason}`:''}</p>{measurementRows.length?<ul>{measurementRows.map(m=><li key={m.seq}>{m.name}: {m.value} {m.unit} <time dateTime={m.emittedAt}>{m.emittedAt}</time><details><summary>Observed output lineage</summary><p>Artifact {m.artifactId}; build {m.buildId}; source {m.commit}; output {m.outputId??'unknown'}; Genome {m.genomeCommit??'unknown'}</p></details></li>)}</ul>:<p>{measurements.hasNextPage?'No matching measurements on loaded pages; older retained events may contain more.':'No retained custom measurements in this window.'}</p>}{measurements.hasNextPage&&<Button variant="secondary" disabled={measurements.isFetchingNextPage} onClick={()=>void measurements.fetchNextPage()}>{measurements.isFetchingNextPage?'Loading…':'Read older retained events'}</Button>}</>}
- <h3>Feature flags</h3>{flags.isLoading&&<p role="status">Loading flags…</p>}{flags.error&&<p role="alert">{(flags.error as Error).message}</p>}{flagPage&&<><p>{flagPage.state}{flagPage.reason?`: ${flagPage.reason}`:''}</p><ul>{flagRows.map(f=><li key={f.key}><code>{f.key}</code> · {f.enabled?'enabled':'disabled'} · fallback {f.default_variation} <Button variant="ghost" onClick={()=>edit(f)}>Edit {f.key}</Button><details><summary>Targeting and rollout</summary><pre tabIndex={0} style={{overflow:'auto'}}>{JSON.stringify(f.rules,null,2)}</pre></details></li>)}</ul><Button variant="secondary" disabled={!['available','partial'].includes(flagPage.state)||busy} onClick={()=>edit(null)}>Create boolean flag</Button>{flags.hasNextPage&&<Button variant="secondary" disabled={flags.isFetchingNextPage} onClick={()=>void flags.fetchNextPage()}>{flags.isFetchingNextPage?'Loading…':'Load more flags'}</Button>}</>}
- {flag!==undefined&&<form className={styles.form} onSubmit={e=>{e.preventDefault();void save();}}><h4>{flag?`Edit ${flag.key}`:'Create boolean flag'}</h4><div className={styles.field}><label htmlFor="flag-key">Flag key</label><Input id="flag-key" value={key} onChange={e=>setKey(e.target.value)} required disabled={!!flag||busy}/></div><div className={styles.field}><label htmlFor="flag-description">Description</label><Input id="flag-description" value={description} onChange={e=>setDescription(e.target.value)} disabled={busy}/></div><label className={styles.check}><Checkbox checked={flagEnabled} onChange={e=>setFlagEnabled(e.target.checked)} disabled={busy}/>Enabled</label><div className={styles.field}><label htmlFor="flag-default">Fallback variation</label><Select id="flag-default" value={defaultVariation} onChange={setDefaultVariation} disabled={busy} options={Object.keys(flag?.variations??{off:false,on:true}).map(value=>({value,label:value}))} /></div>
- <details><summary>Edit targeting and percentage rollout</summary><p>Rules match request attributes. Each rule has conditions, priority, a variation to serve, and an optional rollout percentage from 0 to 100.</p><div className={styles.field}><label htmlFor="flag-rules">Targeting rules</label><Textarea id="flag-rules" rows={8} value={rules} onChange={e=>setRules(e.target.value)} disabled={busy}/></div><Button type="button" variant="secondary" disabled={busy} onClick={()=>setRules(JSON.stringify([{conditions:[],priority:1,serve_variation:Object.keys(flag?.variations??{off:false,on:true})[1]??defaultVariation,rollout:{percentage:10,attribute:'userId'}}],null,2))}>Use 10% rollout example</Button></details>
- <div className={styles.field}><label htmlFor="flag-reason">Change reason</label><Textarea id="flag-reason" value={reason} onChange={e=>setReason(e.target.value)} required disabled={busy}/></div><div className={styles.actions}><Button type="submit" variant="primary" disabled={!enabled||busy||!reason.trim()}>{busy?'Saving…':'Save flag'}</Button>{flag&&<Button type="button" variant="secondary" disabled={!enabled||busy||!reason.trim()} onClick={()=>void save(true)}>Disable flag</Button>}<Button type="button" variant="secondary" disabled={busy} onClick={()=>setFlag(undefined)}>Cancel</Button></div></form>}
- {error&&<p role="alert" className={styles.error}>{error}</p>}{audit.data&&<details><summary>Operational change history</summary><ul>{audit.data.entries.map(e=><li key={e.id}>{e.at} · {e.operation} {e.key} · {e.status} · {e.reason}</li>)}</ul></details>}
- </>;
+
+function ScopedOperations({ thingId }: { thingId?: string }) {
+  const { systemId } = useSystemRoute();
+  const { token } = useAdminToken();
+  const model = useModel();
+  const enabled = !!token && model.bundle.source === "api";
+  const [picked, setPicked] = useState("");
+  const bindings = useQuery({
+    queryKey: ["operation-bindings", systemId, token],
+    queryFn: () => scopedRequest<OperationsBindingsResponse>(operationsPaths.bindings(systemId), token),
+    enabled,
+  });
+  const artifacts = thingId ? new Set(model.bundle.model.things.find((t) => t.id === thingId)?.artifacts.map((a) => a.artifact) ?? []) : null;
+  const eligible = bindings.data?.bindings.filter((b) => !artifacts || artifacts.has(b.bindingId)) ?? [];
+  const binding = eligible.some((b) => b.bindingId === picked) ? picked : (eligible[0]?.bindingId ?? "");
+  return (
+    <Section
+      surface="panel"
+      title="Operations"
+      description="Runtime metrics and feature flags. Observe your running app and change its Flagship controls independently of Genome Evolutions. Counts do not prove expected effects."
+      id="operations"
+    >
+      {!enabled && (token ? <p className={styles.quiet}>Operations need the platform API. The UI is showing fixture data.</p> : <TokenGate />)}
+      {bindings.isLoading && <p role="status" className={styles.quiet}>Loading operational bindings…</p>}
+      {bindings.error && <p role="alert" className={styles.errorText}>{(bindings.error as Error).message}</p>}
+      {bindings.data && !binding && <p className={styles.quiet}>{thingId ? "No operational bindings for this Thing." : "No operational bindings for this System."}</p>}
+      {!!binding && (
+        <>
+          <div className={formStyles.field}>
+            <label htmlFor="operation-binding">Artifact binding</label>
+            <Select
+              id="operation-binding"
+              value={binding}
+              onChange={setPicked}
+              options={eligible.map((b) => ({ value: b.bindingId, label: `${b.bindingId}${b.configured ? "" : " (not configured)"}` }))}
+            />
+          </div>
+          <BindingOperations key={binding} binding={binding} enabled={enabled} />
+        </>
+      )}
+    </Section>
+  );
 }

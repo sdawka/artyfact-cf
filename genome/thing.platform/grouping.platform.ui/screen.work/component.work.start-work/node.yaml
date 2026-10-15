@@ -2,7 +2,7 @@ id: component.work.start-work
 kind: component
 fields:
   name: Start work
-  description: Chooses an agent role and opens a realization for an Evolution.
+  description: A panel on the Evolution detail, Start work on <title> (Back to Evolution), that replaces the Attempts region with Agent label, target and Role, then shows the start command once.
   states:
     - idle
     - starting

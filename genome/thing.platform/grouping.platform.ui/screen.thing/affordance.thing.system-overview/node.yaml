@@ -1,8 +1,8 @@
 id: affordance.thing.system-overview
 kind: affordance
 fields:
-  name: System overview
-  description: Returns to the System's Overview.
+  name: System
+  description: The System name in the context line links to its Overview; an unknown Thing offers Open System overview.
   actor: user
   trigger: click
   preconditions: []

@@ -1,6 +1,6 @@
 import { WHIMSY } from "@artyfact/effects";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyRollup } from "@/model/status";
 import { renderApp } from "@/testing/render";
 import { nodeStatus } from "@/views/map/MapView";
@@ -12,6 +12,17 @@ const fx = (detail: unknown) => act(() => void window.dispatchEvent(new CustomEv
 const ambient = () => document.querySelector<HTMLElement>("[data-shell-ambient]")!;
 
 afterEach(() => window.localStorage.clear());
+
+/** The bar shows Effects and Retry API inline from 1280px; jsdom starts at 1024. */
+const wide = () => {
+  const original = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  return () => void Object.defineProperty(window, "innerWidth", { configurable: true, value: original });
+};
+
+let restoreWidth = () => {};
+beforeEach(() => { restoreWidth = wide(); });
+afterEach(() => restoreWidth());
 
 describe("parseAmbientFx", () => {
   it("accepts the five kinds, keeps finite coordinates and clamps strength", () => {
@@ -33,7 +44,7 @@ describe("nodeStatus", () => {
 describe("Shell ambient field", () => {
   it("mounts one fixed field coloured by System health", async () => {
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(document.querySelectorAll("[data-shell-ambient] [data-effect=ambient]")).toHaveLength(1);
     expect(ambient().dataset.health).toMatch(/^(failing|blocked|passing|pending)$/);
     expect(ambient().querySelector<HTMLElement>("[data-effect]")!.style.position).toBe("fixed");
@@ -41,7 +52,7 @@ describe("Shell ambient field", () => {
 
   it("tints by event kind, ignores malformed events, and eases back", async () => {
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     fx({ kind: "nope" });
     expect(ambient().dataset.accent).toBeUndefined();
     fx({ kind: "select", x: 10, y: 10 });
@@ -57,7 +68,7 @@ describe("Shell ambient field", () => {
 describe("Effects switch", () => {
   it("defaults on, toggles from the TopBar, persists, and is offered in the palette", async () => {
     const first = renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     const button = screen.getByRole("button", { name: /Effects/ });
     expect(button.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(button);
@@ -67,12 +78,12 @@ describe("Effects switch", () => {
     first.unmount();
 
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(screen.getByRole("button", { name: /Effects/ }).getAttribute("aria-pressed")).toBe("false");
     await act(async () => void fireEvent.keyDown(window, { key: "k", metaKey: true }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByRole("combobox"), { target: { value: "effects" } });
-    const item = await within(dialog).findByRole("option", { name: /Turn effects on/ });
+    const item = await within(dialog).findByRole("option", { name: /Effects: turn on/ });
     await act(async () => void fireEvent.click(item));
     await waitFor(() => expect(screen.getByRole("button", { name: /Effects/ }).getAttribute("aria-pressed")).toBe("true"));
     expect(window.localStorage.getItem(EFFECTS_KEY)).toBe("on");
@@ -86,7 +97,7 @@ describe("Effects switch", () => {
     proto.setItem = () => { throw new Error("blocked"); };
     try {
       renderApp(`${BASE}/overview`);
-      await screen.findByRole("heading", { level: 1, name: "Overview" });
+      await screen.findByRole("heading", { level: 1, name: "Peopling" });
       const button = screen.getByRole("button", { name: /Effects/ });
       fireEvent.click(button);
       expect(button.getAttribute("aria-pressed")).toBe("false");

@@ -1,2 +1,2 @@
 .wrap { display: inline-flex; align-items: center; gap: var(--spacing-2); }
-.link { color: var(--color-brand-primary); font-size: var(--font-size-xs); }
+.link { font: var(--type-meta); }

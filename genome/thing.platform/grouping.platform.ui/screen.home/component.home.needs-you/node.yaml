@@ -2,9 +2,14 @@ id: component.home.needs-you
 kind: component
 fields:
   name: Needs you
-  description: One line per pending decision across all Systems, derived from the System summaries, each linking to that System's Review or Deployments. When nothing waits it reads Nothing is waiting on you.
+  description: One row per pending decision across all Systems with its count, derived from the System summaries. Each row is the System name, a status and a destination word with ›. When nothing waits it is one quiet line.
   states:
     - loaded
     - "empty: Nothing is waiting on you."
-    - <System> · n await your review (attention)
-    - <System> · deploy failed (danger)
+    - <System> n await your review · Review (attention)
+    - <System> import awaits review · Review (attention)
+    - <System> n tasks await an agent · Work (attention)
+    - <System> a plan awaits promotion · Promote (attention)
+    - <System> n tasks await selection · Review (attention)
+    - <System> deployed, behind · Deployments (attention)
+    - <System> deploy failed · Deployments (danger)

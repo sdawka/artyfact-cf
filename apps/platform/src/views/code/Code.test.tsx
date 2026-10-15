@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
+import { ADMIN_TOKEN_KEY } from "@/api/adminToken";
 import { qk } from "@/api/queries";
 import { editorText, typeInEditor } from "@/testing/codemirror";
 import { renderApp } from "@/testing/render";
@@ -58,8 +59,9 @@ const apiSeed = (qc: QueryClient) => qc.setQueryData(qk.model(SYSTEM, "head"), {
 
 async function openFile(path: string) {
   const nav = await screen.findByRole("navigation", { name: "Files" });
-  const name = path.split("/").pop()!;
-  fireEvent.click(await within(nav).findByRole("link", { name: new RegExp(`^${name.replace(".", "\\.")}`) }));
+  // Single-child directories fold into the row, so the link name is the whole path.
+  const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  fireEvent.click(await within(nav).findByRole("link", { name: new RegExp(`^${escaped}`) }));
   await screen.findByRole("heading", { level: 2, name: path });
   await waitFor(() => expect(document.querySelector(".cm-editor")).toBeTruthy());
 }
@@ -70,17 +72,23 @@ async function editCurrent(text: string) {
   typeInEditor(document.body, text);
 }
 
+const commitPanel = () => screen.findByRole("region", { name: /^Commit \d+ files?$/ });
+
 async function fillSheet(opts: { evolution?: string; token?: string } = {}) {
-  const sheet = screen.getByRole("complementary", { name: "Commit" });
+  // The header holds the token; set it before the field edits below re-render the panel.
+  if (opts.token !== "") sessionStorage.setItem(ADMIN_TOKEN_KEY, opts.token ?? "admin-1");
+  const sheet = screen.getByRole("region", { name: /^Commit \d+ files?$/ });
   fireEvent.change(within(sheet).getByLabelText("Message"), { target: { value: "Tidy the Genome" } });
   fireEvent.change(within(sheet).getByLabelText("Why"), { target: { value: "Clearer purpose" } });
   await chooseSelect(within(sheet).getByRole("combobox", { name: "Evolution" }), opts.evolution === "__new" ? "New evolution…" : `${EVOLUTION.title} (${EVOLUTION.id})`);
   fireEvent.change(within(sheet).getByLabelText("Your name"), { target: { value: "sam" } });
-  if (opts.token !== "") fireEvent.change(within(sheet).getByLabelText("Admin token"), { target: { value: opts.token ?? "admin-1" } });
   return sheet;
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 describe("Code page", () => {
   it("lists the tree from the API and shows files read-only by default", async () => {
@@ -88,15 +96,18 @@ describe("Code page", () => {
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     const nav = await screen.findByRole("navigation", { name: "Files" });
     expect(await within(nav).findByRole("link", { name: /^system\.yaml/ })).toBeTruthy();
-    expect(within(nav).getByText("things/")).toBeTruthy();
+    // A directory with one child folds into its row.
+    expect(within(nav).getByRole("link", { name: /^things\/webapp\/thing\.yaml/ })).toBeTruthy();
     await waitFor(() => expect(document.querySelector(".cm-editor")).toBeTruthy());
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     expect(document.querySelector(".cm-content")!.getAttribute("aria-readonly")).toBe("true");
-    expect(screen.getByText("read-only · canonical")).toBeTruthy();
+    expect(screen.getByText("Read-only, canonical")).toBeTruthy();
+    expect(screen.getByText("Nothing to commit. Edit a file first.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Commit changes" })).toHaveProperty("disabled", true);
     expect(() => typeInEditor(document.body, "x")).toThrow(/read-only/);
     // Each mapped node can start a described change anchored on it.
-    const nodes = screen.getByRole("list", { name: "Model nodes in this file" });
-    expect(within(nodes).getByRole("link", { name: /^Describe a change/ }).getAttribute("href")).toBe(
+    expect(screen.getByRole("list", { name: "Model nodes in this file" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Describe a change" }).getAttribute("href")).toBe(
       `/s/${SYSTEM}/r/head/work?panel=intent&anchor=${SYSTEM}`,
     );
   });
@@ -106,7 +117,7 @@ describe("Code page", () => {
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     await editCurrent("name: KiT\n");
-    expect(await screen.findByText("editing · 1 pending")).toBeTruthy();
+    expect(await screen.findByText("Editing, 1 pending")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Files" });
     expect(within(nav).getByRole("link", { name: /^system\.yaml.*modified/ })).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Pending files" })).getAllByRole("listitem")).toHaveLength(1);
@@ -123,10 +134,10 @@ describe("Code page", () => {
     await editCurrent("note: more\n");
     await openFile("things/webapp/thing.yaml");
     fireEvent.click(screen.getByRole("button", { name: "Delete file" }));
-    expect(await screen.findByText("editing · 3 pending")).toBeTruthy();
+    expect(await screen.findByText("Editing, 3 pending")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    const sheet = await commitPanel();
     await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
 
@@ -163,8 +174,8 @@ describe("Code page", () => {
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     await editCurrent("x: 1\n");
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    const sheet = await commitPanel();
     await fillSheet({ evolution: "__new" });
     fireEvent.change(within(sheet).getByLabelText("Evolution title"), { target: { value: "Rename" } });
     fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
@@ -182,8 +193,8 @@ describe("Code page", () => {
     renderApp(`${CODE}?path=purpose.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["purpose.yaml"]));
     await editCurrent("x: 1\n");
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    const sheet = await commitPanel();
     await fillSheet({ evolution: "__new" });
     fireEvent.change(within(sheet).getByLabelText("Evolution title"), { target: { value: "Rename" } });
     fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
@@ -201,8 +212,8 @@ describe("Code page", () => {
     const { router } = renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     await editCurrent("x: 1\n");
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    const sheet = await commitPanel();
     await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
     expect((await within(sheet).findByRole("alert")).textContent).toBe("Commit needs the admin token (401). Set the admin token in the header and try again.");
@@ -222,19 +233,19 @@ describe("Code page", () => {
     const { router } = renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     await editCurrent("x: 1\n");
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    let sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    let sheet = await commitPanel();
     await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
     expect((await within(sheet).findByRole("alert")).textContent).toMatch(/protected/);
 
-    // Fix the draft: a file link closes the sheet (the Drawer unmounts).
+    // Fix the draft: a file link closes the panel.
     await openFile("purpose.yaml");
-    expect(screen.queryByRole("complementary", { name: "Commit" })).toBeNull();
+    expect(screen.queryByRole("region", { name: /^Commit \d+ files?$/ })).toBeNull();
     await editCurrent("note: ok\n");
 
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    sheet = await commitPanel();
     expect(within(sheet).getByText(/Retrying on realization/)).toBeTruthy();
     expect(within(sheet).queryByLabelText("Admin token")).toBeNull();
     fireEvent.change(within(sheet).getByLabelText("Message"), { target: { value: "Second try" } });
@@ -254,10 +265,10 @@ describe("Code page", () => {
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
     await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
     await editCurrent("kept: yes\n");
-    await screen.findByText("editing · 1 pending");
+    await screen.findByText("Editing, 1 pending");
     cleanup();
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
-    expect(await screen.findByText("editing · 1 pending")).toBeTruthy();
+    expect(await screen.findByText("Editing, 1 pending")).toBeTruthy();
     await waitFor(() => expect(editorText()).toBe(`${FILES["system.yaml"]}kept: yes\n`));
     expect(document.querySelector(".cm-content")!.getAttribute("aria-readonly")).toBe("false");
   });
@@ -272,11 +283,11 @@ describe("Code page in fixture mode", () => {
     expect(links.some((a) => a.getAttribute("href")!.endsWith("?path=node.yaml"))).toBe(true);
     await waitFor(() => expect(editorText()).toMatch(/system\.peopling/));
     await editCurrent("# local\n");
-    expect(await screen.findByText("editing · 1 pending")).toBeTruthy();
-    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
-    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    expect(await screen.findByText("Editing, 1 pending")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Commit changes" }));
+    const sheet = await commitPanel();
     expect(within(sheet).getByRole("button", { name: "Commit" })).toHaveProperty("disabled", true);
-    expect(within(within(sheet).getByRole("list", { name: "Why commit is disabled" })).getByText("Commit needs the platform API.")).toBeTruthy();
+    expect(within(sheet).getByText("Commit needs the platform API.")).toBeTruthy();
   });
 
   it("says the fixture has no app repo", async () => {
@@ -285,7 +296,7 @@ describe("Code page in fixture mode", () => {
   });
 });
 
-it("keeps an app draft local and directs implementation to a Realization Task",async()=>{
- const calls=stubApi();renderApp(`${CODE}?repo=app&path=system.yaml`,undefined,apiSeed);await waitFor(()=>expect(editorText()).toBe(FILES["system.yaml"]));await editCurrent("local app draft\n");fireEvent.click(screen.getByRole("link",{name:"Commit…"}));const sheet=await screen.findByRole("complementary",{name:"Commit"});
- expect((within(sheet).getByRole("button",{name:"Commit"}) as HTMLButtonElement).disabled).toBe(true);expect(within(sheet).getByRole("link",{name:"Create a Realization Task"}).getAttribute("href")).toContain("panel=plan");expect(calls.some(c=>c.method==='POST')).toBe(false);expect(localStorage.getItem(`artyfact.draft.${SYSTEM}.app.head`)).toContain('local app draft');
+it("keeps an app draft local and directs implementation to a Plan",async()=>{
+ const calls=stubApi();renderApp(`${CODE}?repo=app&path=system.yaml`,undefined,apiSeed);await waitFor(()=>expect(editorText()).toBe(FILES["system.yaml"]));await editCurrent("local app draft\n");fireEvent.click(screen.getByRole("link",{name:"Commit changes"}));const sheet=await commitPanel();
+ expect((within(sheet).getByRole("button",{name:"Commit"}) as HTMLButtonElement).disabled).toBe(true);expect(within(sheet).getByRole("link",{name:"Create a Plan"}).getAttribute("href")).toContain("panel=plan");expect(calls.some(c=>c.method==='POST')).toBe(false);expect(localStorage.getItem(`artyfact.draft.${SYSTEM}.app.head`)).toContain('local app draft');
 });

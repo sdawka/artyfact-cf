@@ -2,6 +2,8 @@ id: component.shell.inspector.what
 kind: component
 fields:
   name: What
-  description: "What the node is: kind, fields and where it sits in the tree."
+  description: "What the node is: its fields, criteria, the conformance of everything inside it, its template and its children."
   states:
     - loaded
+    - "Conformance inside: p pass · f fail · u unknown · n not run (subtle)"
+    - "Provisional: not yet confirmed in the Genome. (attention)"

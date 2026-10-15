@@ -1,5 +1,5 @@
 .legend {
-  font-size: var(--font-size-xs);
+  font: var(--type-meta);
   color: var(--color-text-secondary);
 }
 .list {
@@ -26,8 +26,8 @@
 .wait { border-style: double; border-width: 3px; }
 .decision { transform: rotate(45deg) scale(0.7); }
 .terminal { border-radius: var(--border-radius-lg); }
-.unresolved { border-style: dotted; font-size: 10px; line-height: 1; }
+.unresolved { border-style: dotted; font: var(--type-hint); line-height: 1; }
 .line { width: 32px; height: 8px; }
-.line line { stroke: var(--color-border-strong); stroke-width: 1.5; }
-.failure line { stroke: var(--color-danger); stroke-dasharray: 6 4; }
+.line line { stroke: var(--graph-edge); stroke-width: 1.5; }
+.failure line { stroke: var(--graph-edge-danger); stroke-dasharray: 6 4; }
 @media (prefers-reduced-motion: reduce) { .decision { transition: none; } }

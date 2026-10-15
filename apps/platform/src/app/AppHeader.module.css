@@ -1,32 +1,30 @@
 .header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "brand context actions" "status status status";
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "brand context status actions";
   align-items: center;
-  column-gap: 24px;
-  row-gap: 12px;
-  padding: 16px 32px;
+  column-gap: var(--spacing-5);
+  padding: 10px var(--spacing-8);
   min-width: 0;
   background: var(--surface-veil);
   backdrop-filter: var(--backdrop-veil);
   border-bottom: 1px solid var(--color-border-subtle);
 }
-.brand { grid-area: brand; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { grid-area: brand; display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
 .wordmark { color: var(--color-text-primary); font-size: var(--font-size-2xl); line-height: 1; text-decoration: none; }
-.wordmark:hover { color: var(--color-brand-primary); }
+.wordmark:hover { color: var(--color-text-primary); text-decoration: underline; text-decoration-color: var(--color-link-underline); text-underline-offset: 0.2em; }
 .context { grid-area: context; min-width: 0; }
-.status { grid-area: status; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
-.actions { grid-area: actions; display: flex; align-items: center; gap: 12px; }
-@media (min-width: 1500px) {
-  .header { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "brand context status actions"; }
-}
+.status { grid-area: status; display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); min-width: 0; }
+.actions { grid-area: actions; display: flex; align-items: center; justify-content: flex-end; gap: var(--spacing-2); }
 @media (max-width: 1023px) {
-  .header { padding: 16px 20px; column-gap: 12px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand actions" "context context" "status status"; }
-  .brand { gap: 8px; }
-  .actions { gap: 8px; }
+  .header {
+    padding: 10px var(--spacing-5);
+    column-gap: var(--spacing-3);
+    row-gap: var(--spacing-2);
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand actions" "context context" "status status";
+  }
+  .brand { gap: var(--spacing-2); }
+  .actions { gap: var(--spacing-2); }
 }
-@media (max-width: 380px) {
-  .header { column-gap: 8px; grid-template-areas: "brand brand" "actions actions" "context context" "status status"; }
-  .actions { justify-self: end; }
-  .wordmark { font-size: var(--font-size-xl); }
-}
+@media (max-width: 380px) { .wordmark { font-size: var(--font-size-xl); } }

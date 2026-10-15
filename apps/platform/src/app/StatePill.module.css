@@ -15,3 +15,4 @@
 }
 .pill[data-state="fixture"],
 .pill[data-state="fake"] { border-style: dashed; }
+.fixture { display: inline-flex; align-items: center; gap: var(--spacing-2); white-space: nowrap; }

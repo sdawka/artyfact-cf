@@ -6,7 +6,7 @@ test('homepage leads to the guide and links the hosted platform', async ({ page 
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('The next Git platform keeps track of the product, not just the files.');
-  await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
+  await expect(page.getByRole('link', { name: 'Open the platform' }).first()).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
   await expect(page).toHaveURL('https://artyfact.test/connect-agent');
@@ -28,10 +28,10 @@ test('model layers work with keyboard and keep illustrative evidence labelled', 
 test('code copying reports success or a useful fallback', async ({ page }) => {
   await page.goto('https://artyfact.test/connect-agent');
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Unavailable'); } } }));
-  await page.getByRole('button', { name: 'Copy code' }).first().click();
+  await page.getByRole('button', { name: /^Copy / }).first().click();
   await expect(page.getByRole('status').first()).toHaveText('Select the code and copy it manually.');
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => {} } }));
-  await page.getByRole('button', { name: 'Copy code' }).first().click();
+  await page.getByRole('button', { name: /^Copy / }).first().click();
   await expect(page.getByRole('status').first()).toHaveText('Copied.');
 });
 test('public content is useful without JavaScript', async ({ page }) => {
@@ -50,6 +50,11 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await expect(page.getByRole('list',{name:'Illustrative reader observations'})).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
+/** Narrow screens collapse the contents and steps lists; open one the way a reader would. */
+async function openDisclosure(page: Page, title: string) {
+  const summary = page.locator('summary', { hasText: title });
+  if (await summary.isVisible()) await summary.click();
+}
 const mounted = (page: Page) => expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
 function watchErrors(page: Page) {
   const errors: string[] = [];
@@ -125,6 +130,7 @@ test('model jump links and loop steps remain usable on a narrow screen with redu
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/model');
   expect(await page.locator('.loop-flow').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  await openDisclosure(page, 'On this page');
   const navigation = page.getByRole('navigation', { name: 'On this page' });
   await navigation.getByRole('link', { name: 'The vocabulary' }).focus();
   await page.keyboard.press('Enter');
@@ -172,6 +178,7 @@ test('opening a loop step lights its node on the ring', async ({ page }) => {
 });
 test('guide step links move focus to their section', async ({ page }) => {
   await page.goto('https://artyfact.test/connect-agent');
+  await openDisclosure(page, 'Steps');
   await page.getByRole('navigation', { name: 'Guide steps' }).getByRole('link', { name: 'Review and promote' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#review$/);

@@ -69,33 +69,32 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   // The editor's "New evolution…" cannot list affected nodes, and a Genome candidate may only touch the directories of
   // the Evolution's affected nodes, so the Evolution comes from Work with section.runtime (where bindings live).
   // A Genome amendment: its default acceptance criteria are the model ones (app criteria would block the accept).
-  await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE, "genome-amendment");
+  await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE);
   await page.goto(`${BASE}/map?focus=section.runtime&inspect=1`);
   await page.getByRole("button", { name: "Open in Code" }).or(page.getByRole("link", { name: "Open in Code" })).first().click();
   await expect(page).toHaveURL(/\/code\?.*repo=genome/);
   await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
   // The Inspector opens the section's own node.yaml; the new binding is a new node directory under it.
   await expect(page).toHaveURL(/path=thing\.webapp%2Fsection\.runtime%2Fnode\.yaml/);
-  await page.getByRole("button", { name: "New file…" }).click();
+  await page.getByRole("button", { name: "New file", exact: true }).click();
   await page.getByLabel("New file path").fill(`thing.webapp/section.runtime/${node}/node.yaml`);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`, `thing.webapp/section.runtime/${node}/node.yaml`);
   await checkPage(page, testInfo, `code-${node}`);
-  await page.getByRole("link", { name: "Commit…" }).click();
+  // The commit panel has no token field: it uses the header's token.
+  await setHeaderToken(page);
+  await page.getByRole("link", { name: "Commit changes" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);
   await page.getByRole("textbox", { name: "Why" }).fill(`The ${title} is needed.`);
   const evolution = page.getByLabel("Evolution", { exact: true });
   await evolution.click();
   await page.getByRole("listbox").getByRole("option").filter({ hasText: title }).last().click();
   await page.getByLabel("Your name").fill("E2E");
-  await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
   await page.getByRole("button", { name: "Commit", exact: true }).click();
 
-  await expect(page).toHaveURL(/\/work\?.*realization=/);
+  // The commit lands on Work's deep link to the realization, which Review (the decision desk) now answers.
+  await expect(page).toHaveURL(/\/review\?.*realization=/);
   const rid = new URL(page.url()).searchParams.get("realization")!;
-  const row = page.getByTestId(`realization-${rid}`);
-  await expect(row.locator("[data-status]").filter({ hasText: "awaiting-admin" })).toBeVisible();
-  // The commit lands on a deep link to the realization, which opens its review.
   await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
   // The review re-renders when its evaluations arrive, which can reset the selected tab: select Amendment until its form shows.
   const interpretation = page.getByRole("textbox", { name: "Accepted interpretation" });
@@ -107,41 +106,46 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   // Reported to the Work slice; tolerated here until it is neutral.
   await checkPage(page, testInfo, `amendment-${node}`, (h) => isPass(h) || /classRow|_num_|deliberate non-standard choice/.test(h));
   await interpretation.fill(`The ${title} is part of the runtime.`);
-  await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
+  // The header token is set, so the decision shows no token field of its own.
   await page.getByRole("button", { name: "Accept amendment" }).click();
   await expect(page.getByText(/Accepted\. New Genome commit/)).toBeVisible();
   return rid;
 }
 
-/** Work "+ Evolution": fill the form and create it; the new card is selected afterwards. */
-export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE, kind?: string): Promise<void> {
+/** The header's admin token lives in sessionStorage: seed it before the SPA boots (and now, when a page is open). */
+export async function setHeaderToken(page: Page, token = ADMIN_TOKEN): Promise<void> {
+  await page.addInitScript(([k, v]) => sessionStorage.setItem(k!, v!), ["artyfact.adminToken", token]);
+  if (page.url().startsWith("http")) await page.evaluate(([k, v]) => sessionStorage.setItem(k!, v!), ["artyfact.adminToken", token]);
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Work "+ Evolution" (a Genome Evolution): fill the form and create it with the header token; the new row is selected afterwards. */
+export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE): Promise<void> {
+  await setHeaderToken(page, token);
   await page.goto(`${base}/work`);
   await expect(page.getByRole("heading", { level: 1, name: "Work" })).toBeVisible();
-  await page.getByRole("button", { name: "+ Evolution" }).click();
+  await page.getByRole("button", { name: "Evolution", exact: true }).click();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Intent").fill(intent);
   for (const n of nodes) {
     await page.getByLabel("Affected nodes").fill(n);
     await page.getByRole("button", { name: "Add node" }).click();
   }
-  if (kind) {
-    await page.getByRole("combobox", { name: "Kind", exact: true }).click();
-    await page.getByRole("listbox").getByRole("option", { name: kind, exact: true }).click();
-  }
-  // An untouched list lets the server default the criteria, and hard ones gate Accept; these flows only edit the Genome, so send none.
+  // The System's defaults gate Accept with hard criteria; these flows only edit the Genome, so send none.
+  await page.getByText("Choose criteria").click();
   await page.getByRole("button", { name: "Clear" }).click();
-  await page.getByLabel("Admin token").fill(token);
   await page.getByRole("button", { name: "Create Evolution" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${escapeRe(title)}`) })).toBeVisible();
 }
 
-/** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. */
-export async function sweepViews(page: Page, testInfo: TestInfo, base: string, tag: string): Promise<void> {
+/** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. Overview's h1 is the System's name. */
+export async function sweepViews(page: Page, testInfo: TestInfo, base: string, tag: string, systemName: string): Promise<void> {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
   const views: [string, string][] = [
-    ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
+    ["overview", systemName], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
     ["work", "Work"], ["review", "Review"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
   ];
   // Each view loads, renders and runs axe plus a screenshot; give the sweep a budget per view instead of one test's 30 s.
@@ -150,7 +154,7 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
     await page.goto(`${base}/${path}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
-    await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE, '[data-op] > [class*="num"]']);
+    await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE]);
   }
   expect(errors).toEqual([]);
 }

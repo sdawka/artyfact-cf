@@ -1,0 +1,22 @@
+/* The root is a size container: the panes follow the room ListDetail actually has (the Inspector can take half of it). */
+.root { container: list-detail / inline-size; min-width: 0; }
+.layout { display: grid; grid-template-columns: 20rem minmax(0, 1fr); gap: var(--spacing-6); align-items: start; min-width: 0; }
+.root[data-list-width="wide"] .layout { grid-template-columns: 24rem minmax(0, 1fr); }
+.list { position: sticky; top: 0; max-height: calc(100dvh - 8rem); overflow: auto; min-width: 0; overscroll-behavior: contain; }
+.detail { display: grid; gap: var(--spacing-4); min-width: 0; }
+.back { display: none; }
+/* One pane: on narrow screens, and wherever ListDetail itself is narrower than two panes need (keep in step with TWO_PANE_MIN_PX). */
+@media (max-width: 899px) {
+  .root .layout, .root[data-list-width] .layout { grid-template-columns: minmax(0, 1fr); }
+  .list { position: static; max-height: none; overflow: visible; }
+  .root[data-selection] .list { display: none; }
+  .root:not([data-selection]) .detail { display: none; }
+  .back { display: inline-flex; justify-self: start; }
+}
+@container list-detail (max-width: 39.99rem) {
+  .root .layout, .root[data-list-width] .layout { grid-template-columns: minmax(0, 1fr); }
+  .list { position: static; max-height: none; overflow: visible; }
+  .root[data-selection] .list { display: none; }
+  .root:not([data-selection]) .detail { display: none; }
+  .back { display: inline-flex; justify-self: start; }
+}

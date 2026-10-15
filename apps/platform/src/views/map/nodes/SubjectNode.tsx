@@ -35,7 +35,7 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
         <span className={styles.name}>{name}</span>
       </div>
       <div className={styles.meta}>
-        <span className={styles.kind}>{node.kind === "system" ? "System" : node.role === "outside" ? `${info.label} · outside this scope` : info.label}</span>
+        <span className={styles.kind}>{node.kind === "system" ? "System" : node.role === "outside" ? `${info.label}, outside this scope` : info.label}</span>
         {node.childCount > 0 && (
           <button
             type="button"
@@ -46,7 +46,7 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
             }}
             aria-label={`Open ${node.name} (${node.childCount} inside)`}
           >
-            Enter · {node.childCount} inside
+            Open, {node.childCount} inside
           </button>
         )}
       </div>

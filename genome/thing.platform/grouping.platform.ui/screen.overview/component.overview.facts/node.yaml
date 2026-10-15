@@ -1,0 +1,12 @@
+id: component.overview.facts
+kind: component
+fields:
+  name: Facts
+  description: Phase, Head, Genome commit, Deployment (live URL and commit, last deploy failed or not deployed, with a Deployments link) and App template (with Review upgrade); Provenance (rule packs, snapshot hash) is a disclosure.
+  states:
+    - live (subtle)
+    - last deploy failed (danger)
+    - not deployed (subtle)
+links:
+  - rel: references
+    to: screen.phenome

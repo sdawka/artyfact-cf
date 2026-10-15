@@ -1,13 +1,16 @@
 import * as Primitive from '@radix-ui/react-tabs';
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import styles from './Tabs.module.css';
-export interface TabItem<T extends string = string> { id: T; label: string; disabled?: boolean }
+export interface TabItem<T extends string = string> { id: T; label: string; disabled?: boolean; /** Inventory beside the label (tabular, subtle); part of the accessible name. */ count?: number }
 export interface TabsProps<T extends string> { tabs: readonly TabItem<T>[]; value: T; onChange(id: T): void; label: string; children?: ReactNode }
 
 /** Shared segments with Radix roving focus and automatic activation. */
 export function Tabs<T extends string>({ tabs, value, onChange, label, children }: TabsProps<T>) {
   const interaction = useRef<{ requested: T | null; pointer: boolean }>({ requested: null, pointer: false });
   const begin = (pointer = false) => { interaction.current = { requested: null, pointer }; };
+  const list = useRef<HTMLDivElement>(null);
+  // A scrolling tablist keeps the active tab in view.
+  useEffect(() => { list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' }); }, [value]);
   const activate = (id: T) => {
     if (id === value || id === interaction.current.requested) return;
     interaction.current.requested = id;
@@ -15,7 +18,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, children 
   };
   return <Primitive.Root value={value} onValueChange={id => activate(id as T)} className={styles.tabs}>
     <Primitive.List
-      aria-label={label} className={`u-segments ${styles.list}`}
+      ref={list} aria-label={label} className={`u-segments ${styles.list}`}
       onPointerDownCapture={() => begin(true)} onMouseDownCapture={() => begin(true)}
       onPointerCancelCapture={() => begin()} onKeyDownCapture={() => begin()}
       onFocusCapture={() => { if (!interaction.current.pointer) begin(); }}
@@ -36,7 +39,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, children 
           activate(tab.id);
           begin();
         }}
-      >{tab.label}</Primitive.Trigger>)}
+      >{tab.label}{tab.count !== undefined && <> <span className={`u-numeric ${styles.count}`}>{tab.count}</span></>}</Primitive.Trigger>)}
     </Primitive.List>
     {children !== undefined && tabs.map(tab => <Primitive.Content key={tab.id} value={tab.id} className={styles.panel}>{tab.id === value ? children : null}</Primitive.Content>)}
   </Primitive.Root>;

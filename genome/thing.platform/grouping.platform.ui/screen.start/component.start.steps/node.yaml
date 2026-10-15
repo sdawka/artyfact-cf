@@ -1,0 +1,13 @@
+id: component.start.steps
+kind: component
+fields:
+  name: Steps
+  description: "The four steps, labelled Start a System steps: Name your System (System ID, immutable, and Title), Preview your ontology (paste a native package or Use starter package, optional outcomes vocabulary and reviewed Genome files), Review the import (pinned package with Copy, issues, templates and preserved source, then accept), Build with your agent (three commands to run in order, Why these steps, then a check). A done step reads its summary; Preview offers Edit until the import is accepted."
+  states:
+    - "<id> created (subtle)"
+    - "Previewed <pin> (subtle)"
+    - "Accepted <pin> (subtle)"
+    - Waiting for your review (attention)
+    - Invalid package (danger)
+    - No issues found. (subtle)
+    - todo (subtle)

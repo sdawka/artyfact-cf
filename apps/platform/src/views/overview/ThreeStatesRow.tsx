@@ -1,13 +1,18 @@
 import { useReadiness } from "@/api/queries";
 import { Meter } from "@/components/Meter/Meter";
+import { Section } from "@/components/Section/Section";
+import { emitFx } from "@/effects/fx";
+import { useKeepParams } from "@/model/useSelection";
 import { LAYER_QUESTIONS } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { conformanceMeter, outcomeMeter, readinessMeter, relativeTime, shortRev } from "./states";
 import styles from "./Overview.module.css";
 
 /** Three separate meters, each on its own scale and under its layer's question. They are never summed or averaged. */
-export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => void } = {}) {
+export function ThreeStatesRow() {
   const m = useModel();
+  const href = useKeepParams();
+  const onMeter = (el: HTMLElement) => emitFx({ kind: "select" }, el);
   const { data } = useReadiness();
   const report = data ?? m.bundle.readiness;
 
@@ -25,12 +30,12 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
   const rev = shortRev(m.bundle.revision);
 
   return (
-    <section aria-labelledby="states-title" className={styles.states}>
-      <h2 id="states-title" className={styles.cardTitle}>Three states</h2>
-      <p className={styles.muted}>Reported side by side. No combined score exists.</p>
+    <Section title="Three states" description="Reported side by side. No combined score exists.">
       <div className={styles.meters}>
         <Meter
           title="Model readiness"
+          to={href("map")}
+          emptyText="No findings"
           question={LAYER_QUESTIONS.genome}
           headline={readiness.headline}
           segments={readiness.segments}
@@ -40,6 +45,7 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
         />
         <Meter
           title="Implementation conformance"
+          to={href("evaluations")}
           question={LAYER_QUESTIONS.proteome}
           headline={conformance.headline}
           segments={conformance.segments}
@@ -53,6 +59,7 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
         />
         <Meter
           title="Outcome progress"
+          to={href("phenome")}
           question={LAYER_QUESTIONS.phenome}
           headline={outcome.headline}
           segments={outcome.segments}
@@ -61,6 +68,6 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
           onActivate={onMeter}
         />
       </div>
-    </section>
+    </Section>
   );
 }

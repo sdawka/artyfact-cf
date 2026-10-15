@@ -1,25 +1,78 @@
-/* Effect tokens: a site-owned snapshot of apps/platform/src/theme/effects.css (same names and values).
-   Load after whimsy.css. Glow marks calls to action and the practice cards; haze sits behind content, never dense text. */
+/* Effect tokens: a site-owned snapshot of apps/platform/src/theme/effects.css (same names and values; the token-parity
+   test in apps/site/test/tokens.test.ts keeps them in step). Load after whimsy.css. */
 
 :root {
+  /* Glow colours: the accent and state colours at partial alpha, for box-shadow and drop-shadow. */
   --glow-accent: oklch(0.79 0.125 60 / 0.42);
   --glow-success: oklch(0.723 0.081 166.2 / 0.38);
   --glow-error: oklch(0.686 0.107 25.3 / 0.42);
   --glow-info: oklch(0.693 0.055 211.4 / 0.38);
 
+  /* Glow shadows: a hairline ring plus a soft bloom. For state emphasis and selection, never for plain cards. */
   --shadow-glow-accent: 0 0 0 1px oklch(0.79 0.125 60 / 0.35), 0 0 18px -2px var(--glow-accent);
   --shadow-glow-success: 0 0 0 1px oklch(0.723 0.081 166.2 / 0.3), 0 0 18px -2px var(--glow-success);
   --shadow-glow-error: 0 0 0 1px oklch(0.686 0.107 25.3 / 0.35), 0 0 18px -2px var(--glow-error);
   --shadow-glow-info: 0 0 0 1px oklch(0.693 0.055 211.4 / 0.3), 0 0 18px -2px var(--glow-info);
 
+  /* Haze: a low radial pool of accent light fading into the aubergine background. Backgrounds of signature areas only. */
   --gradient-haze: radial-gradient(120% 80% at 50% 115%, oklch(0.79 0.125 60 / 0.14) 0%, oklch(0.18 0.018 286 / 0) 70%);
   --gradient-haze-success: radial-gradient(120% 80% at 50% 115%, oklch(0.723 0.081 166.2 / 0.12) 0%, oklch(0.18 0.018 286 / 0) 70%);
   --gradient-haze-error: radial-gradient(120% 80% at 50% 115%, oklch(0.686 0.107 25.3 / 0.14) 0%, oklch(0.18 0.018 286 / 0) 70%);
 
+  /* Shell veils: translucent backgrounds that let the Shell's ambient field show through. Text sits on the veil, never
+     on bare canvas; at these mixes the field (intensity <= 0.5) keeps every text token above AA. */
+  --surface-veil: color-mix(in oklch, var(--color-background) 78%, transparent);
+  --surface-veil-strong: color-mix(in oklch, var(--color-surface-primary) 90%, transparent);
+  --surface-wash: color-mix(in oklch, var(--color-background) 40%, transparent);
+  --backdrop-veil: blur(14px) saturate(1.15);
+
+  /* Soft glows for hover and status emphasis on graph nodes: bloom only, no ring. */
+  --shadow-glow-accent-soft: 0 0 14px -4px var(--glow-accent);
+  --shadow-glow-success-soft: 0 0 12px -5px var(--glow-success);
+  --shadow-glow-error-soft: 0 0 12px -4px var(--glow-error);
+
+  /* Selection and status glow: the only glows that may show without hover, always alongside the outline or rule that
+     carries the meaning. Nothing glows at rest otherwise (no resting nav, card or tile glow). */
+  --shadow-glow-selection: var(--shadow-glow-accent-soft);
+  --shadow-glow-status-attention: var(--shadow-glow-accent-soft);
+  --shadow-glow-status-fail: var(--shadow-glow-error-soft);
+  --shadow-glow-status-pass: var(--shadow-glow-success-soft);
+
+  /* Selection: one rule everywhere, a 2px apricot left rule plus one surface step (`.u-selected` in utilities.css). */
+  --selection-rule-width: 2px;
+  --selection-rule-color: var(--color-brand-primary);
+  --selection-surface: var(--color-surface-secondary);
+
+  /* Ambient motion: slow loops such as breathing glows. Effects ease data changes over about this long. */
   --motion-duration-ambient: 2400ms;
   --motion-easing-ambient: cubic-bezier(0.37, 0, 0.63, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root { --motion-duration-ambient: 0ms; }
+}
+
+/* Accent glow for primary actions and active nav: on hover and press only, alongside (never instead of) the outline. */
+.u-glow-accent { transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out); }
+.u-glow-accent:is(:hover, :active):not(:disabled) { box-shadow: var(--shadow-glow-accent); }
+
+/* Flow along graph edges that touch the selection: a dash of light travelling source to target over the base stroke.
+   CSS only, a handful of paths at a time; stopped when effects are off or motion is reduced. */
+.fx-flow {
+  fill: none;
+  stroke: var(--color-brand-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 3 13;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 3px var(--glow-accent));
+  pointer-events: none;
+  animation: fx-flow 1.6s linear infinite;
+}
+@keyframes fx-flow {
+  to { stroke-dashoffset: -16; }
+}
+[data-effects="off"] .fx-flow { animation: none; filter: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-flow { animation: none; }
 }

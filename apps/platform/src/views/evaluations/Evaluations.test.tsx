@@ -10,27 +10,39 @@ const seed = (evals: ReturnType<typeof evaluation>[]) => (qc: import("@tanstack/
   qc.setQueryData(qk.evaluations(SYSTEM, undefined), { evaluations: evals });
 
 describe("Evaluations view", () => {
-  it("says nothing is known when there are no evaluations, with no passing badge", async () => {
+  it("says no evaluations yet, how they are recorded and where to go, with no passing badge", async () => {
     renderApp(URL);
-    expect(await screen.findByText("No evaluations yet — nothing is known")).toBeTruthy();
+    expect(await screen.findByText("No evaluations yet.")).toBeTruthy();
+    expect(screen.getByText("They are recorded when a candidate is submitted or checks are re-run.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Review" })).toBeTruthy();
+    expect(screen.queryByText(/nothing is known/)).toBeNull();
     expect(document.querySelector('[data-verdict="pass"]')).toBeNull();
   });
 
-  it("filters by verdict and candidate", async () => {
-    renderApp(URL, undefined, seed([
+  it("filters by verdict and candidate, in the URL, with a count and Clear filters", async () => {
+    const { router } = renderApp(URL, undefined, seed([
       evaluation({ id: "e1", candidate: "cand.1", criterion: "C.webapp.exists" }),
       evaluation({ id: "e2", candidate: "cand.2", criterion: "C.webapp.health", verdict: "fail" }),
       evaluation({ id: "e3", candidate: "cand.2", criterion: "C.webapp.screen.people", execution: "not-run", verdict: "pass" }),
     ]));
     await screen.findByRole("table");
-    expect(screen.getAllByRole("row")).toHaveLength(4);
+    // Two candidates: one group each, headed by the candidate and its verdict summary (header + 2 group heads + 3 rows).
+    expect(screen.getAllByRole("row")).toHaveLength(6);
+    expect(screen.getByRole("rowheader", { name: /cand\.2/ }).textContent).toMatch(/cand\.2.*× 1 fail · – 1 not-run/);
+    expect(screen.getByRole("status").textContent).toBe("3 results");
     await chooseSelect(screen.getByRole("combobox", { name: "Verdict" }), "fail");
+    // One candidate left: no groups.
     expect(screen.getAllByRole("row")).toHaveLength(2);
+    expect(screen.getByRole("status").textContent).toBe("1 of 3 results");
+    await waitFor(() => expect(router.state.location.search).toBe("?verdict=fail"));
     await chooseSelect(screen.getByRole("combobox", { name: "Verdict" }), "All");
     await chooseSelect(screen.getByRole("combobox", { name: "Candidate" }), "cand.1");
     expect(screen.getAllByRole("row")).toHaveLength(2);
     await chooseSelect(screen.getByRole("combobox", { name: "Execution" }), "error");
     expect(screen.getByText("No evaluations match these filters.")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]!);
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(screen.getAllByRole("row")).toHaveLength(6);
   });
 
   it("starts filtered to ?criterion=", async () => {
@@ -41,6 +53,7 @@ describe("Evaluations view", () => {
     await screen.findByRole("table");
     expect(screen.getByRole("combobox", { name: "Criterion" }).textContent).toContain("C.webapp.health");
     expect(screen.getAllByRole("row")).toHaveLength(2);
+    expect(screen.getByText(/Showing evidence for/)).toBeTruthy();
   });
 
   it("tags rows whose provenance provider includes fake, and only those", async () => {
@@ -75,15 +88,46 @@ describe("Evaluations view", () => {
   it("expands a row to the full evaluation and syncs ?evaluation=", async () => {
     const { router } = renderApp(URL, undefined, seed([evaluation()]));
     fireEvent.click(await screen.findByRole("button", { name: "Expand evaluation eval.1" }));
-    for (const h of ["Question", "Method", "Raw observations", "Interpretation", "Limitations", "Provenance"]) {
-      expect(screen.getByRole("heading", { name: h })).toBeTruthy();
-    }
+    // Interpretation and Limitations first.
+    expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["Interpretation", "Limitations", "Question", "Method", "Raw observations", "Provenance"]);
     const method = screen.getByRole("region", { name: "Method" });
     expect(within(method).getByText("manifest")).toBeTruthy();
     expect(screen.getByText("1250 ms")).toBeTruthy();
     expect(screen.getByText("0.93")).toBeTruthy();
     await waitFor(() => expect(router.state.location.search).toContain("evaluation=eval.1"));
-    fireEvent.click(screen.getByRole("button", { name: "Collapse evaluation eval.1" }));
+    // The whole row toggles, not only the chevron.
+    fireEvent.click(screen.getByRole("button", { name: "Collapse evaluation eval.1" }).closest("tr")!.querySelector("td:nth-child(2)")!);
     expect(screen.queryByRole("heading", { name: "Question" })).toBeNull();
+  });
+
+  it("shows Execution only when it says more than the verdict, and readable provenance", async () => {
+    renderApp(URL, undefined, seed([
+      evaluation({ id: "e1", provenance: { engineVersion: "1.2", selectedBy: "admin" } }),
+      evaluation({ id: "e2", criterion: "C.webapp.health", execution: "error", verdict: "unknown", startedAt: "2026-01-01T00:00:00Z" }),
+    ]));
+    await screen.findByRole("table");
+    const done = screen.getByRole("button", { name: "Expand evaluation e1" }).closest("tr")!;
+    expect(done.querySelector("td[data-plain] .sr-only")?.textContent).toBe("completed");
+    const failed = screen.getByRole("button", { name: "Expand evaluation e2" }).closest("tr")!;
+    expect(failed.querySelector("td:not([data-plain]) .sr-only")).toBeNull();
+    expect(within(failed).getByText("error")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Expand evaluation e1" }));
+    const prov = screen.getByRole("region", { name: "Provenance" });
+    expect(within(prov).getByText("Engine version")).toBeTruthy();
+    expect(within(prov).getByText("Selected by")).toBeTruthy();
+    expect(within(prov).queryByText("engineVersion")).toBeNull();
+    expect(within(prov).getByText("2026-01-01 00:00 UTC").getAttribute("dateTime")).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("shows the criterion as plain text with its id, and the hook beside a duplicate title", async () => {
+    renderApp(URL, undefined, seed([
+      evaluation({ id: "e1", criterion: "C.webapp.exists", hook: "hook.a" }),
+      evaluation({ id: "e2", criterion: "C.webapp.exists", hook: "hook.b", startedAt: "2026-01-01T00:00:00Z" }),
+    ]));
+    await screen.findByRole("table");
+    const row = screen.getByRole("button", { name: "Expand evaluation e1" }).closest("tr")!;
+    expect(row.querySelector("button[title^='Criterion']")).toBeNull();
+    expect(within(row).getByText("C.webapp.exists")).toBeTruthy();
+    expect(within(row).getAllByText("hook.a")).toHaveLength(2);
   });
 });

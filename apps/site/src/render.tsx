@@ -32,6 +32,7 @@ function document(meta: { title: string; description: string }, path: PagePath |
       ? '<link rel="canonical" href="' + escapeAttr(origin + path) + '">'
       : '<meta name="robots" content="noindex">') +
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' +
+    '<link rel="preload" href="/fonts/atkinson-next-v1.woff2" as="font" type="font/woff2" crossorigin>' +
     '<meta property="og:title" content="' + title + '"><meta property="og:description" content="' + description + '">' +
     '<meta property="og:type" content="website">' + (indexed ? '<meta property="og:url" content="' + escapeAttr(origin + path) + '">' : '') +
     '<meta property="og:image" content="' + origin + '/social.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Artyfact. The next Git platform keeps track of the product, not just the files. Familiar practices paired with what Artyfact does with them: git worktrees become a fork per Task, AGENTS.md a brief cut from the model, CI gates checks bound to criteria, merge queues a compare-and-swap promote, PRDs purposes in the model. Built on Cloudflare.">' +

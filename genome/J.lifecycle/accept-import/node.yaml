@@ -9,4 +9,4 @@ fields:
 links:
   - { rel: stepOperation, to: command.ontology-accept }
   - { rel: stepOperation, to: endpoint.ontology-packages-post-ontology-imports-reviewId-accept }
-  - { rel: stepScreen, to: screen.overview }
+  - { rel: stepScreen, to: screen.start }

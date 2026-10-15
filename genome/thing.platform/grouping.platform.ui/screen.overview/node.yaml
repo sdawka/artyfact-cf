@@ -2,11 +2,11 @@ id: screen.overview
 kind: screen
 fields:
   name: Overview
-  description: "The System at a glance: health, three meters, Active Evolutions and Blockers. Actionable targets wear corner brackets and the page has one primary button; Open Map, Open Deployments and the Review line navigate immediately, and Review upgrade shows its result inline."
+  description: "The System at a glance. The h1 is the System name and the purpose its first Purpose statement; the one primary is Describe a change. Below the System light: Needs you rows (hidden when nothing waits), the three states side by side, Active Evolutions, Blockers and warnings, a Facts strip (Phase, Head, Genome commit, Deployment, App template) and Purpose in full, collapsed."
   route: /s/:systemId/r/:rev/overview
   states:
     - loading
     - loaded
-    - empty
     - error
     - fixture data
+    - template upgrade panel open

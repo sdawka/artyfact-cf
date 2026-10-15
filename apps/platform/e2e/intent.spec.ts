@@ -10,12 +10,15 @@ test.describe("describe a change", () => {
     await expect(panel.getByRole("button", { name: "Propose changes" })).toBeDisabled();
     await expect(panel.getByRole("heading", { name: "Routed path" })).toBeVisible();
     await expect(panel.getByText("provider fake")).toBeVisible();
-    await panel.getByText("Review op.1 delta").click();
+    await panel.locator("summary", { hasText: "Show before and after op.1" }).click();
     await expect(panel.getByRole("table", { name: "op.1 fields" })).toBeVisible();
     // The agreement tree is read-only: decisions disabled, rows still there.
     await expect(panel.getByRole("treeitem", { name: /^Birthday field,/ })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Agree Peopling web app" })).toBeDisabled();
     await expect(panel.getByRole("button", { name: "Accept agreed" })).toBeDisabled();
+    // Back to Work, top-left of the panel; the header's Describe a change is secondary and pressed while it is open.
+    await expect(panel.getByRole("button", { name: "Back to Work" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Describe a change", exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "intent-sample");
   });

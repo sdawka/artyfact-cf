@@ -7,13 +7,20 @@
   background: var(--color-surface-primary);
   transition: background var(--motion-duration-fast) var(--motion-easing-ease-out), border-color var(--motion-duration-fast) var(--motion-easing-ease-out), color var(--motion-duration-fast) var(--motion-easing-ease-out);
 }
-.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); padding: var(--spacing-2) var(--spacing-4); text-decoration: none; cursor: pointer; font-weight: var(--font-weight-medium); }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); padding: var(--spacing-2) var(--spacing-4); text-decoration: none; cursor: pointer; font: var(--type-control); }
 .button:hover, .selectTrigger:hover, .toggleItem:hover { background: var(--color-background-hover); border-color: var(--color-border); }
 .button[data-variant="primary"] { color: var(--color-text-on-accent); background: var(--color-brand-primary); border-color: var(--color-brand-primary); }
-.button[data-variant="primary"]:hover { background: var(--color-brand-primary-hover); box-shadow: var(--shadow-glow-accent-soft); }
+.button[data-variant="primary"]:hover { background: var(--color-brand-primary-hover); }
+/* A disabled primary must not read as enabled: faint apricot fill, secondary text, no border. */
+.button[data-variant="primary"]:disabled { color: var(--color-primary-disabled-text); background: var(--color-primary-disabled-bg); border-color: transparent; opacity: 1; }
 .button[data-variant="danger"] { color: var(--color-danger); border-color: var(--color-error-border); }
 .button[data-variant="ghost"] { background: transparent; border-color: transparent; }
 .button[data-size="compact"] { min-height: 36px; padding: var(--spacing-1) var(--spacing-3); font-size: var(--font-size-sm); }
+/* Toggles (aria-pressed): one rule. On = apricot border + one surface step; ghost toggles in lists use the selection rule. */
+.button[aria-pressed="true"]:not([data-variant="primary"]) { color: var(--color-text-primary); background: var(--selection-surface); border-color: var(--color-attention); }
+.button[data-variant="ghost"][aria-pressed="true"] { background: var(--selection-surface); border-color: transparent; box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color); }
+.withReason { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-3); max-width: 100%; }
+.reason { font: var(--type-meta); color: var(--color-text-secondary); max-width: 48ch; }
 .button:disabled, .input:disabled, .selectTrigger:disabled, .toggleItem:disabled { cursor: not-allowed; opacity: .55; }
 .iconButton { min-width: var(--control-height); padding: var(--spacing-2); flex: none; }
 .button svg, .item svg, .caret svg { width: 18px; height: 18px; flex: none; }
@@ -34,10 +41,10 @@
   max-height: var(--radix-select-content-available-height, var(--radix-popover-content-available-height, var(--radix-dropdown-menu-content-available-height, calc(100dvh - 24px))));
   padding: var(--spacing-2);
   color: var(--color-text-primary);
-  background: var(--color-surface-primary);
+  background: var(--surface-overlay);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-glow-accent-soft);
+  box-shadow: var(--shadow-md);
   animation: arrive var(--motion-duration-normal) var(--motion-easing-ease-out);
   transform-origin: var(--radix-popover-content-transform-origin, top center);
   overflow: auto;

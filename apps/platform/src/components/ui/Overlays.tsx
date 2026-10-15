@@ -7,16 +7,16 @@ import { useEffectsPreference } from '@/effects/effectsPreference';
 import { IconButton } from './Controls';
 import styles from './ui.module.css';
 type FocusHandlers = Pick<ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,'onEscapeKeyDown'|'onCloseAutoFocus'|'onOpenAutoFocus'>;
-export interface DialogProps extends FocusHandlers {open:boolean;onOpenChange(open:boolean):void;title:string;description?:string;children:ReactNode;trigger?:ReactNode;className?:string}
+export interface DialogProps extends FocusHandlers {open:boolean;onOpenChange(open:boolean):void;title:string;/** Accessible name of the close control; default `Close {title}`. */closeLabel?:string;description?:string;children:ReactNode;trigger?:ReactNode;className?:string}
 export interface SheetProps extends DialogProps {side?:'left'|'right'|'bottom'}
-function Modal({open,onOpenChange,title,description,children,trigger,className,side,...handlers}:SheetProps) {
+function Modal({open,onOpenChange,title,closeLabel,description,children,trigger,className,side,...handlers}:SheetProps) {
   const effects=useEffectsPreference();
   return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
     {trigger && <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>}
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay data-effects={effects.enabled?'on':'off'} className={styles.backdrop} />
       <DialogPrimitive.Content {...handlers} {...(!description && {'aria-describedby':undefined})} data-effects={effects.enabled?'on':'off'} data-side={side} className={`${side ? styles.sheet : styles.dialog} ${className ?? ''}`}>
-        <div className={styles.dialogHeader}><DialogPrimitive.Title className={styles.dialogTitle}>{title}</DialogPrimitive.Title><DialogPrimitive.Close asChild><IconButton label={`Close ${title}`} variant="ghost"><Cross2Icon /></IconButton></DialogPrimitive.Close></div>
+        <div className={styles.dialogHeader}><DialogPrimitive.Title className={styles.dialogTitle}>{title}</DialogPrimitive.Title><DialogPrimitive.Close asChild><IconButton label={closeLabel ?? `Close ${title}`} variant="ghost"><Cross2Icon /></IconButton></DialogPrimitive.Close></div>
         {description && <DialogPrimitive.Description className={styles.description}>{description}</DialogPrimitive.Description>}
         {children}
       </DialogPrimitive.Content>

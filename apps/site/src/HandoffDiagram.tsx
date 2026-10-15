@@ -1,23 +1,25 @@
 import React from 'react';
 
 type Station = { href: string; name: React.ReactNode; detail: string };
+// Mirrors the platform: lifecycle-service.ts forks the app repo per Task and runs the model's checks on submit;
+// system-authority.ts promotes with a compare-and-swap on the System head.
 const zones: { place: string; stations: Station[] }[] = [
   { place: 'On the platform', stations: [
-    { href: '#start', name: 'Plan and Tasks', detail: 'A reviewed change, split into scoped Tasks.' },
+    { href: '#start', name: 'Plan against the model', detail: 'An accepted change to the model, split into Tasks.' },
   ] },
   { place: 'On your machine', stations: [
-    { href: '#start', name: <code>task claim</code>, detail: 'Run by your coordinator.' },
-    { href: '#work', name: 'Fork and packet', detail: 'TASK_PACKET.md, AGENTS.md and a short-lived token.' },
-    { href: '#work', name: 'Your agent', detail: 'Any harness. Its own approach.' },
-    { href: '#submit', name: <code>task submit</code>, detail: 'Pushes and submits the exact candidate.' },
+    { href: '#start', name: <code>task claim</code>, detail: 'Forks the app’s repo for this Task and clones it.' },
+    { href: '#work', name: 'Fork and brief', detail: 'The code, plus a brief cut from the model.' },
+    { href: '#work', name: 'Your agent', detail: 'Changes the code its own way. The model stays read-only.' },
+    { href: '#submit', name: <code>task submit</code>, detail: 'Pushes and submits the exact commit, like a pull request.' },
   ] },
   { place: 'Back on the platform', stations: [
-    { href: '#review', name: 'Checks', detail: 'Only a pass is green.' },
-    { href: '#review', name: 'Integrate, review, promote', detail: 'One review. Promote refuses a stale head.' },
+    { href: '#submit', name: 'Checks from the model', detail: 'Each check is a rule in the model. Only a pass is green.' },
+    { href: '#review', name: 'Review and promote', detail: 'One review, then the merge. Refused if the System moved.' },
   ] },
 ];
 
-/** Static handoff map: an ordered list grouped by where each step runs. The arrows are decorative SVG. */
+/** Static handoff map: an ordered list grouped by where each step runs, over the pinned model. The arrows are decorative SVG. */
 export function HandoffDiagram() {
   let step = 0;
   return <figure className="handoff" aria-labelledby="handoff-caption">
@@ -34,5 +36,6 @@ export function HandoffDiagram() {
         </ol>
       </div>)}
     </div>
+    <p className="handoff-model"><strong>The model, pinned to one version.</strong> Every step reads from it. Only an accepted change to the model makes a new version.</p>
   </figure>;
 }

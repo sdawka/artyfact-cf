@@ -2,10 +2,11 @@ id: screen.evaluations
 kind: screen
 fields:
   name: Evaluations
-  description: Gate verdicts for each criterion and candidate. Actionable targets wear corner brackets and the page has one primary button; selecting a row opens the criterion in the Inspector.
+  description: "Evidence for each criterion, with method and limits; nothing here is a verdict on the canonical System unless that candidate was promoted. Filters (Candidate, Criterion, Verdict, Execution) with a result count and Clear filters; a criterion filter reads Showing evidence for <title>. The table groups by candidate when there are two or more; a row expands to its question, method, observations, interpretation, limitations and provenance."
   route: /s/:systemId/r/:rev/evaluations
   states:
     - loading
     - loaded
-    - empty
+    - "empty: No evaluations yet. · Open Review"
+    - "no match: No evaluations match these filters."
     - error

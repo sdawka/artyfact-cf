@@ -1,4 +1,4 @@
-import { useCompactLayout, useViewportWidth } from "@/app/useCompactLayout";
+import { SHELL_RAIL_WIDTH, useCompactLayout, useViewportWidth } from "@/app/useCompactLayout";
 import { Sheet } from "@/components/ui";
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import styles from "./Drawer.module.css";
@@ -7,6 +7,10 @@ export interface DrawerProps {
   open: boolean;
   /** Accessible name of the drawer region. */
   label: string;
+  /** The bottom sheet's heading (the object's name); defaults to `label`. The drawer itself carries its own heading. */
+  title?: string;
+  /** Accessible name of the bottom sheet's one close control. */
+  closeLabel?: string;
   width: number;
   onWidthChange?(width: number): void;
   minWidth?: number;
@@ -17,12 +21,12 @@ export interface DrawerProps {
 
 /**
  * Right-hand panel with a drag/keyboard resize handle on its left edge. Below the shell breakpoint it
- * becomes a modal bottom sheet. Renders nothing when closed.
+ * becomes a modal bottom sheet whose heading is `title`. Renders nothing when closed.
  */
-export function Drawer({ open, label, width, onWidthChange, minWidth = 280, maxWidth = 720, onClose, children }: DrawerProps) {
+export function Drawer({ open, label, title, closeLabel, width, onWidthChange, minWidth = 280, maxWidth = 720, onClose, children }: DrawerProps) {
   const compact = useCompactLayout();
   const viewportWidth = useViewportWidth();
-  const availableMax = Math.max(minWidth, Math.min(maxWidth, viewportWidth - 256 - 400));
+  const availableMax = Math.max(minWidth, Math.min(maxWidth, viewportWidth - SHELL_RAIL_WIDTH - 400));
   const effectiveWidth = Math.min(width, availableMax);
   const start = useRef<{ x: number; w: number } | null>(null);
   if (!open) return null;
@@ -44,10 +48,10 @@ export function Drawer({ open, label, width, onWidthChange, minWidth = 280, maxW
       onWidthChange?.(clamp(effectiveWidth + d));
     }
   };
-  if (compact) return <Sheet open={open} onOpenChange={(next) => { if (!next) onClose?.(); }} title={label} side="bottom" className={styles.sheet} onEscapeKeyDown={(event) => event.stopPropagation()}
+  if (compact) return <Sheet open={open} onOpenChange={(next) => { if (!next) onClose?.(); }} title={title ?? label} closeLabel={closeLabel} side="bottom" className={styles.sheet} onEscapeKeyDown={(event) => event.stopPropagation()}
     onCloseAutoFocus={(event) => event.preventDefault()}
     onOpenAutoFocus={(event) => { event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>("[data-inspector-title]")?.focus(); }}>
-    <aside aria-label={label}><div className={styles.body}>{children}</div></aside>
+    <aside aria-label={label} className={styles.sheetAside} tabIndex={-1} data-inspector-title><div className={styles.body}>{children}</div></aside>
   </Sheet>;
   return (
     <aside className={styles.drawer} aria-label={label} style={{ width: effectiveWidth }}>

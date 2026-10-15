@@ -2,13 +2,14 @@ id: screen.review
 kind: screen
 fields:
   name: Review
-  description: "The operator's inbox for pending imports, integrity reports and agreements, Genome amendments, legacy candidate decisions, Task result selection, and integrated implementation promotion. Task decisions show exact candidate manifests, pinned source/base lineage, changed-file diffs, and recorded evaluations. Execution and planning remain in Work."
+  description: "The decision desk: imports, integrity reports and agreements, Genome amendments, Task results, candidates and promotions. No header actions; the open decision carries its own primary in its detail header (Promote with its first blocking reason inline, the rest under n more reasons). A queue, Waiting on you n, beside the detail; the first waiting decision opens by default without taking focus. j and k move through the queue and Enter opens (hint j k move · Enter open). An integrity row opens its run (?integrity=) with automated result and human agreement kept apart. Task decisions show exact candidate manifests, pinned source/base lineage, changed-file diffs, and recorded evaluations. Below 900px it is two screens with Back to queue. Execution and planning stay in Work; group heads link there. In a Thing, Review filters to the Thing with Show all."
   route: /s/:systemId/r/:rev/review
   states:
-    - loading
+    - "loading: Loading the queue…"
     - loaded
-    - empty
-    - error
+    - "empty: Nothing is waiting on you. · Open Work"
+    - "error: The decision queue could not be fully loaded."
+    - "missing target: Open a decision from the queue."
     - fake provider
     - integrity agreement pending
 links:

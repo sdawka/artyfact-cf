@@ -1,11 +1,11 @@
 id: affordance.shell.toggle-effects
 kind: affordance
 fields:
-  name: Effects
-  description: Turns the ambient WebGL effects on or off.
+  name: "Effects: on/off"
+  description: A pressed toggle, Effects on or Effects off, that turns the ambient WebGL effects and decorative motion on or off; it is also in the More menu below 1280px, in the palette's Actions and on Home.
   actor: user
   trigger: click
   preconditions: []
   effects:
-    - The effects start or stop at once
+    - The effects start or stop at once and the label and pressed state follow
   failure: []

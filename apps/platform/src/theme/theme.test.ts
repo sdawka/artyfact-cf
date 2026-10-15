@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { COLOUR_TOKENS } from "@artyfact/ontology";
 
@@ -36,7 +36,9 @@ describe("theme css", () => {
   });
 
   it("defines whimsy variables on :root, not on a data attribute", () => {
-    expect(whimsy).toMatch(/:root\s*\{[^}]*--font-display:\s*Georgia/);
+    expect(whimsy).toMatch(/:root\s*\{[^}]*--font-display:\s*"Alegreya", "Alegreya Fallback", Georgia, serif;/);
+    expect(whimsy).toMatch(/--font-ui:\s*"Atkinson Hyperlegible Next", "Atkinson Fallback", "Trebuchet MS", system-ui, sans-serif;/);
+    expect(whimsy).toMatch(/--font-code:\s*"Atkinson Hyperlegible Mono", ui-monospace/);
     expect(whimsy).not.toMatch(/html\[data-typography[^\n]*\{/);
     expect(whimsy).toMatch(/--color-brand-primary:\s*oklch\(0\.79 0\.125 60\)/);
   });
@@ -49,6 +51,15 @@ describe("theme css", () => {
       expect(light, t).toMatch(new RegExp(`--kind-${t}:\\s*oklch\\(`));
     }
     expect(index).toContain('@import "./kinds.css"');
+  });
+
+  it("keeps headings unfocused-looking, a disclosure marker on summaries, brand radios and bottom-only tab rules", () => {
+    const whimsy = read("whimsy.css");
+    expect(whimsy).toMatch(/h1, h2, h3, h4, h5, h6\)\[tabindex="-1"\]:focus-visible \{ outline: none; \}/);
+    expect(whimsy).toMatch(/summary::before \{/);
+    expect(whimsy).toMatch(/details\[open\] > summary::before/);
+    expect(whimsy).toMatch(/input\[type="radio"\][^}]*accent-color: var\(--color-brand-primary\)/);
+    expect(read("utilities.css")).toMatch(/\.u-segments\[role="tablist"\] > \*::before \{ display: none; \}/);
   });
 
   it("provides base tokens", () => {
@@ -88,4 +99,76 @@ describe("theme css", () => {
     expect(effects).toMatch(/prefers-reduced-motion[\s\S]*\.fx-flow \{ animation: none; \}/);
     expect(effects).toMatch(/\[data-effects="off"\] \.fx-flow/);
   });
+
+  it("loads the self-hosted faces first, with metric-matched fallbacks", () => {
+    const fonts = read("fonts.css");
+    expect(index.trimStart().startsWith('@import "./fonts.css";')).toBe(true);
+    for (const f of ["atkinson-next-v1", "atkinson-next-italic-v1", "atkinson-mono-v1", "alegreya-v1"]) {
+      expect(fonts).toContain(`url("/fonts/${f}.woff2")`);
+      expect(existsSync(join(PLATFORM, "public/fonts", `${f}.woff2`)), f).toBe(true);
+    }
+    expect(fonts.match(/font-display: swap/g)?.length).toBe(4);
+    for (const fb of ["Atkinson Fallback", "Alegreya Fallback"]) {
+      expect(fonts).toMatch(new RegExp(`font-family: "${fb}";[^}]*size-adjust: [\\d.]+%;[^}]*ascent-override`));
+    }
+    expect(readFileSync(join(PLATFORM, "index.html"), "utf8")).toMatch(/<link rel="preload" href="\/fonts\/atkinson-next-v1\.woff2" as="font" type="font\/woff2" crossorigin/);
+    for (const app of [PLATFORM, SITE]) {
+      expect(readFileSync(join(app, "public/_headers"), "utf8")).toMatch(/\/fonts\/\*\n\s+Cache-Control: public, max-age=31536000, immutable/);
+    }
+  });
+
+  it("ships byte-identical font files and fonts.css in both apps", () => {
+    const dir = (app: string) => join(app, "public/fonts");
+    const names = readdirSync(dir(PLATFORM)).sort();
+    expect(names).toEqual(readdirSync(dir(SITE)).sort());
+    expect(names.filter((n) => n.endsWith(".woff2")).length).toBe(4);
+    for (const n of names) expect(readFileSync(join(dir(SITE), n)).equals(readFileSync(join(dir(PLATFORM), n))), n).toBe(true);
+    expect(readFileSync(join(SITE, "src/styles/fonts.css"), "utf8")).toBe(read("fonts.css"));
+  });
+
+  it("keeps the :root token blocks identical between the platform and the site", () => {
+    for (const name of ["tokens.css", "whimsy.css", "effects.css", "utilities.css"]) {
+      const site = readFileSync(join(SITE, "src/styles", name), "utf8");
+      expect(rootTokens(site), name).toEqual(rootTokens(read(name)));
+      expect(rootTokens(read(name)).size, name).toBeGreaterThan(0);
+    }
+  });
+
+  it("defines the role tokens: type scale, surfaces, palette deltas and selection", () => {
+    const all = new Map([...rootTokens(whimsy), ...rootTokens(effects), ...rootTokens(utilities)]);
+    for (const t of ["display", "display-2", "system", "h1", "h2", "h3", "body", "prose", "ui", "control", "meta", "hint", "code", "code-block", "numeric"]) {
+      expect(all.has(`--type-${t}`), t).toBe(true);
+    }
+    for (const t of ["page", "well", "panel", "raised", "overlay"]) expect(all.has(`--surface-${t}`), t).toBe(true);
+    expect(all.get("--color-text-subtle")).toBe("oklch(0.665 0.03 280)");
+    for (const t of ["--color-border-faint", "--color-attention", "--color-link", "--color-link-underline", "--color-primary-disabled-bg",
+      "--shadow-glow-selection", "--shadow-glow-status-fail", "--selection-rule-width", "--selection-surface", "--font-glyph"]) {
+      expect(all.has(t), t).toBe(true);
+    }
+    expect(utilities).toContain(".u-selected");
+  });
+
+  it("keeps kind colours off the verdict hues (success 166, danger 25)", () => {
+    const kinds = read("kinds.css").split(':root[data-theme="light"]')[0]!;
+    const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+    for (const [, name, c, h] of kinds.matchAll(/--kind-([a-z]+):\s*oklch\([\d.]+ ([\d.]+) ([\d.]+)\)/g)) {
+      if (Number(c) < 0.05) continue;
+      expect(hueGap(Number(h), 166.2), `${name} vs success`).toBeGreaterThanOrEqual(25);
+      expect(hueGap(Number(h), 25.3), `${name} vs danger`).toBeGreaterThanOrEqual(25);
+    }
+  });
 });
+
+const PLATFORM = join(import.meta.dirname, "../..");
+const SITE = join(PLATFORM, "../site");
+
+/** Custom properties declared in `:root { … }` blocks (including inside media queries), comments dropped. */
+function rootTokens(css: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const block of src.matchAll(/(@media[^{]*\{\s*)?:root\s*\{([^}]*)\}/g)) {
+    const scope = block[1] ? block[1].replace(/\s+/g, " ").trim() + " " : "";
+    for (const m of block[2]!.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out.set(scope + m[1], m[2]!.replace(/\s+/g, " ").trim());
+  }
+  return out;
+}

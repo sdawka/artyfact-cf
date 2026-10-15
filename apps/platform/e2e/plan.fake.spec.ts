@@ -37,9 +37,8 @@ test.describe("realization plan from draft to promotion @fake", () => {
     expect(plan.tasks[0]!.title).toMatch(/\(edited\)$/);
     expect(plan.analysis.waves).toEqual([["t1", "t2"], ["t3"]]);
 
-    // The board mirrors analysis.waves; wave 2's task waits on its wave 1 dependencies.
-    const board = page.getByRole("group", { name: "Waves" });
-    await expect(board.getByRole("region", { name: /^Wave \d/ })).toHaveCount(plan.analysis.waves.length);
+    // The waves mirror analysis.waves, stacked top to bottom; wave 2's task waits on its wave 1 dependencies.
+    await expect(page.getByRole("region", { name: /^Wave \d/ })).toHaveCount(plan.analysis.waves.length);
     const t3 = plan.tasks.find((t) => (plan.analysis.waves[1] ?? []).includes(t.id) && t.dependsOn.length >= 2)!;
     expect(t3, "a wave 2 task depending on two wave 1 tasks").toBeTruthy();
     const deps = t3.dependsOn.map((id) => plan.tasks.find((t) => t.id === id)!);
@@ -101,11 +100,12 @@ async function implementAndSubmit(t: Task, dir: string, run: (args: string[], cw
   return (JSON.parse(res.stdout) as { candidate: { id: string } }).candidate.id;
 }
 
-/** Opens the task on the board and selects its reviewed candidate. */
+/** Opens the task row and selects its reviewed candidate. */
 async function selectInUi(page: Page, planId:string, t: Pick<Task, "id" | "title">, candidateId: string) {
-  await page.getByTestId(`task-${t.id}`).getByRole("button", { name: t.title }).click();
-  const detail = page.getByTestId("task-detail");
-  await expect(detail.getByRole("heading", { name: t.title })).toBeVisible();
+  const head = page.getByTestId(`task-${t.id}`).getByRole("button", { name: new RegExp(`^${t.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  const detail = page.getByTestId(`task-${t.id}`).getByTestId("task-detail");
+  await expect(detail).toBeVisible();
   await detail.getByRole("link",{name:"Review Task result"}).click();
   const review=page.getByRole("region",{name:`Review ${t.title}`});
   await expect(review.getByText(candidateId,{exact:true})).toBeVisible();

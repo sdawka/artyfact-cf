@@ -1,6 +1,7 @@
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useStore, type EdgeProps } from "@xyflow/react";
 import type { ElkPoint } from "@/graph/elk";
 import type { CrossLinkFlowEdge } from "../nodes/types";
+import { useEffectsPreference } from "@/effects/effectsPreference";
 import styles from "./CrossLinkEdge.module.css";
 
 const DASH: Record<string, string | undefined> = { solid: undefined, dashed: "6 4", dotted: "1.5 4" };
@@ -31,21 +32,33 @@ function routePath(points: ElkPoint[]): [string, number, number] {
 export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
   const { id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd } = props;
   const edge = data!.edge;
-  const [path, labelX, labelY] =
+  const { enabled: effects } = useEffectsPreference();
+  const view = useStore((s) => ({ tx: s.transform[0], ty: s.transform[1], zoom: s.transform[2], w: s.width, h: s.height }), (a, b) => a.tx === b.tx && a.ty === b.ty && a.zoom === b.zoom && a.w === b.w && a.h === b.h);
+  const onScreen = (x: number, y: number) => { const sx = x * view.zoom + view.tx, sy = y * view.zoom + view.ty; return sx >= 0 && sy >= 0 && sx <= view.w && sy <= view.h; };
+  const measured = view.w > 0 && view.h > 0;
+  // An Outside end beyond the pan area ends the line as a short stub (the Outside menu reaches that node).
+  const away = !measured || !data?.outsideEnd ? undefined : data.outsideEnd === "source" ? !onScreen(sourceX, sourceY) : !onScreen(targetX, targetY);
+  const stub = !!away;
+  const sourceIn = data?.outsideEnd !== "source", targetIn = data?.outsideEnd !== "target";
+  const [path, fullX, fullY] =
     data?.points && data.points.length > 1
       ? routePath(data.points)
       : getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 4 });
+  const [from, to] = sourceIn ? [{ x: sourceX, y: sourceY }, { x: targetX, y: targetY }] : [{ x: targetX, y: targetY }, { x: sourceX, y: sourceY }];
+  const run = Math.hypot(to.x - from.x, to.y - from.y) || 1, reach = Math.min(run, 64 / view.zoom);
+  const stubPath = `M${from.x},${from.y} L${from.x + (to.x - from.x) * reach / run},${from.y + (to.y - from.y) * reach / run}`;
+  const labelX = stub ? (from.x + (from.x + (to.x - from.x) * reach / run)) / 2 : fullX, labelY = stub ? (from.y + (from.y + (to.y - from.y) * reach / run)) / 2 : fullY;
   const text = `${edge.type}${edge.count > 1 ? ` ×${edge.count}` : ""}`;
   return (
     <>
       <BaseEdge
         id={id}
-        path={path}
-        {...(markerEnd && { markerEnd })}
+        path={stub ? stubPath : path}
+        {...(markerEnd && !stub && { markerEnd })}
         className={`${styles.path} ${data?.active ? styles.active : ""}`}
-        style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? 2 : 1.25 }}
+        style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? "var(--graph-edge-width-active)" : "var(--graph-edge-width)" }}
       />
-      {data?.flow && <path d={path} className="fx-flow" aria-hidden="true" data-edge-flow={id} />}
+      {data?.flow && effects && !stub && <path d={path} className={`fx-flow ${styles.flow}`} aria-hidden="true" data-edge-flow={id} />}
       {data?.showLabel !== false && (
       <EdgeLabelRenderer>
         <span

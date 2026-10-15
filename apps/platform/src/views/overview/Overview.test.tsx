@@ -1,11 +1,12 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
 describe("Overview", () => {
   it("shows P1, three captioned meters and literal unknown for outcome progress", async () => {
     renderApp("/s/system.peopling/r/head/overview");
-    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Peopling" })).toBeTruthy();
     expect(screen.getByText(/Help an individual keep in touch/)).toBeTruthy();
     const readiness = screen.getByRole("region", { name: "Model readiness" });
     const conformance = screen.getByRole("region", { name: "Implementation conformance" });
@@ -20,7 +21,7 @@ describe("Overview", () => {
 
   it("labels each meter with its layer's question, the same words as the rail", async () => {
     renderApp("/s/system.peopling/r/head/overview");
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     for (const [meter, question] of [
       ["Model readiness", "What should it be"], ["Implementation conformance", "What is being made"], ["Outcome progress", "What does it do"],
     ]) {
@@ -30,23 +31,51 @@ describe("Overview", () => {
     expect(screen.getByText("Reported side by side. No combined score exists.")).toBeTruthy();
   });
 
-  it("leads with a hero: the System name, its Purpose once, a luminous content container and a caption saying what drives it", async () => {
+  it("links each meter title to its layer's view and leaves the meters out of the tab order", async () => {
     renderApp("/s/system.peopling/r/head/overview");
-    const hero = await screen.findByRole("region", { name: "Peopling" });
-    expect(within(hero).getByText(/Help an individual keep in touch/)).toBeTruthy();
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
+    for (const [meter, view] of [["Model readiness", "/map"], ["Implementation conformance", "/evaluations"], ["Outcome progress", "/phenome"]]) {
+      const region = screen.getByRole("region", { name: meter });
+      expect(region.getAttribute("tabindex")).toBeNull();
+      expect(within(region).getByRole("link", { name: meter }).getAttribute("href")).toContain(view);
+    }
+  });
+
+  it("offers Describe a change as the one primary action, into Work's intent panel", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
+    const link = await screen.findByRole("link", { name: "Describe a change" });
+    expect(link.getAttribute("href")).toContain("/work?");
+    expect(link.getAttribute("href")).toContain("panel=intent");
+  });
+
+  it("hides Needs you when nothing waits, and lists only active Evolutions", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
+    expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
+    const active = screen.getByRole("region", { name: /Active Evolutions/ });
+    expect(within(active).getAllByRole("link").length).toBeGreaterThan(1);
+    expect(within(active).queryByText(/promoted|rejected|withdrawn/)).toBeNull();
+  });
+
+  it("leads with the System name and Purpose in the header and one light with labelled values", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(screen.getAllByText(/Help an individual keep in touch/)).toHaveLength(1);
+    const hero = screen.getByRole("region", { name: "System light" });
     expect(hero.querySelector('[data-effect="orb"]')).toBeNull();
     expect(hero.querySelector('[data-effect="surface"]')).toBeTruthy();
-    const caption = within(hero).getByText(/^Readiness: \d+%/);
-    expect(caption.textContent).toMatch(/Checks: \d+ failing or stale checks? · Work: \d+ active Evolutions? · Blockers: \d+ blockers? · Colour: (passing|failing|blocked|pending)/);
-    // The meters live in the hero and take keyboard focus (the container light responds to the focused one).
-    expect(within(hero).getByRole("region", { name: "Model readiness" }).tabIndex).toBe(0);
+    expect(within(hero).getByText("The light reflects readiness, checks, active Evolutions and blockers.")).toBeTruthy();
+    for (const label of ["Readiness", "Failing or stale checks", "Active Evolutions", "Blockers"]) expect(within(hero).getByText(label)).toBeTruthy();
+    // The hero counts the same active Evolutions the card lists (Work's grouping).
+    const card = screen.getByRole("region", { name: /Active Evolutions/ });
+    const listed = within(card).getByRole("heading", { name: /Active Evolutions/ }).querySelector(".u-numeric")!.textContent;
+    await waitFor(() => expect(within(hero).getByText("Active Evolutions").nextElementSibling!.textContent).toBe(listed));
   });
 
   it("lists Peopling's provisional nodes apart from its blockers (none)", async () => {
     renderApp("/s/system.peopling/r/head/overview");
-    const card = await screen.findByRole("region", { name: "Blockers" });
-    expect(within(card).getByText("No errors or missing items.")).toBeTruthy();
+    const card = await screen.findByRole("region", { name: "Blockers and warnings" });
+    expect(within(card).getByText("Nothing blocks this System.")).toBeTruthy();
     expect(within(card).getAllByText(/node\.provisional/).length).toBeGreaterThan(0);
   });
 
@@ -63,16 +92,42 @@ describe("Overview", () => {
     renderApp("/s/system.peopling/r/head/overview");
     const row = (await screen.findByText("kit.unpinned")).closest("li")!;
     expect(within(row).getByText("Pin the kit under kits in the root node.yaml.")).toBeTruthy();
-    fireEvent.click(within(row).getByRole("button", { name: /Explain/ }));
+    fireEvent.click(within(row).getByRole("button", { name: /kit\.unpinned/ }));
+    fireEvent.click(within(row).getByRole("button", { name: /Show derivation/ }));
     await waitFor(() => expect(within(row).getByLabelText(/^Derivation of/)).toBeTruthy());
     expect(within(row).getByText(/kitRequired/)).toBeTruthy();
   });
 
   it("shows evolutions by state with links to Work and an undeployed card", async () => {
     renderApp("/s/system.peopling/r/head/overview");
-    const link = await screen.findByRole("link", { name: "Private contact foundation" });
+    const link = await screen.findByRole("link", { name: /Private contact foundation/ });
     expect(link.getAttribute("href")).toContain("/work?");
     expect(link.getAttribute("href")).toContain("evolution=evolution.1");
-    expect(screen.getByText(/not deployed/)).toBeTruthy();
+    expect(screen.getByText("not deployed")).toBeTruthy();
+  });
+});
+
+describe("Overview hero and facts (design critique S5, S18)", () => {
+  it("holds the System h1, Purpose and primary inside the one light, with the readings on a band below it", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
+    const h1 = await screen.findByRole("heading", { level: 1, name: "Peopling" });
+    const hero = screen.getByRole("region", { name: "System light" });
+    expect(hero.contains(h1)).toBe(true);
+    const field = hero.querySelector('[data-effect="surface"]')!.parentElement!;
+    expect(field.contains(h1)).toBe(true);
+    expect(within(hero).getByRole("link", { name: "Describe a change" })).toBeTruthy();
+    // The labelled values sit outside the field, never over the haze.
+    const lead = within(hero).getByText("The light reflects readiness, checks, active Evolutions and blockers.");
+    expect(field.contains(lead)).toBe(false);
+  });
+
+  it("reads Facts' head from the same source as the TopBar when the model has none", async () => {
+    renderApp("/s/system.peopling/r/head/overview", undefined, (qc) =>
+      qc.setQueryData(qk.revisions("system.peopling"), {
+        revisions: [{ id: "head", kind: "head", label: "head (sc-1)" }, { id: "sc-1-e12083f7", kind: "commit", label: "sc-1 Import" }],
+      }));
+    const facts = await screen.findByRole("region", { name: "Facts" });
+    const head = within(facts).getByText("Head").nextElementSibling!;
+    expect(head.textContent).toBe("sc-1-e12083f7");
   });
 });

@@ -62,3 +62,19 @@ export function filterTree(nodes: readonly TreeNode[], query: string): TreeNode[
   }
   return out;
 }
+
+/**
+ * Folds single-child directories into one row: `a/b/` when the only child is a directory, `a/node.yaml` when it is a file.
+ * The merged node keeps the deepest path, so `selected.startsWith(`${path}/`)` still finds the way in.
+ */
+export function compactTree(nodes: readonly TreeNode[]): TreeNode[] {
+  return nodes.map((n): TreeNode => {
+    if (n.type === "file") return n;
+    const children = compactTree(n.children);
+    if (children.length === 1) {
+      const only = children[0]!;
+      return { ...only, name: `${n.name}/${only.name}` };
+    }
+    return { ...n, children };
+  });
+}

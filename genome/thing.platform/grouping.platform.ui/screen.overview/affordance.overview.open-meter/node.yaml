@@ -1,0 +1,18 @@
+id: affordance.overview.open-meter
+kind: affordance
+fields:
+  name: Meter title links
+  description: "Each meter's title is a link: Model readiness opens the Map, Implementation conformance opens Evaluations, Outcome progress opens Deployments. The meters themselves are not focusable."
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The named view opens
+  failure: []
+links:
+  - rel: references
+    to: screen.map
+  - rel: references
+    to: screen.evaluations
+  - rel: references
+    to: screen.phenome

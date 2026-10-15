@@ -4,14 +4,19 @@ import { checkA11yAndShoot, successToneElements, systemCard } from "./helpers";
 test.describe("home on the fake platform", () => {
   test("the wordmark opens Home and the single-Thing System card opens its environment atlas @fake", async ({ page }, testInfo) => {
     await page.goto("/s/system.peopling/r/head/overview");
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     await page.getByRole("link", { name: "artyfact" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
     const card = systemCard(page, /Peopling/);
-    await expect(card.getByText("Phase: unrealized")).toBeVisible();
-    await expect(card.getByText("not built")).toBeVisible();
-    expect(await successToneElements(page)).toEqual([]);
+    await expect(card.getByText("unrealized")).toBeVisible();
+    // The fake seed: a live production deployment from a passed build, and one evaluated candidate awaiting review.
+    await expect(card.locator('[data-status="deployed"]')).toBeVisible();
+    await expect(card.getByText("build passed")).toBeVisible();
+    await expect(card.getByText("1 awaits your review")).toBeVisible();
+    const green = await successToneElements(page);
+    expect(green.length).toBeGreaterThan(0);
+    expect(green.every((h) => h.includes("build passed"))).toBe(true);
     await checkA11yAndShoot(page, testInfo, "home-fake");
     await card.click();
     await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/map\?scope=environment$/);
@@ -21,7 +26,7 @@ test.describe("home on the fake platform", () => {
     await checkA11yAndShoot(page, testInfo, "environment-fake");
     await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Overview", exact: true }).click();
     await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/overview\?scope=environment$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "overview-fake");
   });

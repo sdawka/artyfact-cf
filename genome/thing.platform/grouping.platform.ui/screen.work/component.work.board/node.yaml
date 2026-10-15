@@ -1,10 +1,12 @@
 id: component.work.board
 kind: component
 fields:
-  name: Board
-  description: Evolutions in columns by state, with their realizations beneath.
+  name: Evolutions
+  description: "The Evolutions section of the list, by state: Proposed, Genome approved, Actionable, Realizing, Evaluated, Promoted, Rejected, Withdrawn, then Legacy (n) as read-only history. Groups holding an attention item or the selection open; terminal and Legacy groups start closed; empty groups are one line. Each row shows its checks, dependencies, overlap and waiting count, with Open in Review."
   states:
     - loaded
-    - "empty: no Evolutions yet"
+    - "<group> 0 (subtle)"
+    - k/n pass (subtle)
     - ≈ overlap (attention)
-    - 1 awaits review (attention)
+    - n await review (attention)
+    - legacy <kind> (subtle)

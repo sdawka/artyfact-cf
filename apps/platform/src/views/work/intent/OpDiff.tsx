@@ -107,7 +107,7 @@ export function OpDiff({ op, included, onToggle, problems, disabled }: {
         </p>
       )}
       {(fieldRows.length > 0 || criterionRows.length > 0) && (
-        <details><summary>Review {op.id} delta</summary>
+        <details><summary>Show before and after <span className="sr-only">{op.id}</span></summary>
           {fieldRows.length > 0 && <DiffTable label={`${op.id} fields`} rows={fieldRows} />}
           {criterionRows.length > 0 && <DiffTable label={`${op.id} criteria`} rows={criterionRows} />}
         </details>

@@ -1,8 +1,8 @@
 id: affordance.shell.open-in-view
 kind: affordance
 fields:
-  name: Open in Map, Journeys or Theory
-  description: Opens the node in the view that best shows it.
+  name: Open in
+  description: "Text links after Open in: Map, Journeys, Theory, Work and Code (when the node has a source document); the current view is never offered."
   actor: user
   trigger: click
   preconditions:

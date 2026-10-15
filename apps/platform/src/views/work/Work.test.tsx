@@ -1,6 +1,5 @@
-import { chooseSelect } from "../testing/select";
 import type { QueryClient } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConflictReport } from "../../../shared/api";
 import { fixtureBundle } from "@/api/fixtures";
@@ -12,46 +11,117 @@ import { SYSTEM, candidate, realization } from "./testData";
 import { EVO1, evalFor, json, seed } from "./testSeed";
 
 const WORK = `/s/${SYSTEM}/r/head/work`;
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); sessionStorage.clear(); });
 
-describe("Work board", () => {
-  it("groups the six fixture evolutions by state", async () => {
+describe("Work list and detail", () => {
+  const groupOf = (key: string) => document.querySelector(`details[data-group="${key}"]`) as HTMLDetailsElement | null;
+
+  it("groups the fixture Evolutions by state in one list pane, legacy last and collapsed", async () => {
     renderApp(WORK);
-    const proposed = await screen.findByRole("region", { name: /Proposed/ });
-    expect(within(proposed).getAllByRole("button")).toHaveLength(5);
-    expect(within(screen.getByRole("region", { name: /^Actionable/ })).getAllByRole("button")).toHaveLength(1);
-    expect(within(screen.getByRole("region", { name: /^Realizing/ })).getByText("none")).toBeTruthy();
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/\d+$/, "").trim())).toEqual(
-      ["Realizations", "Proposed", "Genome approved", "Actionable", "Realizing", "Evaluated", "Promoted", "Rejected"],
-    );
+    const list = await screen.findByRole("region", { name: "Plans and Evolutions" });
+    expect(within(list).getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/\d+$/, "").trim())).toEqual(["Plans", "Evolutions"]);
+    await waitFor(() => expect(groupOf("proposed")).toBeTruthy());
+    expect(within(groupOf("proposed")!).getAllByRole("link")).toHaveLength(2);
+    expect(within(groupOf("actionable")!).getAllByRole("link")).toHaveLength(1);
+    expect(within(groupOf("legacy")!).getAllByRole("link")).toHaveLength(3);
+    expect(groupOf("legacy")!.open).toBe(false);
+    expect(groupOf("proposed")!.open).toBe(true);
+    // Empty groups collapse to one line of labels with their 0 counts; nothing scrolls sideways.
+    expect(groupOf("realizing")).toBeNull();
+    expect(within(list).getByText(/Realizing/).textContent).toMatch(/Realizing\s*0/);
+    expect(document.querySelector('[role="group"][aria-label="Evolution board"]')).toBeNull();
+    const order = [...document.querySelectorAll("details[data-group]")].map((d) => d.getAttribute("data-group"));
+    expect(order).toEqual(["proposed", "actionable", "legacy"]);
   });
 
-  it("shows kind, intent, capped affected chips, criteria count and dependencies on a card", async () => {
-    renderApp(WORK);
-    const one = await screen.findByRole("button", { name: "Private contact foundation" });
-    expect(one.textContent).toMatch(/implementation/);
-    expect(one.textContent).toMatch(/7 acceptance criteria/);
+  it("rows link with aria-current and carry the criteria rollup and the dependency as text", async () => {
+    renderApp(`${WORK}?evolution=${EVO1}`);
+    const one = await screen.findByRole("link", { name: /^Private contact foundation/ });
+    expect(one.getAttribute("aria-current")).toBe("true");
     expect(one.textContent).toMatch(/0\/7 pass/);
-    expect(one.textContent).toMatch(/\+2 more/);
-    expect(one.textContent).not.toMatch(/depends on/);
-    const proposed = within(screen.getByRole("region", { name: /Proposed/ })).getAllByRole("button");
-    expect(proposed.some((c) => /depends on/.test(c.textContent ?? ""))).toBe(true);
-    expect(proposed.some((c) => /Genome Evolution/.test(c.textContent ?? ""))).toBe(true);
+    expect(one.textContent).not.toMatch(/after/);
+    const legacy = within(document.querySelector('details[data-group="legacy"]') as HTMLElement).getAllByRole("link");
+    expect(legacy.some((c) => /after Private contact foundation/.test(c.textContent ?? ""))).toBe(true);
+    expect(legacy.every((c) => !c.hasAttribute("aria-current"))).toBe(true);
   });
 
   it("never shows a not-run rollup as green", async () => {
-    renderApp(WORK);
-    await screen.findByRole("region", { name: /Actionable/ });
-    expect(document.querySelector('[data-verdict="pass"]')).toBeNull();
-    expect(document.querySelector('[data-verdict="not-run"]')).not.toBeNull();
+    renderApp(`${WORK}?evolution=${EVO1}`);
+    await screen.findByRole("heading", { level: 2, name: /Private contact foundation/ });
+    expect(document.querySelector('[data-tone="pass"]')).toBeNull();
+    expect(document.querySelector('[data-status="not-run"]')).not.toBeNull();
   });
 
-  it("opens the detail pane from ?evolution= and by clicking a card", async () => {
+  it("selects the first item waiting on you on arrival (replace), and a row click opens its detail", async () => {
     const { router } = renderApp(WORK);
-    fireEvent.click(await screen.findByRole("button", { name: "Private contact foundation" }));
-    await waitFor(() => expect(router.state.location.search).toContain("evolution=evolution.1"));
-    expect(await screen.findByRole("heading", { level: 2, name: "Private contact foundation" })).toBeTruthy();
-    expect(screen.getByText("No one is working on this Evolution.")).toBeTruthy();
+    // Nothing waits on review in the fixture: the actionable Evolution is the next step (Start work).
+    await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}`));
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(await screen.findByRole("heading", { level: 2, name: /Private contact foundation/ })).toBeTruthy();
+    expect(screen.getByText("No one is working on this Evolution. Start work hands an agent its Task Packet.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: /^Private digests/ }));
+    await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.5"));
+    expect(await screen.findByRole("heading", { level: 2, name: /Private digests/ })).toBeTruthy();
+  });
+
+  it("detail: state-driven primary, MetaLine facts, compact criteria and the Start work reason on a proposed Evolution", async () => {
+    renderApp(`${WORK}?evolution=${EVO1}`);
+    const detail = await screen.findByRole("region", { name: "Private contact foundation" });
+    expect(within(detail).getByRole("button", { name: "Start work" }).getAttribute("data-variant")).toBe("primary");
+    // The header's Describe a change turns secondary while the selection offers its own primary.
+    expect(screen.getByRole("button", { name: "Describe a change" }).getAttribute("data-variant")).toBe("secondary");
+    expect(within(detail).getByText("evolution.1").tagName).toBe("CODE");
+    expect(within(detail).getByRole("list", { name: "Acceptance criteria" }).querySelectorAll("li")).toHaveLength(7);
+    cleanup();
+    renderApp(`${WORK}?evolution=evolution.5`);
+    const five = await screen.findByRole("region", { name: "Private digests (later)" });
+    const start = within(five).getByRole("button", { name: "Start work" }) as HTMLButtonElement;
+    expect(start.disabled).toBe(true);
+    expect(within(five).getByText("Start work opens once the Evolution is actionable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Describe a change" }).getAttribute("data-variant")).toBe("primary");
+  });
+
+  it("redirects a ?realization= deep link to Review with every param", async () => {
+    const { router } = renderApp(`${WORK}?evolution=${EVO1}&realization=realization.1#x`, undefined, seed({ realizations: [realization()] }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/review`));
+    expect(router.state.location.search).toBe(`?evolution=${EVO1}&realization=realization.1`);
+    expect(router.state.location.hash).toBe("#x");
+  });
+
+  it("inside a Thing lists the Evolutions that touch it, with one scope note and Show all", async () => {
+    // Evolution 6 moves outside the Thing (an unknown node has no containment path).
+    const outside = (qc: QueryClient) => {
+      const bundle = fixtureBundle();
+      bundle.model.evolutions.find((e) => e.id === "evolution.6")!.affectedNodes = ["ext.elsewhere"];
+      qc.setQueryData(qk.model(SYSTEM, "head"), bundle);
+    };
+    const { router } = renderApp(`/s/${SYSTEM}/r/head/things/thing.webapp/work?evolution=${EVO1}`, undefined, outside);
+    const list = await screen.findByRole("region", { name: "Plans and Evolutions" });
+    const note = await screen.findByTestId("thing-scope-note");
+    expect(note.textContent).toMatch(/Showing Peopling web app/);
+    expect(screen.getAllByTestId("thing-scope-note")).toHaveLength(1);
+    // The note sits on the header's context row, beside the scope path.
+    expect(note.closest("header")?.firstElementChild?.contains(note)).toBe(true);
+    expect(screen.queryByText("Showing the whole System")).toBeNull();
+    const names = () => within(list).getAllByRole("link").map((l) => l.textContent ?? "");
+    await waitFor(() => expect(names().some((n) => n.startsWith("Private contact foundation"))).toBe(true));
+    expect(names().some((n) => n.startsWith("Photo suggestions"))).toBe(false);
+    fireEvent.click(within(note).getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(router.state.location.search).toContain("all=1"));
+    await waitFor(() => expect(names().some((n) => n.startsWith("Photo suggestions"))).toBe(true));
+    // Rows stay on Work, so picking one keeps the lifted filter.
+    const photo = within(list).getAllByRole("link").find((l) => l.textContent?.startsWith("Photo suggestions"))!;
+    expect(photo.getAttribute("href")).toContain("all=1");
+    fireEvent.click(photo);
+    await waitFor(() => expect(router.state.location.search).toContain("evolution=evolution.6"));
+    expect(router.state.location.search).toContain("all=1");
+    expect(within(screen.getByTestId("thing-scope-note")).getByRole("button", { name: "Show only Peopling web app" })).toBeTruthy();
+  });
+
+  it("shows the header purpose and hides the waiting counts at zero", async () => {
+    renderApp(`${WORK}?evolution=${EVO1}`);
+    expect(await screen.findByText("Genome Evolutions and the Task plans that realize them.")).toBeTruthy();
+    expect(screen.queryByText(/await an agent|awaits review/)).toBeNull();
   });
 });
 
@@ -63,6 +133,18 @@ describe("StartWorkPanel", () => {
     expect(submit.disabled).toBe(true);
     expect(screen.getByText(/Start work needs the platform API/)).toBeTruthy();
     expect(submit.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("replaces the Attempts region with Back to Evolution", async () => {
+    const { router } = renderApp(`${WORK}?evolution=${EVO1}&panel=start`);
+    // The panel can remount while the Work data settles, so the focused heading is queried afresh each poll.
+    const startHeading = () => screen.getByRole("heading", { level: 3, name: /Start work on/ });
+    await screen.findByRole("heading", { level: 3, name: /Start work on/ });
+    await waitFor(() => expect(document.activeElement).toBe(startHeading()));
+    expect(screen.queryByRole("heading", { name: /^Legacy realizations|^Attempts/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Evolution" }));
+    await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}`));
+    expect(await screen.findByRole("heading", { name: /^Legacy realizations/ })).toBeTruthy();
   });
 });
 
@@ -82,11 +164,11 @@ describe("StartWorkPanel against the API", () => {
       }
       return json(200, { evolutions: [], realizations: [] });
     }));
+    sessionStorage.setItem("artyfact.adminToken", "adm_x");
     renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
     fireEvent.change(await screen.findByLabelText("Agent label"), { target: { value: "codex-1" } });
-    const tokenInput = screen.getByLabelText("Admin token") as HTMLInputElement;
-    expect(tokenInput.type).toBe("password");
-    fireEvent.change(tokenInput, { target: { value: "adm_x" } });
+    // The header owns the token: no per-form field.
+    expect(screen.queryByLabelText("Admin token")).toBeNull();
     const submit = screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(false);
     fireEvent.click(submit);
@@ -97,30 +179,18 @@ describe("StartWorkPanel against the API", () => {
     expect(screen.getByText(/Neither is shown again/)).toBeTruthy();
   });
 
-  it("pre-fills the token field from the header token and sends it as the bearer", async () => {
-    const cli = "npx artyfact start realization.9";
-    const auth: (string | null)[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+  it("without the header token the submit is disabled with the visible reason", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       const u = String(url);
       if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
-      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
-      if (init?.method === "POST") {
-        auth.push(new Headers(init.headers).get("authorization"));
-        return json(201, { realization: realization({ id: "realization.9" }), packet: { json: {}, markdown: "# Task" }, token: "tok_x", remote: "https://git/fork", cli });
-      }
+      if (u.endsWith("/api/systems")) return json(200, []);
       return json(200, { evolutions: [], realizations: [] });
     }));
-    sessionStorage.setItem("artyfact.adminToken", "adm_header");
-    try {
-      renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
-      const tokenInput = (await screen.findByLabelText("Admin token", { selector: "input" })) as HTMLInputElement;
-      expect(tokenInput.value).toBe("adm_header");
-      fireEvent.click(screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit")!);
-      await screen.findAllByText(cli);
-      expect(auth).toEqual(["Bearer adm_header"]);
-    } finally {
-      sessionStorage.clear();
-    }
+    renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
+    await screen.findByLabelText("Agent label");
+    const submit = screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(document.getElementById(submit.getAttribute("aria-describedby")!)!.textContent).toBe("Set the admin token in the header.");
   });
 
   it.each([
@@ -134,8 +204,9 @@ describe("StartWorkPanel against the API", () => {
       if (init?.method === "POST") return json(status, { error: { code: status === 401 ? "unauthorized" : "forbidden", message: "nope" } });
       return json(200, { evolutions: [], realizations: [] });
     }));
+    sessionStorage.setItem("artyfact.adminToken", "adm_x");
     renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
-    await screen.findByLabelText("Admin token");
+    await screen.findByLabelText("Agent label");
     fireEvent.click(screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit")!);
     expect((await screen.findByRole("alert")).textContent).toMatch(message);
   });
@@ -181,15 +252,31 @@ describe("PacketViewer", () => {
 describe("RealizationRow", () => {
   const conflicts: ConflictReport[] = [{ kind: "soft-semantic", candidates: ["cand.1", "cand.2"], subjects: [], nodes: ["screen.people"], paths: [], message: "Both edit the people screen" }];
 
-  it("shows agent, fork, last checkpoint and typed conflict chips", async () => {
+  it("shows agent, fork, last checkpoint and conflict chips that name the other party", async () => {
     renderApp(`${WORK}?evolution=${EVO1}`, undefined, seed({ realizations: [realization(), realization({ id: "realization.2", agent: { id: "agent-beta", role: "reviewer" }, checkpoints: [] })], conflicts }));
     const row = await screen.findByTestId("realization-realization.1");
     expect(within(row).getByText("agent-alpha")).toBeTruthy();
     expect(within(row).getByText("fork-alpha")).toBeTruthy();
     expect(within(row).getByText("fedcba9")).toBeTruthy();
     expect(within(row).getByText(/Scaffolded the app/)).toBeTruthy();
-    expect(within(row).getByText(/soft-semantic/)).toBeTruthy();
-    expect(within(screen.getByTestId("realization-realization.2")).getByText(/Last checkpoint:\s*unknown/)).toBeTruthy();
+    const chip = within(row).getByRole("list", { name: "Conflicts" }).querySelector("li")!;
+    expect(chip.textContent).toMatch(/soft-semantic with cand\.2 on 1 node/);
+    // Soft overlaps wait on a person (attention); only hard-semantic is danger.
+    expect(chip.getAttribute("data-tone")).toBe("attention");
+    const beta = screen.getByTestId("realization-realization.2");
+    expect(within(beta).getByText("checkpoint").nextElementSibling!.textContent).toBe("unknown");
+  });
+
+  it("counts the realization token down: attention under 30 minutes, danger once expired", async () => {
+    const soon = new Date(Date.now() + 10 * 60_000).toISOString();
+    const gone = new Date(Date.now() - 60_000).toISOString();
+    renderApp(`${WORK}?evolution=${EVO1}`, undefined, seed({ realizations: [
+      realization({ workspace: { ...realization().workspace, tokenExpiresAt: soon } }),
+      realization({ id: "realization.2", workspace: { ...realization().workspace, tokenExpiresAt: gone } }),
+    ] }));
+    const one = await screen.findByTestId("realization-realization.1");
+    expect(within(one).getByText(/token expires in/).closest("[data-tone]")!.getAttribute("data-tone")).toBe("attention");
+    expect(within(screen.getByTestId("realization-realization.2")).getByText("token expired").getAttribute("data-tone")).toBe("fail");
   });
 
   it("keeps the same DOM node when a refetch returns equal data", async () => {
@@ -213,26 +300,31 @@ describe("Work hands decisions to Review", () => {
     expect(screen.queryByRole("heading", { name: /^Promote / })).toBeNull();
   });
 
-  it("keeps the inline review on a realization row and adds Open in Review", async () => {
+  it("has no inline review on Work: each attempt links Open in Review", async () => {
     renderApp(`${WORK}?evolution=${EVO1}`, undefined, seed({ realizations: [waiting] }));
     const row = await screen.findByTestId("realization-realization.1");
-    expect(within(row).getByRole("button", { name: /Review realization\.1/ })).toBeTruthy();
+    expect(within(row).queryByRole("button", { name: /Review/ })).toBeNull();
     expect(within(row).getByRole("link", { name: /Open in Review realization\.1/ }).getAttribute("href")).toBe(`${REVIEW}?evolution=${EVO1}&realization=realization.1`);
   });
 
-  it("marks a card whose candidate conflicts and that awaits review", async () => {
+  it("marks a row whose candidate conflicts and that awaits review, with Open in Review and the header count", async () => {
     const soft: ConflictReport = { kind: "soft-semantic", candidates: ["cand.1", "cand.2"], subjects: [], nodes: ["screen.people"], message: "overlap" };
     renderApp(WORK, undefined, seed({ realizations: [waiting], conflicts: [soft] }));
-    const card = await screen.findByRole("button", { name: "Private contact foundation" });
-    await waitFor(() => expect(card.textContent).toMatch(/≈ overlap/));
-    expect(card.textContent).toMatch(/1 awaits review/);
-    const other = screen.getByRole("button", { name: fixtureBundle().model.evolutions[1]!.title });
+    const row = await screen.findByRole("link", { name: /^Private contact foundation/ });
+    await waitFor(() => expect(row.textContent).toMatch(/≈overlap/));
+    expect(row.textContent).toMatch(/1 awaits review/);
+    expect(row.querySelector('[data-tone="attention"]')).toBeTruthy();
+    const item = row.closest("li")!;
+    expect(within(item).getByRole("link", { name: /Open in Review/ }).getAttribute("href")).toBe(`${REVIEW}?evolution=${EVO1}&realization=realization.1`);
+    const other = screen.getByRole("link", { name: new RegExp(`^${fixtureBundle().model.evolutions[4]!.title.replace(/[()]/g, ".")}`) });
     expect(other.textContent).not.toMatch(/overlap|awaits review/);
+    expect(screen.getByRole("link", { name: "1 awaits review" }).getAttribute("href")).toBe(REVIEW);
   });
 });
 
-describe("CandidateReview", () => {
-  const url = `${WORK}?evolution=${EVO1}&realization=realization.1`;
+// CandidateReview moved to Review (the decide slice owns its file and tests); these stay until they move there.
+describe("CandidateReview (on Review)", () => {
+  const url = `/s/${SYSTEM}/r/head/review?evolution=${EVO1}&realization=realization.1`;
   const withCandidate = (extra = {}) => seed({ realizations: [realization()], candidates: [candidate(extra)] });
 
   it("groups subjects, marks unmapped files and toggles composition selection", async () => {
@@ -244,9 +336,9 @@ describe("CandidateReview", () => {
     const files = within(review).getByRole("list", { name: "Changed files" });
     expect(within(files).getByText("src/odd.ts").parentElement?.textContent).toMatch(/unmapped/);
     expect(within(files).getByText("src/app.ts").parentElement?.textContent).not.toMatch(/unmapped/);
-    fireEvent.click(within(review).getByRole("button", { name: "Select for composition" }));
+    fireEvent.click(within(review).getByRole("button", { name: "Add to promotion" }));
     await waitFor(() => expect(router.state.location.search).toContain("candidates=cand.1"));
-    expect(await within(review).findByRole("button", { name: "Selected for composition" })).toBeTruthy();
+    await waitFor(() => expect(within(review).getByRole("button", { name: "Add to promotion" }).getAttribute("aria-pressed")).toBe("true"));
   });
 
   it("uses per-subject operations when the backend sends them", async () => {
@@ -259,7 +351,7 @@ describe("CandidateReview", () => {
   it("lists this candidate's evaluations and empty-states honestly", async () => {
     renderApp(url, undefined, seed({ realizations: [realization()], candidates: [candidate()], evals: [evalFor("C.webapp.exists")] }));
     const review = await screen.findByRole("region", { name: "Review realization.1" });
-    fireEvent.click(within(review).getByRole("tab", { name: "Evaluations" }));
+    fireEvent.click(within(review).getByRole("tab", { name: /^Evaluations/ }));
     expect(within(review).getAllByRole("row")).toHaveLength(2);
   });
 
@@ -323,69 +415,83 @@ describe("CandidateReview", () => {
 const ALL_CRITERIA = fixtureBundle().model.criteria.map((c) => c.id);
 
 describe("New Evolution", () => {
-  it("omits acceptanceCriteria untouched, sends the picked ids once touched, and [] when cleared", async () => {
-    const posts: { acceptanceCriteria?: string[]; kind?: string }[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const u = String(url);
-      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
-      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
-      if (u.endsWith("/evolutions") && init?.method === "POST") {
-        posts.push(JSON.parse(String(init.body)));
-        return json(500, { error: { code: "x", message: "stop" } });
-      }
-      if (u.includes("/evolutions")) return json(200, { evolutions: [], realizations: [] });
-      return json(404, { error: { code: "not-found", message: "no" } });
-    }));
+  const systemsStub = (posts: unknown[], created?: unknown) => vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    const u = String(url);
+    if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
+    if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
+    if (u.endsWith("/evolutions") && init?.method === "POST") {
+      posts.push({ body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get("authorization") });
+      return created ? json(201, { evolution: created }) : json(500, { error: { code: "x", message: "stop" } });
+    }
+    if (u.includes("/evolutions")) return json(200, { evolutions: created ? [created] : [], realizations: [] });
+    return json(404, { error: { code: "not-found", message: "no" } });
+  }));
+
+  it("defaults to the System's criteria; Choose criteria sends the picked ids, [] when cleared, all with Select all", async () => {
+    const posts: { body: { acceptanceCriteria?: string[]; kind?: string } }[] = [];
+    systemsStub(posts);
+    sessionStorage.setItem("artyfact.adminToken", "adm");
     renderApp(`${WORK}?panel=new`, undefined, seed({ api: true }));
     const panel = await screen.findByRole("region", { name: "New Evolution" });
     fireEvent.change(within(panel).getByLabelText("Title"), { target: { value: "T" } });
     fireEvent.change(within(panel).getByLabelText("Intent"), { target: { value: "I" } });
+    expect(within(panel).getByText("Using the System's defaults for this target.")).toBeTruthy();
+    // No one-option Kind select and no per-form token field.
+    expect(within(panel).queryByRole("combobox", { name: "Kind" })).toBeNull();
+    expect(within(panel).queryByLabelText("Admin token")).toBeNull();
     const boxes = within(panel).getAllByRole("checkbox") as HTMLInputElement[];
     expect(boxes.length).toBe(ALL_CRITERIA.length);
     expect(boxes.some((b) => b.checked)).toBe(false);
     const create = () => fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     create();
     await waitFor(() => expect(posts.length).toBe(1));
-    expect("acceptanceCriteria" in posts[0]!).toBe(false);
-    expect(posts[0]!.kind).toBe("genome-amendment");
-    expect(within(panel).queryByRole("option", { name: "mixed" })).toBeNull();
+    expect("acceptanceCriteria" in posts[0]!.body).toBe(false);
+    expect(posts[0]!.body.kind).toBe("genome-amendment");
     fireEvent.click(boxes[1]!);
     create();
     await waitFor(() => expect(posts.length).toBe(2));
-    expect(posts[1]!.acceptanceCriteria).toEqual([ALL_CRITERIA[1]]);
+    expect(posts[1]!.body.acceptanceCriteria).toEqual([ALL_CRITERIA[1]]);
     fireEvent.click(boxes[1]!);
     create();
     await waitFor(() => expect(posts.length).toBe(3));
-    expect(posts[2]!.acceptanceCriteria).toEqual([]);
+    expect(posts[2]!.body.acceptanceCriteria).toEqual([]);
     fireEvent.click(within(panel).getByRole("button", { name: "Select all" }));
     create();
     await waitFor(() => expect(posts.length).toBe(4));
-    expect(posts[3]!.acceptanceCriteria).toEqual(ALL_CRITERIA);
+    expect(posts[3]!.body.acceptanceCriteria).toEqual(ALL_CRITERIA);
+    fireEvent.click(within(panel).getByRole("button", { name: "Use the System's defaults" }));
+    fireEvent.change(within(panel).getByLabelText("Filter criteria"), { target: { value: ALL_CRITERIA[0]! } });
+    expect(within(panel).getAllByRole("checkbox").length).toBeLessThan(ALL_CRITERIA.length);
+    create();
+    await waitFor(() => expect(posts.length).toBe(5));
+    expect("acceptanceCriteria" in posts[4]!.body).toBe(false);
   });
 
-  it("+ Evolution opens the panel, disabled with the standard reason on fixture data", async () => {
-    const { router } = renderApp(`${WORK}?evolution=${EVO1}`);
-    fireEvent.click(await screen.findByRole("button", { name: "+ Evolution" }));
-    await waitFor(() => expect(router.state.location.search).toBe("?panel=new"));
+  it("without the header token Create Evolution says why", async () => {
+    systemsStub([]);
+    renderApp(`${WORK}?panel=new`, undefined, seed({ api: true }));
     const panel = await screen.findByRole("region", { name: "New Evolution" });
     expect((within(panel).getByRole("button", { name: "Create Evolution" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(within(panel).getByText("Creating an Evolution needs the platform API. The UI is showing fixture data.")).toBeTruthy();
+    expect(within(panel).getByText("Set the admin token in the header.")).toBeTruthy();
   });
 
-  it("creates an Evolution with affected nodes, selects it and shows its card in Proposed", async () => {
-    const created = { ...fixtureBundle().model.evolutions[0]!, id: "evolution.new", title: "Reminder nudges", intent: "Nudge owners", state: "proposed" as const, affectedNodes: ["screen.people"], acceptanceCriteria: [] };
-    const posts: { body: unknown; auth: string | null }[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const u = String(url);
-      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
-      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
-      if (u.endsWith("/evolutions") && init?.method === "POST") {
-        posts.push({ body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get("authorization") });
-        return json(201, { evolution: created });
-      }
-      if (u.includes("/evolutions")) return json(200, { evolutions: [created], realizations: [] });
-      return json(404, { error: { code: "not-found", message: "no" } });
-    }));
+  it("+ Evolution replaces the list and detail with the panel, disabled with the standard reason on fixture data", async () => {
+    const { router } = renderApp(`${WORK}?evolution=${EVO1}`);
+    fireEvent.click(await screen.findByRole("button", { name: "Evolution" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?panel=new"));
+    const panel = await screen.findByRole("region", { name: "New Evolution" });
+    expect(screen.queryByRole("region", { name: "Plans and Evolutions" })).toBeNull();
+    expect((within(panel).getByRole("button", { name: "Create Evolution" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel).getByText("Creating an Evolution needs the platform API. The UI is showing fixture data.")).toBeTruthy();
+    fireEvent.click(within(panel).getByRole("button", { name: "Back to Work" }));
+    await waitFor(() => expect(router.state.location.search).not.toContain("panel"));
+  });
+
+  it("creates an Evolution with affected nodes and risk, selects it and lists it in Proposed", async () => {
+    const created = { ...fixtureBundle().model.evolutions[0]!, id: "evolution.new", title: "Reminder nudges", intent: "Nudge owners", kind: "genome-amendment" as const, state: "proposed" as const, affectedNodes: ["screen.people"], acceptanceCriteria: [] };
+    const posts: unknown[] = [];
+    systemsStub(posts, created);
+    sessionStorage.setItem("artyfact.adminToken", "s3cret");
     const { router } = renderApp(`${WORK}?panel=new`, undefined, seed({ api: true }));
     const panel = await screen.findByRole("region", { name: "New Evolution" });
     fireEvent.change(within(panel).getByLabelText("Title"), { target: { value: "Reminder nudges" } });
@@ -393,13 +499,16 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Affected nodes"), { target: { value: "screen.people" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Add node" }));
     expect(within(panel).getByRole("button", { name: "Remove screen.people" })).toBeTruthy();
-    await chooseSelect(within(panel).getByRole("combobox", { name: "Risk" }), "low");
-    fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
+    fireEvent.click(within(panel).getByRole("radio", { name: "low" }));
     fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
     expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "genome-amendment", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
-    const proposed = await screen.findByRole("region", { name: /Proposed/ });
-    expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
+    const proposed = await waitFor(() => {
+      const el = document.querySelector('details[data-group="proposed"]') as HTMLElement | null;
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(await within(proposed).findByRole("link", { name: /^Reminder nudges/ })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull());
   });
 });
@@ -428,11 +537,9 @@ describe("BuildChip", () => {
     expect(screen.getByText("build failed").getAttribute("data-tone")).toBe("fail");
   });
 });
-it('Genome Evolution work cannot target an app implementation',async()=>{
- const genomeEvolution=fixtureBundle().model.evolutions.find(e=>e.kind==='genome-amendment')!;
- renderApp(`${WORK}?evolution=${genomeEvolution.id}&panel=start`);
- const target=await screen.findByLabelText('Target');
- fireEvent.keyDown(target,{key:'Enter'});
- expect(screen.queryByRole('option',{name:'app'})).toBeNull();
- expect(await screen.findByRole('option',{name:'genome'})).toBeTruthy();
+it("Genome Evolution work has one target, so no Target select", async () => {
+  const genomeEvolution = fixtureBundle().model.evolutions.find((e) => e.kind === "genome-amendment")!;
+  renderApp(`${WORK}?evolution=${genomeEvolution.id}&panel=start`);
+  expect(await screen.findByText(/a Genome Evolution changes the Genome only/)).toBeTruthy();
+  expect(screen.queryByLabelText("Target")).toBeNull();
 });

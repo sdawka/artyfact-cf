@@ -1,0 +1,2 @@
+.note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-3); margin: 0; font: var(--type-meta); color: var(--color-text-secondary); }
+.note strong { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }

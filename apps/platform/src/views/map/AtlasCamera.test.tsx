@@ -13,7 +13,7 @@ vi.mock("@/model/useModel", () => ({ useModel: () => ({ index }) }));
 const graph = { scope: "a", nodes: [], edges: [], ids: new Set() } as unknown as MapGraph;
 const layout = { boxes: { a: { x: 0, y: 0, width: 600, height: 400 }, b: { x: 100, y: 80, width: 200, height: 100 } }, width: 600, height: 400 };
 let canvas: HTMLDivElement, key = 0;
-const props = () => ({ cameraKey: `camera-test-${++key}`, graph, layout, canvas, focusId: null, locate: null, travel: null, onLocate: vi.fn(), onTravel: vi.fn(), onCancelTravel: vi.fn() });
+const props = () => ({ cameraKey: `camera-test-${++key}`, graph, layout, canvas, focusId: null, locate: null, travel: null, onTravel: vi.fn(), onCancelTravel: vi.fn() });
 beforeEach(() => {
   canvas = document.createElement("div"); canvas.className = "react-flow"; Object.defineProperties(canvas, { clientWidth: { value: 900 }, clientHeight: { value: 600 } });
   state.enabled = true; state.reduced = false; state.viewport = { x: 0, y: 0, zoom: 1 };

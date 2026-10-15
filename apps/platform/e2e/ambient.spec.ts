@@ -16,7 +16,7 @@ test.describe("ambient shell", () => {
   test("one fixed field behind the Shell, decorative, with veiled chrome", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const field = page.locator("[data-shell-ambient] [data-effect=ambient]");
     await expect(field).toHaveCount(1);
     await expect(field).toHaveAttribute("data-effect-mode", /^(gl|fallback)$/);
@@ -32,7 +32,7 @@ test.describe("ambient shell", () => {
   });
 
   test("Effects switch turns WebGL off, persists, and the palette offers it", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const toggle = page.getByRole("button", { name: /Effects/ });
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await toggle.click();
@@ -43,14 +43,14 @@ test.describe("ambient shell", () => {
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("combobox").fill("effects");
-    await page.getByRole("option", { name: /Turn effects on/ }).click();
+    await page.getByRole("option", { name: /Effects: turn on/ }).click();
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("reduced motion defaults the switch off", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "false");
     await context.close();
   });
@@ -95,7 +95,7 @@ test.describe("ambient shell", () => {
     await expect(selected).toHaveCSS("outline-width", "2px");
     await expect(selected).toHaveCSS("outline-offset", "-5px");
     await expect(selected).toHaveCSS("outline-color", brand);
-    // Selection keeps its approved relation glow after hover leaves the tile.
+    // Selection keeps its glow after hover leaves the tile.
     await page.mouse.move(10, 10);
     await expect(selected).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
@@ -143,7 +143,8 @@ test.describe("ambient shell", () => {
     await expect(step).toHaveAttribute("aria-pressed", "true");
     await expect(step).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
-    await expect(page.getByRole("button", { name: /^Step f1:.*failure/ })).not.toHaveCSS("box-shadow", "none");
+    // Failure is the danger border and the word, not a glow.
+    await expect(page.getByRole("button", { name: /^Step f1:.*failure/ })).toHaveCSS("box-shadow", "none");
     await expect.poll(async () => (await fxEvents(page)).filter((e) => e.kind === "select").length).toBe(1);
     await page.mouse.move(10, 10);
     await page.waitForTimeout(300);

@@ -18,9 +18,25 @@ The `Orb` in `packages/effects/src/orb/` is a clean-room implementation written 
 
 WebGL helper used by `packages/effects` (dependency `ogl`). Released under the Unlicense (public domain dedication); no conditions apply. Upstream: https://github.com/oframe/ogl.
 
+## Fonts: Alegreya, Atkinson Hyperlegible Next and Mono
+
+Self-hosted in `apps/platform/public/fonts/` and `apps/site/public/fonts/` (the same files in both apps) and served with the
+pages. All three families are licensed under the SIL Open Font License 1.1 and declare no Reserved Font Names; the files
+are subsets of the upstream variable fonts (Latin, Latin-1 Supplement, General Punctuation and Arrows; Alegreya limited to
+weights 400 to 700 and the Mono face to 400 to 600), made with fontTools and keeping the original name tables.
+
+- Alegreya, Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya). Licence: `licenses/OFL-Alegreya.txt`.
+- Atkinson Hyperlegible Next, Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors
+  (https://github.com/googlefonts/atkinson-hyperlegible-next), and Atkinson Hyperlegible Mono, Copyright 2020-2024 The Atkinson
+  Hyperlegible Mono Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next-mono). Licence: `licenses/OFL-Atkinson-Hyperlegible.txt`.
+
+Sources: the `ofl/alegreya`, `ofl/atkinsonhyperlegiblenext` and `ofl/atkinsonhyperlegiblemono` directories of
+https://github.com/google/fonts. The fonts stay under the OFL; they are not covered by the project's Apache-2.0 licence.
+
 ## Brilon (display font)
 
-Not shipped. An earlier version of the theme loaded a Brilon woff2 file, but its licence was never confirmed, so the file and its `@font-face` rule were removed. The display face is Georgia. If the licence is confirmed later, restoring the font is a single revert.
+Not shipped. An earlier version of the theme loaded a Brilon woff2 file, but its licence was never confirmed, so the file
+and its `@font-face` rule were removed. The display face is now Alegreya (above).
 
 ## Design tokens
 

@@ -2,13 +2,13 @@ id: affordance.shell.open-in-review-or-work
 kind: affordance
 fields:
   name: Open in Review or Work
-  description: Opens Review when the node is in a candidate, otherwise Work.
+  description: When a candidate touches the node, the candidate line In N candidates links Open in Review and Work leaves the Open in list; otherwise Work is one of the Open in links.
   actor: user
   trigger: click
   preconditions:
     - A node is focused
   effects:
-    - The matching screen opens
+    - Review opens on the candidate, or Work opens
   failure: []
 links:
   - rel: references

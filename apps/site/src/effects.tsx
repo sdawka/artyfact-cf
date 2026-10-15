@@ -7,7 +7,7 @@ function Ambient() {
   const field = useRef<AmbientFieldHandle>(null);
   useEffect(() => {
     const onEnter = (event: PointerEvent) => {
-      const target = (event.target as Element | null)?.closest?.('.button.primary, .practice-card');
+      const target = (event.target as Element | null)?.closest?.('.button.primary');
       if (!target || (event.relatedTarget instanceof Node && target.contains(event.relatedTarget))) return;
       const rect = target.getBoundingClientRect();
       field.current?.pulse(rect.left + rect.width / 2, rect.top + rect.height / 2, 0.6);

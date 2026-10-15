@@ -2,7 +2,8 @@ id: component.shell
 kind: component
 fields:
   name: Shell
-  description: "The frame around every System screen: top bar, side navigation, command palette and the Inspector."
+  description: "The frame around every System screen: a one-row top bar, the side rail, the command palette and the Inspector. Each view starts with its own page header (h1, one purpose sentence, at most one primary); inside a Thing or a Map scope the header's context line reads System / Thing / View. A skip link leads to the content."
   states:
     - loading
     - loaded
+    - "Loading view…"

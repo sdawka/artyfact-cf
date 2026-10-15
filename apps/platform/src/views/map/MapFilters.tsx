@@ -1,5 +1,4 @@
 import { Button, Checkbox } from "@/components/ui";
-import { useId } from "react";
 import { kindColour, useKindViews } from "@/model/kinds";
 import { DEFAULT_FILTERS, type MapFilterState } from "./useMapGraph";
 import styles from "./MapFilters.module.css";
@@ -13,13 +12,15 @@ export interface MapFiltersProps {
   linkTypes: string[];
   /** Number of readiness findings (shown next to "Findings only"). */
   findingCount: number;
+  /** View option, not an action: draw every connection, not only the selected node's. */
+  showAll: boolean;
+  onShowAll: (next: boolean) => void;
 }
 
 const toggle = (list: string[], item: string, hide: boolean) => (hide ? [...list, item] : list.filter((x) => x !== item));
 
 /** Template layers (the Map bands), kinds, link types, Externals and findings-only filters for the Map. */
-export function MapFilters({ value, onChange, kinds, linkTypes, findingCount }: MapFiltersProps) {
-  const id = useId();
+export function MapFilters({ value, onChange, kinds, linkTypes, findingCount, showAll, onShowAll }: MapFiltersProps) {
   const views = useKindViews();
   const hiddenKinds = value.hiddenKinds.filter((k) => kinds.includes(k)).length;
   const hiddenLinks = value.hiddenLinks.filter((k) => linkTypes.includes(k)).length;
@@ -27,15 +28,19 @@ export function MapFilters({ value, onChange, kinds, linkTypes, findingCount }: 
   const hiddenLayers = value.hiddenLayers.filter((l) => layers.some((x) => x.id === l)).length;
   const changed = hiddenKinds + hiddenLinks + hiddenLayers > 0 || !value.showExternals || value.findingsOnly;
   return (
-    <section className={styles.filters} aria-labelledby={`${id}-h`}>
+    <section className={styles.filters} aria-label="Filters">
       <div className={styles.head}>
-        <h2 id={`${id}-h`} className={styles.title}>Filters</h2>
+        <span className={styles.title}>Connections</span>
         {changed && (
-          <Button variant="ghost" type="button" onClick={() => onChange(DEFAULT_FILTERS)}>
+          <Button variant="ghost" size="compact" type="button" onClick={() => onChange(DEFAULT_FILTERS)}>
             Reset
           </Button>
         )}
       </div>
+      <label className={styles.check}>
+        <Checkbox checked={showAll} onChange={(e) => onShowAll(e.target.checked)} />
+        All connections
+      </label>
       <label className={styles.check}>
         <Checkbox checked={value.showExternals} onChange={(e) => onChange({ ...value, showExternals: e.target.checked })} />
         Show Externals

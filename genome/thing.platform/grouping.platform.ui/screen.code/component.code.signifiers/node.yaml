@@ -2,8 +2,10 @@ id: component.code.signifiers
 kind: component
 fields:
   name: File signifiers
-  description: Mapped nodes per file and whether a file is unmapped.
+  description: The editing state, and per file the model nodes it maps to.
   states:
-    - mapped to N nodes (subtle)
-    - unmapped (attention)
-    - edited, uncommitted (attention)
+    - ◔ Editing, n pending (attention)
+    - Read-only, canonical (subtle)
+    - Read-only at <rev>. Editing works on head. (subtle)
+    - Model nodes in this file (subtle)
+    - new file (subtle)

@@ -1,0 +1,16 @@
+id: affordance.parts.load-parts
+kind: affordance
+fields:
+  name: Load private Parts
+  description: The panel's primary. Reads the System's private Parts with the token entered, sent as a bearer token and kept in memory only; Change reopens the panel.
+  actor: user
+  trigger: click
+  preconditions:
+    - A token is entered (otherwise the reason Enter a token to load.)
+  effects:
+    - The panel closes to Token loaded. and the Parts list appears
+  failure:
+    - "401 or 403: This token is not authorized to read private Parts in this System."
+links:
+  - rel: invokes
+    to: endpoint.system-parts

@@ -15,7 +15,7 @@ From the repository root:
 
 The build uses Vite/React to render HTML and hydrate the example.
 src/render.tsx renders the pages; src/client.tsx handles copy controls and lazily loads the example.
-Token CSS is a site-owned snapshot of the platform's Whimsy theme. Georgia is the display fallback.
+Token CSS is a site-owned snapshot of the platform's Whimsy theme; the platform's `theme.test.ts` keeps the `:root` token blocks of tokens, whimsy, effects and utilities identical. Fonts (Alegreya, Atkinson Hyperlegible Next and Mono, SIL OFL 1.1) are self-hosted from `public/fonts/`, byte-identical to the platform's, through `src/styles/fonts.css`; the UI face is preloaded.
 
 The homepage pairs familiar practices with what Artyfact does with them, tagged built in, extended or connected (src/practiceStackData.ts; each claim checked against the platform, partial work marked). Its centerpiece is an illustrative checkout change in seven steps. Step buttons and, on wide screens, native scrolling drive one step state; a chosen step holds until the reader scrolls to another. Without JavaScript all seven steps render stacked. Reduced motion removes transitions; nothing autoplays.
 

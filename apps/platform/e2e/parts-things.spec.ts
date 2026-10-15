@@ -12,9 +12,9 @@ test("shared Parts expose immutable provenance and payload @fixture", async ({ p
   await page.getByRole("link", { name: "Button system" }).click();
   await expect(page).toHaveURL(/\/parts\/part.ui.buttons\/2.1.0$/);
   await expect(page.getByRole("heading", { level: 1, name: "Button system" })).toBeVisible();
-  await expect(page.getByText(data.partRecords["part.ui.buttons@2.1.0"]!.digest, { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Pinned payload" })).toBeVisible();
-  await expect(page.getByText("Commands are saved instructions. This page does not run them.")).toBeVisible();
+  await expect(page.getByTitle(data.partRecords["part.ui.buttons@2.1.0"]!.digest, { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Payload" })).toBeVisible();
+  await expect(page.getByText("No saved commands.")).toBeVisible();
   await checkA11yAndShoot(page, testInfo, "shared-part-detail");
 });
 
@@ -33,7 +33,7 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await mockApi(page, data);
   await page.goto(THING);
   await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source artifacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Realized outputs" })).toBeVisible();
   await expect(page.getByText("workers-version:mock-v2", { exact: true })).toBeVisible();
   await expect(page.getByText("workers-version:mock-v3", { exact: true })).toBeVisible();
@@ -42,18 +42,19 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Code" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/code$`));
   await expect(page.getByRole("tab", { name: "Genome" })).toBeVisible();
-  await expect(page.getByText("Code shows saved files for the whole System.")).toBeVisible();
+  // The PageHeader's scope note (the Shell's CSS-hidden fallback scope line is also in the DOM).
+  await expect(page.locator("header[data-variant]").getByText("Showing the whole System")).toBeVisible();
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Deployments" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/phenome$`));
   await expect(page.locator("summary").filter({ hasText: "events" })).toHaveCount(2);
   await checkA11yAndShoot(page, testInfo, "thing-deployments");
-  await page.getByRole("link", { name: "System overview", exact: true }).click();
+  await page.getByRole("navigation", { name: "Scope", exact: true }).getByRole("link", { name: "Peopling", exact: true }).click();
   await expect(page).toHaveURL(`${page.url().split(SYSTEM)[0]}${SYSTEM}/overview`);
   await page.goto(`${SYSTEM}/things/thing.notes`);
   await expect(page.getByRole("heading", { name: "Notes", level: 1 })).toBeVisible();
-  await expect(page.getByText("No pinned Parts. This Thing can be Genome-only.")).toBeVisible();
-  await expect(page.getByText(/No source artifacts recorded/)).toBeVisible();
-  await expect(page.getByText(/No realized outputs for this Thing/)).toBeVisible();
+  await expect(page.getByText("none (Genome-only)")).toBeVisible();
+  await expect(page.getByText("No source artifacts yet.")).toBeVisible();
+  await expect(page.getByText("No realized output yet.")).toBeVisible();
   await checkA11yAndShoot(page, testInfo, "genome-only-thing");
 });
 
@@ -73,14 +74,14 @@ test("private Parts remain inside their System and authorize inspection @fixture
   await expect(page.getByText("Private logic")).toHaveCount(0);
   await page.getByRole("link", { name: "Peopling", exact: true }).click();
   await page.getByRole("link", { name: "Private Parts", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "System-private Parts" })).toBeVisible();
-  await page.getByLabel("Admin token").fill("wrong");
+  await expect(page.getByRole("heading", { level: 1, name: "Private Parts" })).toBeVisible();
+  await page.getByLabel("Admin token or realization secret").fill("wrong");
   await page.getByRole("button", { name: "Load private Parts" }).click();
   await expect(page.getByRole("alert")).toContainText("not authorized");
-  await page.getByLabel("Admin token").fill("admin-test");
+  await page.getByLabel("Admin token or realization secret").fill("admin-test");
   await page.getByRole("button", { name: "Load private Parts" }).click();
   await page.getByRole("button", { name: "Private logic 1.0.0" }).click();
-  await expect(page.getByRole("heading", { name: "Pinned payload" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Payload" })).toBeVisible();
   await expect(page.getByText(/echo inert/)).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await checkA11yAndShoot(page, testInfo, "private-parts-narrow");

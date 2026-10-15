@@ -2,7 +2,7 @@ id: component.review.evaluations
 kind: component
 fields:
   name: Evaluations
-  description: The candidate's gate results; each verdict is pass, fail or literally unknown.
+  description: The candidate's Evaluations tab, its counts in the tab label; each verdict is pass, fail or literally unknown, with the kind glyph hidden.
   states:
     - loading
     - loaded

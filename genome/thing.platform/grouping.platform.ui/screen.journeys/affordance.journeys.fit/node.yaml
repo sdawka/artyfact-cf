@@ -1,0 +1,12 @@
+id: affordance.journeys.fit
+kind: affordance
+fields:
+  name: Fit, 100%
+  description: Fit shows the whole journey; 100% shows it at reading size. With the canvas focused, + and - zoom and 0 fits.
+  actor: user
+  trigger: click or keyboard
+  preconditions:
+    - A journey is open
+  effects:
+    - The canvas zooms
+  failure: []

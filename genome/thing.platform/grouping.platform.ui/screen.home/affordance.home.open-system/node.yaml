@@ -2,15 +2,15 @@ id: affordance.home.open-system
 kind: affordance
 fields:
   name: Open System
-  description: The System card is a link that opens its Overview.
+  description: The whole System row is a link; it opens the System at head on the Map's environment.
   actor: user
   trigger: click
   preconditions:
-    - A System card is listed
+    - A System row is listed
   effects:
-    - The workspace opens on the System's Overview
+    - The workspace opens on the System's Map
   failure:
     - "Unknown System: the route error page"
 links:
   - rel: references
-    to: screen.overview
+    to: screen.map

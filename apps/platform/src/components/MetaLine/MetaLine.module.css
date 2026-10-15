@@ -1,0 +1,5 @@
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-3); margin: 0; font: var(--type-meta); color: var(--color-text-secondary); min-width: 0; }
+.item { display: inline-flex; align-items: baseline; gap: var(--spacing-1); min-width: 0; }
+.item dt { color: var(--color-text-subtle); }
+.item dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.item code { font: var(--type-code); color: var(--color-text-primary); white-space: nowrap; }

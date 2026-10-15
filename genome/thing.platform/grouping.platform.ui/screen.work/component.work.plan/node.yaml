@@ -1,0 +1,17 @@
+id: component.work.plan
+kind: component
+fields:
+  name: Plan
+  description: "A Task plan: in the list, the Plans section (Plan implementation, rows with status and task counts); in the detail, the title with its status, the pinned Genome with Copy, n tasks · n waves, and its waves. One primary at a time: Copy all, wave N; then Integrate selected Task results; then Review integrated implementation. Writes read the header token and say Set the admin token in the header to change plans. otherwise."
+  states:
+    - "loading: Loading plans…"
+    - loaded
+    - "empty: No plan yet."
+    - n tasks await an agent (attention)
+    - ◕ n tasks await selection (attention)
+    - "fixture: Realization plans need the platform API."
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-get-realization-plans
+  - rel: invokes
+    to: endpoint.lifecycle-get-realization-plans-pid

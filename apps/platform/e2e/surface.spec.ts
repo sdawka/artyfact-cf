@@ -19,11 +19,11 @@ test('empty Systems keep their next action inside a luminous container @fixture'
 test('surface content and geometry remain readable at narrow widths', async ({ page }, info) => {
   for (const [width, height] of [[1440, 900], [390, 844], [320, 568]]) {
     await page.setViewportSize({ width, height });
-    await open(page, '/overview', 'Overview');
-    const hero = page.getByRole('region', { name: 'Peopling' });
-    await expect(hero.getByRole('heading', { name: 'Peopling' })).toBeVisible();
+    await open(page, '/overview', "Peopling");
+    const hero = page.getByRole('region', { name: 'System light' });
+    await expect(page.getByRole('heading', { level: 1, name: 'Peopling' })).toBeVisible();
     const fits = await hero.evaluate(element => {
-      const text = element.querySelector('h2')!;
+      const text = element.querySelector('p')!;
       const frame = element.querySelector('[data-effect="surface"]')!.getBoundingClientRect();
       const title = text.getBoundingClientRect();
       return title.left >= frame.left && title.right <= frame.right && title.top >= frame.top && title.bottom <= frame.bottom && text.scrollWidth <= text.clientWidth;
@@ -32,7 +32,7 @@ test('surface content and geometry remain readable at narrow widths', async ({ p
     // The shell scrolls internally: document width alone misses clipped System content.
     const main = page.getByRole('main');
     expect(await main.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-    const purpose = hero.getByText(/Help an individual keep in touch/);
+    const purpose = page.getByText(/Help an individual keep in touch/);
     await expect(purpose).toContainText("people's autonomy.");
     const readable = await purpose.evaluate(element => {
       const viewport = element.closest('main')!.getBoundingClientRect();
@@ -49,20 +49,21 @@ test('surface content and geometry remain readable at narrow widths', async ({ p
 test('reduced motion and forced colors preserve meaningful content', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await open(page, '/overview', 'Overview');
-  const hero = page.getByRole('region', { name: 'Peopling' });
+  await open(page, '/overview', "Peopling");
+  const hero = page.getByRole('region', { name: 'System light' });
   const surface = hero.locator('[data-effect="surface"]');
   await expect(surface).toHaveAttribute('data-effect-mode', 'static');
   expect(await surface.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
   await checkA11yAndShoot(page, info, 'surface-reduced');
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'no-preference' });
   await expect(surface).toHaveCSS('display', 'none');
-  await expect(hero.getByRole('heading', { name: 'Peopling' })).toBeVisible();
-  await expect(hero.getByText(/Help an individual keep in touch/)).toBeVisible();
-  const colors = await hero.evaluate(element => {
+  await expect(page.getByRole('heading', { level: 1, name: 'Peopling' })).toBeVisible();
+  await expect(page.getByText(/Help an individual keep in touch/)).toBeVisible();
+  await expect(hero.getByText('The light reflects readiness, checks, active Evolutions and blockers.')).toBeVisible();
+  const colors = await page.locator('main').evaluate(element => {
     const probe = document.createElement('span'); probe.style.color = 'CanvasText'; document.body.append(probe);
     const canvasText = getComputedStyle(probe).color; probe.remove();
-    return { title: getComputedStyle(element.querySelector('h2')!).color, canvasText };
+    return { title: getComputedStyle(element.querySelector('h1')!).color, canvasText };
   });
   expect(colors.title).toBe(colors.canvasText);
   await page.screenshot({ path: info.outputPath('surface-forced-colors.png'), fullPage: true });

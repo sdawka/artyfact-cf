@@ -1,0 +1,13 @@
+id: component.review.import
+kind: component
+fields:
+  name: Import review
+  description: "?panel=import: the imported Genome as an agreement tree with Agree and Reject per node, readiness findings, unmapped app paths and the Decision. There is no whole-import reject: reject nodes and accept the rest, or delete the System and import it again. When the review is missing (404, or the summary says none) it reads No import review on this System. with Back to queue, and no list back link."
+  states:
+    - awaiting admin (attention)
+    - accepted (subtle)
+    - "missing: No import review on this System."
+    - "error: Could not load the import review."
+links:
+  - rel: invokes
+    to: endpoint.import-review

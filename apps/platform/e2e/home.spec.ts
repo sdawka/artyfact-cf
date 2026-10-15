@@ -31,9 +31,9 @@ test.describe("home with a populated API", () => {
     await expect(peopling).toHaveAttribute("data-state", "evolving");
     await expect(notes).toHaveAttribute("data-state", "attention");
     await expect(page.getByText("fixture data")).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "Reusable Parts" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Shared Parts" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Button system" })).toHaveAttribute("href", "/parts/part.ui.buttons/2.1.0");
-    await expect(notes.getByText("not deployed, unknown")).toBeVisible();
+    await expect(notes.getByText("not deployed")).toBeVisible();
     await expect(peopling.locator('[data-status="deployed"]')).toHaveText(/deployed/);
     const green = await successToneElements(page);
     expect(green.length).toBeGreaterThan(0);
@@ -50,13 +50,13 @@ test.describe("home with a populated API", () => {
     await page.goto("/");
     const ledger = page.getByRole("region", { name: "Needs you" });
     await expect(ledger.getByRole("link", { name: "Field Notes" })).toHaveAttribute("href", "/s/system.field-notes/r/head/review");
-    await expect(ledger).toContainText("Field Notes · 1 awaits your review");
+    await expect(ledger.getByRole("link", { name: "Field Notes, 1 awaits your review" })).toBeVisible();
     await expect(ledger.getByRole("link", { name: "Peopling" })).toHaveCount(0);
     await expect(systemCard(page, /Field Notes/)).toBeVisible();
     await page.getByRole("button", { name: /Go to…/ }).click();
     await expect(page.getByRole("option", { name: /Peopling/ })).toBeVisible();
     await expect(page.getByRole("option", { name: /Button system/ })).toBeVisible();
-    const palette = page.getByRole("dialog", { name: "Go to a System or Part" });
+    const palette = page.getByRole("dialog", { name: "Go to", exact: true });
     await expect.poll(() => palette.evaluate(element => element.getAnimations({ subtree: true }).some(animation => animation.playState === "running"))).toBe(false);
     await checkA11yAndShoot(page, testInfo, "home-palette");
     await page.keyboard.press("Escape");

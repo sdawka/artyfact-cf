@@ -188,3 +188,25 @@ export function planError(action: string, err: unknown): string {
   if (e.code === "replan-required") return `${e.message ?? ""} The Genome moved under this plan; draft a new plan.`.trim();
   return e.message ?? String(err);
 }
+
+/** Tasks of the plan an agent can take now (a claim or resume command): the plan's share of the rail's Work count. */
+export const awaitingAgent = (plan: Plan & Pick<RealizationPlan, "id" | "systemId">, now: number) =>
+  plan.tasks.filter((t) => taskCommand(plan, t, now).verb).length;
+
+/** The first wave (1-based) holding a task an agent can take now, or null. */
+export function firstCommandWave(plan: Plan & Pick<RealizationPlan, "id" | "systemId">, now: number): number | null {
+  const by = taskById(plan);
+  const i = plan.analysis.waves.findIndex((w) => w.some((id) => { const t = by.get(id); return !!t && !!taskCommand(plan, t, now).verb; }));
+  return i < 0 ? null : i + 1;
+}
+
+/**
+ * The plan detail's one primary: Review integrated implementation (integrated or promoted) → Integrate (every task
+ * selected) → Copy all (tasks await an agent). Null when none applies (tasks are being worked).
+ */
+export function planPrimary(plan: RealizationPlan, now: number, writeReason: string | null): "review" | "integrate" | "copy" | null {
+  if (plan.status === "integrated" || plan.status === "promoted") return "review";
+  if (!writeReason && !integrateReason(plan)) return "integrate";
+  if (firstCommandWave(plan, now) !== null) return "copy";
+  return null;
+}

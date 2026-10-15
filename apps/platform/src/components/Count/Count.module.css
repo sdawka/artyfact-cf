@@ -1,0 +1,2 @@
+.count { font-size: inherit; color: var(--color-text-subtle); }
+.count[data-tone="attention"] { color: var(--color-attention); }

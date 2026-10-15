@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { qk } from "@/api/queries";
+import { emptyRollup } from "@/model/status";
+import { readinessWithInherited } from "./InspectorHeader";
 import { renderApp } from "@/testing/render";
 
 const SYSTEM = "system.peopling";
@@ -65,12 +67,21 @@ describe("Inspector header: Open in Review", () => {
     const link = await inspector.findByRole("link", { name: "Open in Review" });
     expect(link.getAttribute("href")).toBe(`${BASE}/review?focus=${node}&evolution=evolution.1&realization=realization.1`);
     expect(inspector.queryByRole("button", { name: "Open in Work" })).toBeNull();
-    expect(inspector.getByText(/in 1 candidate$/)).toBeTruthy();
+    expect(inspector.getByText("In 1 candidate")).toBeTruthy();
   });
 
   it("says overlap when two candidates in ?candidates= touch it", async () => {
     const cands = [cand("cand.1", "realization.1", [node]), cand("cand.2", "realization.2", [node])];
     const inspector = await open("&candidates=cand.1,cand.2", cands, [realization("realization.1", "cand.1"), realization("realization.2", "cand.2")]);
-    expect(await inspector.findByText(/in 2 candidates · overlap/)).toBeTruthy();
+    expect(await inspector.findByText("In 2 candidates, overlapping")).toBeTruthy();
+  });
+});
+
+describe("readinessWithInherited", () => {
+  it("counts inherited criteria when the node has none of its own", () => {
+    const inherited = { ...emptyRollup(), notRun: 10 };
+    expect(readinessWithInherited(emptyRollup(), inherited)).toMatchObject({ label: "Not run, inherited", status: "not-run" });
+    expect(readinessWithInherited(emptyRollup(), emptyRollup()).label).toBe("No criteria");
+    expect(readinessWithInherited({ ...emptyRollup(), pass: 1 }, inherited).label).toBe("All criteria pass");
   });
 });

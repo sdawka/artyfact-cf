@@ -1,0 +1,15 @@
+id: affordance.map.details
+kind: affordance
+fields:
+  name: Details
+  description: The primary in the selection dock (or D on a focused tile). On the Map the Inspector opens only through Details.
+  actor: user
+  trigger: click or D
+  preconditions:
+    - A tile is selected
+  effects:
+    - The Inspector opens on the tile and the URL records inspect=1
+  failure: []
+links:
+  - rel: references
+    to: component.shell.inspector

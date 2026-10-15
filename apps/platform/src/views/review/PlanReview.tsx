@@ -1,5 +1,5 @@
 import { Button, Textarea } from "@/components/ui";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Candidate } from "../../../shared/api";
 import type { RealizationPlan } from "../../../shared/lifecycle";
@@ -8,7 +8,9 @@ import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
 import { planError } from "../work/plan/lib";
 import { planKeys } from "../work/plan/queries";
-import workStyles from "../work/work.module.css";
+import { formStyles as workStyles } from "@/components/Form/Form";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import styles from "./review.module.css";
 
 interface Props {
   plan: RealizationPlan;
@@ -19,7 +21,6 @@ interface Props {
 
 /** The integrated plan's combined review: every changed binding, its file diffs and evaluations, then promotion. */
 export function PlanReview({ plan, writeReason, busy, run }: Props) {
-  const uid = useId();
   const { token } = useAdminToken();
   const [rationale, setRationale] = useState("");
   const review = useQuery({ queryKey: planKeys.review(plan.systemId, plan.id, plan.updatedAt), queryFn: () => lifecycleApi.review(plan.systemId, plan.id, token), retry: false });
@@ -29,26 +30,35 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
   if (!r) return <p role="alert">Implementation review is unavailable.</p>;
   const promoteReason = writeReason ?? (r.ready ? null : "The review is not ready; see the blockers above.");
   return (
-    <section aria-labelledby="integrated-review">
-      <h3 id="integrated-review">Combined implementation review</h3>
-      <p>Review every changed artifact binding against the pinned Genome before promotion.</p>
-      <ul>
+    <section aria-labelledby="integrated-review" className={styles.detailPane}>
+      <header className={styles.detailPane}>
+        <h2 id="integrated-review" className={styles.detailTitle} tabIndex={-1}>Combined implementation review</h2>
+        <MetaLine items={[{ label: "plan", value: plan.title }, { label: "expected head", value: r.expectedHead ?? "none", code: true }, { label: "bindings", value: String(r.bindings.length) }]} />
+        <p className={styles.reason}>Review every changed artifact binding against the pinned Genome before promotion.</p>
+      </header>
+      {r.blockers.length > 0 && <ul aria-label="Promotion blockers" className={styles.blockers}>{r.blockers.map((b, i) => <li key={i}>{b}</li>)}</ul>}
+      <ul className={styles.list}>
         {r.bindings.map((b) => (
-          <li key={b.artifactId}>
-            <code>{b.artifactId}</code>: candidate <code>{b.candidateId}</code>
+          <li key={b.artifactId} className={styles.sub}>
+            <h3 className={styles.subTitle}><code>{b.artifactId}</code></h3>
+            <MetaLine items={[{ label: "candidate", value: b.candidateId, code: true }, { label: "realized Genome", value: b.realizedGenome.slice(0, 7), code: true, title: b.realizedGenome }]} />
             <details>
               <summary>Source and Task candidate lineage</summary>
-              <p>{b.source.repo}@{b.source.commit}; realized Genome {b.realizedGenome}</p>
-              <p>{b.taskCandidates.join(", ")}</p>
+              <p className={styles.reason}>{b.source.repo}@{b.source.commit}; realized Genome {b.realizedGenome}</p>
+              <p className={styles.reason}>{b.taskCandidates.join(", ")}</p>
             </details>
             <BindingChanges plan={plan} artifactId={b.artifactId} candidate={r.candidates.find((c) => c.id === b.candidateId)} token={token} />
           </li>
         ))}
       </ul>
-      <ul>{r.evaluations.map((e) => <li key={e.id}>{e.criterion}: {e.verdict} ({e.execution})</li>)}</ul>
-      {r.blockers.length > 0 && <ul aria-label="Promotion blockers">{r.blockers.map((b, i) => <li key={i}>{b}</li>)}</ul>}
+      {r.evaluations.length > 0 && (
+        <div className={styles.sub}>
+          <h3 className={styles.subTitle}>Evaluations</h3>
+          <ul className={styles.list}>{r.evaluations.map((e) => <li key={e.id}>{e.criterion}: {e.verdict} ({e.execution})</li>)}</ul>
+        </div>
+      )}
       <form
-        className={workStyles.form}
+        className={`${workStyles.form} ${styles.sub}`}
         onSubmit={(e) => {
           e.preventDefault();
           if (promoteReason || busy || !rationale.trim()) return;
@@ -60,8 +70,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
           <Textarea id="promotion-rationale" value={rationale} onChange={(e) => setRationale(e.target.value)} required />
         </div>
         <div className={workStyles.actions}>
-          <Button type="submit" variant="primary" disabled={!!promoteReason || busy || !rationale.trim()} aria-describedby={promoteReason ? `${uid}-p` : undefined}>Promote reviewed implementation</Button>
-          {promoteReason && <span id={`${uid}-p`} className={workStyles.reason}>{promoteReason}</span>}
+          <Button type="submit" variant="primary" reason={promoteReason ?? (rationale.trim() ? undefined : "Write a rationale.")} disabled={busy}>Promote reviewed implementation</Button>
         </div>
       </form>
     </section>

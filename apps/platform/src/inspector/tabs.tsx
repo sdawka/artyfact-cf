@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useRealizationsTouching } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
@@ -6,7 +7,7 @@ import type { IndexEntry, LinkRef } from "@/model/index";
 import type { Criterion, Requirement, Source, TheoryClaim } from "@/model/types";
 import { useModel } from "@/model/useModel";
 import { BodyFor } from "./bodies";
-import { RulesTab } from "./bodies/RulesTab";
+import { RulesTab, useRules } from "./bodies/RulesTab";
 import { ChangesTab } from "./ChangesTab";
 import { EvidenceTab } from "./EvidenceTab";
 import styles from "./Inspector.module.css";
@@ -14,12 +15,28 @@ import styles from "./Inspector.module.css";
 export const INSPECTOR_TABS = [
   { id: "what", label: "What" },
   { id: "why", label: "Why" },
-  { id: "dependencies", label: "Dependencies" },
+  { id: "dependencies", label: "Links" },
   { id: "changes", label: "Changes" },
-  { id: "rules", label: "Rules & claims" },
+  { id: "rules", label: "Rules" },
   { id: "evidence", label: "Evidence" },
 ] as const;
 export type InspectorTab = (typeof INSPECTOR_TABS)[number]["id"];
+
+/** Inventory counts beside the tab labels, so the operator sees where content is before clicking. */
+export function useTabCounts(entry: IndexEntry): Partial<Record<InspectorTab, number>> {
+  const m = useModel();
+  const { data: realizations } = useRealizationsTouching(entry.id);
+  const rules = useRules(entry);
+  const ids = new Set(m.descendants(entry.id));
+  const links = m.crossLinks(entry.id).length + (entry.type === "criterion" ? m.hooksFor(entry.id).length : 0);
+  const evolutions = (m.index.model.evolutions ?? []).filter((e) => e.affectedNodes.includes(entry.id)).length;
+  return {
+    dependencies: links,
+    changes: evolutions + realizations.length,
+    rules: rules.total,
+    evidence: m.evaluations.filter((e) => ids.has(e.subjectId)).length,
+  };
+}
 
 type TabProps = { entry: IndexEntry };
 const field = <T,>(entry: IndexEntry, key: string) => (entry.item as Record<string, unknown> | null)?.[key] as T | undefined;
@@ -69,6 +86,18 @@ export function WhyTab({ entry }: TabProps) {
   const commitments = (m.index.model.description?.commitments ?? []).filter((c) => c.features.some((f) => features.has(f)));
   const crit = entry.type === "criterion" ? (entry.item as Criterion) : undefined;
 
+  const rows: [string, ReactNode][] = [];
+  if (refines.length) rows.push(["Refines", <Chips ids={refines} />]);
+  if (crit) {
+    if (crit.sourceRefs?.length) rows.push(["Source refs", <Chips ids={crit.sourceRefs} />]);
+    if (crit.satisfies?.length) rows.push(["Satisfies", <Chips ids={crit.satisfies} />]);
+  }
+  if (features.size) rows.push(["Features (GD)", <Chips ids={[...features]} />]);
+  if (reqIds.size) rows.push(["Requirements (S)", <Chips ids={[...reqIds]} />]);
+  if (criteria.length) rows.push(["Criteria (C)", <Chips ids={criteria.map((c) => c.id)} />]);
+  if (claims.length) rows.push(["Theory", <Chips ids={claims.map((c) => c.id)} />]);
+  if (purposes.size) rows.push(["Purpose", <Chips ids={[...purposes]} />]);
+  if (commitments.length) rows.push(["Commitments", <Chips ids={commitments.map((c) => c.id)} />]);
   return (
     <div className={styles.stack}>
       <Row label="Source">
@@ -81,19 +110,8 @@ export function WhyTab({ entry }: TabProps) {
           <span className={styles.muted}>unknown</span>
         )}
       </Row>
-      {refines.length > 0 && <Row label="Refines"><Chips ids={refines} /></Row>}
-      {crit && (
-        <>
-          <Row label="Source refs"><Chips ids={crit.sourceRefs ?? []} /></Row>
-          <Row label="Satisfies"><Chips ids={crit.satisfies ?? []} /></Row>
-        </>
-      )}
-      <Row label="Features (GD)"><Chips ids={[...features]} /></Row>
-      <Row label="Requirements (S)"><Chips ids={[...reqIds]} /></Row>
-      <Row label="Criteria (C)"><Chips ids={criteria.map((c) => c.id)} /></Row>
-      <Row label="Theory"><Chips ids={claims.map((c) => c.id)} /></Row>
-      <Row label="Purpose"><Chips ids={[...purposes]} /></Row>
-      <Row label="Commitments"><Chips ids={commitments.map((c) => c.id)} /></Row>
+      {rows.map(([label, node]) => <Row key={label} label={label}>{node}</Row>)}
+      {!rows.length && <p className={styles.note}>No features, requirements, criteria, Theory, Purpose or commitments refer to this.</p>}
     </div>
   );
 }
@@ -119,7 +137,7 @@ export function DependenciesTab({ entry }: TabProps) {
               return (
                 <li key={`${other}-${l.label ?? ""}`}>
                   <NodeChip id={other} size="sm" />
-                  {l.certainty !== "declared" && <span className={styles.muted}> ({l.certainty})</span>}
+                  {l.certainty !== "declared" && <span className={styles.muted}> {l.certainty}</span>}
                   {l.label && <span className={styles.muted}> {l.label}</span>}
                 </li>
               );

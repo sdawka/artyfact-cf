@@ -9,81 +9,77 @@
   top: min(12vh, 64px);
   left: 50%;
   z-index: 41;
+  display: flex;
+  flex-direction: column;
   width: min(640px, calc(100vw - 24px));
   max-height: calc(100dvh - 88px);
   overflow: hidden;
   transform: translateX(-50%);
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--surface-overlay);
+  border: 1px solid var(--color-border);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
 }
-.dialog {
-  display: flex;
-  flex-direction: column;
-}
+.dialog { display: flex; flex-direction: column; min-height: 0; }
 .input {
   min-height: 44px;
   box-sizing: border-box;
-  padding: 12px 20px;
+  padding: var(--spacing-3) var(--spacing-5);
   color: var(--color-text-primary);
   background: none;
   border: 0;
   border-bottom: 1px solid var(--color-border-subtle);
-  font: inherit;
+  font: var(--type-body);
 }
-.input:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--color-brand-primary);
-}
+.input:focus-visible { outline: none; border-bottom: 2px solid var(--color-brand-primary); }
 .list {
-  max-height: min(50dvh, calc(100dvh - 150px));
+  max-height: min(50dvh, calc(100dvh - 190px));
   overflow-y: auto;
   padding: var(--spacing-2);
 }
-.empty {
-  padding: var(--spacing-3);
-  color: var(--color-text-secondary);
-}
+.empty { padding: var(--spacing-3); color: var(--color-text-secondary); font: var(--type-ui); }
 .item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--spacing-3);
   min-height: 44px;
   box-sizing: border-box;
-  padding: 10px 12px;
+  padding: var(--spacing-2) var(--spacing-3);
   border-radius: var(--border-radius-sm);
+  font: var(--type-ui);
   cursor: pointer;
 }
+/* DOM focus stays in the input, so this is selection, not focus: the shared selection mark. */
 .item[data-selected="true"] {
-  background: var(--color-background-active);
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: -2px;
+  background: var(--selection-surface);
+  box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color);
 }
-.glyph { color: var(--kind, var(--color-text-secondary)); }
-.name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.id {
-  margin-left: auto;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-}
+.glyph { color: var(--kind, var(--color-text-secondary)); width: 1.25em; text-align: center; flex: none; }
+.main { display: grid; min-width: 0; flex: 1; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.id { margin-left: auto; color: var(--color-text-secondary); font: var(--type-code); font-size: var(--font-size-xs); flex: none; }
+.idLine { display: none; color: var(--color-text-subtle); font-size: var(--font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trail { margin-left: auto; display: inline-flex; align-items: center; gap: var(--spacing-3); flex: none; }
 .group [cmdk-group-heading] {
   padding: var(--spacing-2) var(--spacing-3) var(--spacing-1);
   color: var(--color-text-subtle);
-  font-size: var(--font-size-xs);
+  font: var(--type-meta);
+}
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-5);
+  padding: var(--spacing-2) var(--spacing-5);
+  color: var(--color-text-subtle);
+  font: var(--type-hint);
+  border-top: 1px solid var(--color-border-faint);
 }
 
 .dialog[data-effects="off"] *, .dialog[data-effects="off"] { animation: none !important; transition: none !important; }
-@media (max-width: 640px) { .id { display: none; } }
+@media (max-width: 640px) { .id { display: none; } .idLine { display: block; } }
 
 .overlay, .content { animation: paletteAppear var(--motion-duration-normal) var(--motion-easing-ease-out); }
 @keyframes paletteAppear { from { opacity: 0; } to { opacity: 1; } }
 .motionOff { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) { .overlay, .content, .dialog * { animation: none !important; transition: none !important; } }
-
-/* Home/Parts uses the shared Dialog frame; it owns centering and viewport bounds. */
-.homeContent { width: min(640px, calc(100vw - 40px)); }
+@media (forced-colors: active) { .item[data-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px; } }

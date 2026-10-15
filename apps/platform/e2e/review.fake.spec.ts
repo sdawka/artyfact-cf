@@ -50,15 +50,22 @@ test.describe("Review: the decision queue @fake", () => {
 
     // The promotion desk: gates summary and the reasons Promote is disabled (the fake leaves required gates unknown).
     await queue.getByTestId(`queue-promotion-${appEvo}`).click();
-    await expect(page).toHaveURL(new RegExp(`/review\\?evolution=${appEvo}&panel=promote$`));
+    // With one evaluated candidate the desk preselects it (`&candidates=`); with several it waits for a pick.
+    await expect(page).toHaveURL(new RegExp(`/review\\?evolution=${appEvo}&panel=promote(&candidates=[^&]+)?$`));
     await expect(page.getByRole("heading", { name: `Promote ${legacy.title}` })).toBeVisible();
-    // The selection lives in `?candidates=`, so the box follows the URL a moment after the click.
+    // The selection lives in `?candidates=`, so the box follows the URL a moment after a click. Pick it unless the
+    // preselection already did; a click racing the preselection clears it, and the retry picks it again.
     const pick = page.getByRole("checkbox", { name: new RegExp(app.candidate) });
-    await pick.click();
-    await expect(pick).toBeChecked();
+    await expect(async () => {
+      if (!(await pick.isChecked())) await pick.click();
+      await expect(pick).toBeChecked({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     await expect(page.getByTestId("gates-summary")).toContainText("pass");
     await expect(page.getByTestId("gates-summary")).not.toHaveAttribute("data-tone", "pass");
-    await expect(page.getByRole("list", { name: "Why promotion is disabled" })).toBeVisible();
+    // Promote sits in the desk's header, disabled with its first blocking reason beside it.
+    const promoteButton = page.getByRole("button", { name: "Promote", exact: true });
+    await expect(promoteButton).toBeDisabled();
+    await expect(promoteButton).toHaveAttribute("aria-describedby", /.+/);
     await checkPage(page, testInfo, "review-promote");
 
     // Reject one amendment with a reason: it leaves the queue.

@@ -325,7 +325,7 @@ describe("build report routes", () => {
     const ok = await call<BuildReportResponse>("POST", sys, { status: "passed", commit: ctx.imp.appCommit, url: "https://app.workers.dev" }, CI);
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
     deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
-    expect(deps.json.production).toMatchObject({ commit: ctx.imp.appCommit, status: "live", url: "https://app.workers.dev", repo: ctx.appRepo });
+    expect(deps.json.production).toMatchObject({ commit: ctx.imp.appCommit, status: "live", url: "https://app.workers.dev", repo: ctx.appRepo, systemCommit: ctx.imp.head });
     // Once promoted (without CI: a pending deployment), the candidate's commit may go live too.
     const promoted = await call<PromoteResponse>("POST", `/systems/${ctx.systemId}/promote`,
       { candidateIds: [a.sub.candidate.id], expectedHead: ctx.imp.head, rationale: "ok" }, ADMIN);
@@ -717,6 +717,18 @@ describe("CI dispatch", () => {
     expect(after.json.production?.id).toBe(again.json.id);
     expect(after.json.history.find((d) => d.id === pending.id)?.status).toBe("superseded");
     expect((await call<ApiError>("POST", `/systems/${ctx.systemId}/deployments`, { commit: "nope" }, ADMIN)).status).toBe(400);
+  });
+
+  it("an admin-recorded deployment of the head's app commit carries the head System commit; another commit does not", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const head = await call<DeploymentCreated>("POST", `/systems/${ctx.systemId}/deployments`, {}, ADMIN);
+    expect(head.status, JSON.stringify(head.json)).toBe(201);
+    expect(head.json).toMatchObject({ commit: ctx.imp.appCommit, status: "live", systemCommit: ctx.imp.head });
+    const other = await call<DeploymentCreated>("POST", `/systems/${ctx.systemId}/deployments`, { commit: a.commit }, ADMIN);
+    expect(other.status, JSON.stringify(other.json)).toBe(201);
+    expect(other.json.commit).toBe(a.commit);
+    expect(other.json.systemCommit).toBeUndefined();
   });
 
   it("commands outside the allowlist are refused before a Workflow starts", () => {

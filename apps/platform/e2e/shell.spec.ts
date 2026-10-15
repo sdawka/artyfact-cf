@@ -11,7 +11,7 @@ test.describe("shell", () => {
     await expect(page.locator('[data-map-node="system.peopling"]')).toBeVisible();
     await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Overview", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview\\?scope=environment$`));
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     await page.getByRole("link", { name: "artyfact" }).click();
     await expect(page).toHaveURL(/\/$/);
   });
@@ -23,9 +23,9 @@ test.describe("shell", () => {
   });
 
   test("command palette opens with Ctrl+K and navigates", async ({ page }, testInfo) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await page.keyboard.press("Control+k");
-    const dialog = page.getByRole("dialog", { name: "Go to node" });
+    const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
     await expect(dialog).toBeVisible();
     await checkA11yAndShoot(page, testInfo, "palette");
     await page.getByRole("combobox").fill("People");
@@ -38,7 +38,7 @@ test.describe("shell", () => {
   });
 
   test("admin token control is in the header, labelled and axe clean", async ({ page }, testInfo) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const button = page.getByRole("button", { name: /Admin token/ });
     await expect(button).toBeVisible();
     await button.click();
@@ -50,6 +50,25 @@ test.describe("shell", () => {
     await expect(dialog).toBeHidden();
     await expect(button).toBeFocused();
   });
+
+  for (const [where, path] of [["Home", "/"], ["a System", "/overview"]] as const) {
+    test(`palette Admin token… on ${where} leaves the token popover open with focus in the input`, async ({ page }) => {
+      if (path === "/") await page.goto("/");
+      else await open(page, path, "Peopling");
+      await expect(page.getByRole("button", { name: /Admin token/ })).toBeVisible();
+      await page.keyboard.press("Control+k");
+      const palette = page.getByRole("dialog", { name: "Go to", exact: true });
+      await expect(palette).toBeVisible();
+      await page.getByRole("combobox").fill("admin");
+      await page.getByRole("option", { name: /Admin token/ }).click();
+      await expect(palette).toBeHidden();
+      const input = page.getByLabel("Token for admin actions");
+      await expect(input).toBeFocused();
+      await page.waitForTimeout(300);
+      await expect(page.getByRole("dialog", { name: "Admin token" })).toBeVisible();
+      await expect(input).toBeFocused();
+    });
+  }
 
   test("Escape closes the Inspector", async ({ page }) => {
     await page.goto(`${SYSTEM}/journeys?journey=J.contacts&step=s2&focus=J.contacts%2Fs2`);
@@ -71,12 +90,12 @@ test.describe("shell", () => {
     for (const [name, url] of views) {
       await nav.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/${url}\\?.*layer=phenome`));
-      await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: url === "overview" ? "Peopling" : name })).toBeVisible();
     }
   });
 
   test("Compare stays reachable with g x though it is off the rail", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await page.keyboard.press("g");
     await page.keyboard.press("x");
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/compare`));
@@ -125,13 +144,13 @@ test.describe("shell", () => {
   });
 
   test("fixture mode is announced @fixture", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByText(/fixture data/i).first()).toBeVisible();
   });
 
   test("API is live and the SPA is not in fixture mode @live", async ({ page, request }) => {
     expect((await request.get("/api/health")).status()).toBe(200);
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByText(/fixture data/i)).toHaveCount(0);
   });
 });

@@ -1,8 +1,10 @@
 id: component.overview.blockers
 kind: component
 fields:
-  name: Blockers
-  description: What blocks progress, each with its rule and the next action.
+  name: Blockers and warnings
+  description: Blocking rules, each with its finding count and next action; each finding has Show derivation. Warnings follow under their own count.
   states:
     - loaded
-    - "empty: no blockers"
+    - "empty: Nothing blocks this System."
+    - n findings (danger)
+    - Warnings n (attention)

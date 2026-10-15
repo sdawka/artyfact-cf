@@ -40,14 +40,17 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
 });
 it('maps the agent handoff to its sections and names the real plan commands', () => {
   const { container } = render(<Site path="/connect-agent" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: 'Your agent, in an environment built for it.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'Bring your agent.' })).toBeTruthy();
   expect(container.querySelector('#start h2')?.textContent).toBe('Start a plan');
   const links = [...container.querySelectorAll<HTMLAnchorElement>('.handoff a')];
   expect(links).toHaveLength(7);
   for (const link of links) expect(container.querySelector(link.getAttribute('href')!)).toBeTruthy();
-  expect(links.map(link => link.getAttribute('href'))).toEqual(['#start', '#start', '#work', '#work', '#submit', '#review', '#review']);
+  expect(links.map(link => link.getAttribute('href'))).toEqual(['#start', '#start', '#work', '#work', '#submit', '#submit', '#review']);
   for (const command of ['plan draft', 'plan tasks', 'plan promote', 'task claim', 'task submit']) expect(container.querySelector('.guide-steps')?.textContent).toContain('artyfact ' + command);
-  for (const chip of ['TASK_PACKET.md', '15-minute token', 'Any harness']) expect(container.querySelector('.guide-chips')?.textContent).toContain(chip);
+  for (const chip of ['The model, pinned to one version', '15-minute token', 'Any harness']) expect(container.querySelector('.guide-chips')?.textContent).toContain(chip);
+  expect(container.querySelector('.guide-chips')?.textContent).not.toContain('TASK_PACKET.md');
+  for (const text of ['forks the app’s repo for this Task', 'a fork of the model repo', 'Edits under system/ fail the scope check', 'artyfact evolution propose']) expect(container.querySelector('.guide-steps')?.textContent).toContain(text);
+  expect(container.querySelector('.handoff-model')?.textContent).toContain('The model, pinned to one version.');
 });
 
 

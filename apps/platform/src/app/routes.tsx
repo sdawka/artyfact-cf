@@ -1,15 +1,14 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
+import { Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
 import { ApiRequestError } from "@/api/client";
 import { modelQuery, useModelBundle } from "@/api/queries";
-import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { LoadingState } from "@/components/LoadingState/LoadingState";
 import { VIEWS, type ViewName } from "@/model/kinds";
 import { ModelProvider } from "@/model/useModel";
 import { DEFAULT_REV, viewPath } from "@/model/useSelection";
 import { Shell } from "./Shell";
 import { StylePage } from "./StylePage";
-import styles from "./Shell.module.css";
+import { NotFound, RouteErrorPage } from "./EntryErrors";
 
 type ViewModule = { default: React.ComponentType };
 
@@ -83,17 +82,7 @@ function RouteError() {
   if (systemId && rev && rev !== DEFAULT_REV && err instanceof ApiRequestError && err.code === "legacy-genome") {
     return <Navigate replace to={{ pathname: viewPath(systemId, DEFAULT_REV, "changelog"), search: `?${new URLSearchParams({ commit: rev })}` }} />;
   }
-  const message = isRouteErrorResponse(err) ? `${err.status} ${err.statusText}` : err instanceof Error ? err.message : "unknown error";
-  return (
-    <main className={styles.errorPage}>
-      <EmptyState
-        title="This System could not be loaded."
-        action={<Link className="u-marker" to="/">Open Home</Link>}
-      >
-        <code>{message}</code>
-      </EmptyState>
-    </main>
-  );
+  return <RouteErrorPage />;
 }
 
 /** Route table. A function of the QueryClient so loaders can prefetch the model bundle. */
@@ -130,6 +119,6 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
         })),
       ],
     },
-    { path: "*", element: <RouteError /> },
+    { path: "*", element: <NotFound /> },
   ];
 }

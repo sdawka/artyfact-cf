@@ -2,13 +2,13 @@ id: affordance.home.describe-change
 kind: affordance
 fields:
   name: Describe a change
-  description: A link on each card that opens the Work view with the change panel open.
+  description: The one action on each System row, a compact button outside the row link (named Describe a change to <System>).
   actor: user
   trigger: click
   preconditions:
-    - A System card is listed
+    - A System row is listed
   effects:
-    - Work opens with the Describe a change panel in place of the board
+    - Work opens at head with the Describe a change panel in place of the list
   failure: []
 links:
   - rel: references

@@ -1,16 +1,16 @@
 id: affordance.home.retry-api
 kind: affordance
 fields:
-  name: Retry API
-  description: Reloads the System list after a failed load.
+  name: Try again
+  description: Reloads the System list. Try again in the error state after a failed load; Retry API beside Fixture data when the API was unreachable.
   actor: user
   trigger: click
   preconditions:
-    - The System list failed to load
+    - The System list failed to load or shows fixture data
   effects:
-    - The list reloads and the cards replace the error
+    - The list reloads and the rows replace the error
   failure:
-    - "Still failing: the error stays with the status shown"
+    - "Still failing: the error stays with its cause"
 links:
   - rel: invokes
     to: endpoint.systems

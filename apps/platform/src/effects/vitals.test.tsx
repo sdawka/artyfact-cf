@@ -1,10 +1,15 @@
+import type { ReactElement } from "react";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
-import { useModelBundle } from "@/api/queries";
+import { useEvolutions, useHistory, useModelBundle, useReadiness } from "@/api/queries";
+import { useReviewCount } from "@/model/useReviewCount";
 import { buildIndex } from "@/model/index";
 import { ModelProvider } from "@/model/useModel";
 import { renderApp } from "@/testing/render";
+import type { Evolution } from "../../shared/api";
+import { activeEvolutions } from "@/views/work/groups";
+import type { EvolutionSignal } from "@/views/work/useEvolutionSignals";
 import { systemVitals, useSystemVitals, type VitalsInput } from "./vitals";
 
 const NOW = Date.parse("2026-10-12T12:00:00Z");
@@ -19,7 +24,8 @@ function fixtureInput(): VitalsInput {
     readiness: { findings: bundle.readiness.modelReadiness.findings },
     entryCount: index.entries.length,
     verdicts: criteria.map(() => "not-run" as const),
-    evolutions: bundle.model.evolutions ?? [],
+    evolutions: (bundle.model.evolutions ?? []) as Evolution[],
+    signals: new Map(),
     realizations: [],
     commits: [],
     evaluationTimes: [],
@@ -41,11 +47,14 @@ describe("systemVitals (peopling fixture)", () => {
     expect(v.surface.level).toBeCloseTo(0.2 + 0.7 * v.measures.readiness, 2);
     expect(v.surface.agitation).toBe(0.25);
     expect(v.surface.alerts).toBe(0.25);
-    // evolution.1 is actionable; the five proposed ones are not active.
-    expect(v.surface.channels).toBe(1);
+    // Active as Work groups them: the actionable Evolution and the proposed Genome amendments, not legacy history.
+    const active = activeEvolutions(input.evolutions, input.signals).length;
+    expect(active).toBe(3);
+    expect(v.measures.active).toBe(active);
+    expect(v.surface.channels).toBe(active);
     // Fixture timestamps are absent, so no recent activity.
     expect(v.surface.activity).toBe(0.15);
-    expect(v.ambient).toEqual({ color: "oklch(0.79 0.125 60)", intensity: round(0.25 + 0.35 * 0.5 * 0.25) });
+    expect(v.ambient).toEqual({ color: "oklch(0.79 0.125 60)", intensity: round(0.25 + 0.35 * 0.5 * (3 / 4)) });
   });
 
   it("turns verdant when every counted criterion passes", () => {
@@ -81,16 +90,24 @@ describe("systemVitals (peopling fixture)", () => {
     expect(v.surface.level).toBeCloseTo(0.55, 3);
   });
 
-  it("counts live realizations plus uncovered active Evolutions as strands, capped at 8", () => {
-    const input = fixtureInput();
-    const realizations = [
-      { evolution: "evolution.1", status: "working" },
-      { evolution: "evolution.1", status: "submitted" },
-      { evolution: "evolution.2", status: "promoted" },
+  it("counts active Evolutions as Work groups them, one strand each, capped at 8", () => {
+    const evo = (id: string, state: string, kind = "genome-amendment") =>
+      ({ id, title: id, state, kind, risk: "low", affectedNodes: [] }) as unknown as Evolution;
+    const evolutions = [
+      evo("e.actionable", "actionable"),
+      evo("e.proposed", "proposed"),
+      evo("e.promoted", "promoted"),
+      // Legacy history: not active unless it is realizing or waits on someone.
+      evo("e.legacy", "proposed", "implementation"),
+      evo("e.legacy-waiting", "proposed", "implementation"),
     ];
-    expect(systemVitals({ ...input, realizations }).surface.channels).toBe(2);
-    const many = Array.from({ length: 12 }, (_, i) => ({ evolution: `evolution.${i}`, status: "working" }));
-    expect(systemVitals({ ...input, realizations: many }).surface.channels).toBe(8);
+    const signals = new Map([["e.legacy-waiting", { awaiting: 1, overlap: false, overlapWith: [], promotable: false } as EvolutionSignal]]);
+    const v = systemVitals({ ...fixtureInput(), evolutions, signals });
+    expect(v.measures.active).toBe(3);
+    expect(v.measures.active).toBe(activeEvolutions(evolutions, signals).length);
+    expect(v.surface.channels).toBe(3);
+    const many = Array.from({ length: 12 }, (_, i) => evo(`e.${i}`, "realizing"));
+    expect(systemVitals({ ...fixtureInput(), evolutions: many }).surface.channels).toBe(8);
   });
 
   it("sparks and brightens with recent commits, checkpoints and evaluations", () => {
@@ -98,7 +115,7 @@ describe("systemVitals (peopling fixture)", () => {
     const busy = systemVitals({
       ...input,
       commits: [{ createdAt: hoursAgo(0) }, { createdAt: hoursAgo(6) }, { createdAt: "1970-01-01T00:00:00.000Z" }],
-      realizations: [{ evolution: "evolution.1", status: "working", checkpoints: [{ at: hoursAgo(0) }] }],
+      realizations: [{ checkpoints: [{ at: hoursAgo(0) }] }],
       evaluationTimes: [hoursAgo(0), hoursAgo(48)],
     });
     // 1 + 0.5 + 1 + 1 + 0.0039 recent; the epoch-zero commit is ignored.
@@ -130,5 +147,40 @@ describe("useSystemVitals", () => {
     renderApp("/s/system.peopling/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: <Harness /> }]);
     const out = await screen.findByLabelText("vitals");
     expect(JSON.parse(out.textContent!)).toEqual(systemVitals(fixtureInput()).surface);
+  });
+});
+
+/** What the Shell already asked for before vitals shared Work's grouping: SideNav's Review count plus the old vitals queries. */
+function ShellBaseline() {
+  useReviewCount();
+  useReadiness();
+  useEvolutions();
+  useHistory();
+  return <output aria-label="baseline" />;
+}
+function keyHarness(Probe: () => ReactElement) {
+  return function KeyHarness() {
+    const { data } = useModelBundle();
+    if (!data) return null;
+    return <ModelProvider bundle={data}><Probe /></ModelProvider>;
+  };
+}
+const queryKeys = (qc: { getQueryCache(): { getAll(): { queryKey: readonly unknown[] }[] } }) =>
+  new Set(qc.getQueryCache().getAll().map((q) => JSON.stringify(q.queryKey)));
+
+describe("useSystemVitals queries", () => {
+  it("asks for nothing the Shell does not already load on a non-Work route (same query keys, shared cache)", async () => {
+    const at = (el: ReactElement) => renderApp("/s/system.peopling/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: el }]);
+    const Baseline = keyHarness(ShellBaseline);
+    const base = at(<Baseline />);
+    await screen.findByLabelText("baseline");
+    const baseline = queryKeys(base.qc);
+    base.unmount();
+    const vitals = at(<Harness />);
+    await screen.findByLabelText("vitals");
+    const used = queryKeys(vitals.qc);
+    expect(used.size).toBeGreaterThan(1);
+    const extra = [...used].filter((k) => !baseline.has(k));
+    expect(extra).toEqual([]);
   });
 });

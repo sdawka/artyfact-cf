@@ -1,10 +1,9 @@
 .meter { display: grid; gap: var(--spacing-3); align-content: start; min-width: 0; }
-.meter[tabindex] { border-radius: var(--border-radius-sm); }
-.meter[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: 4px; }
-.title { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
+.title { margin: 0; font: var(--type-h3); }
+.title a { color: var(--color-link); text-decoration: underline; text-decoration-color: var(--color-link-underline); text-underline-offset: 3px; }
 .head { display: grid; gap: var(--spacing-1); }
-.question { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
-.headline { margin: 0; font-size: var(--font-size-xl); color: var(--color-text-primary); }
+.question { margin: 0; color: var(--color-text-subtle); font: var(--type-meta); }
+.headline { margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 .headline[data-unknown] { color: var(--color-text-subtle); }
 .bar {
   display: flex;
@@ -16,6 +15,7 @@
 }
 .bar[data-empty] { border: 1px dashed var(--color-border); background: none; }
 .seg { min-width: 4px; background: var(--color-text-subtle); }
+.seg[data-hatched] { background: repeating-linear-gradient(135deg, var(--color-text-subtle) 0 2px, transparent 2px 5px); outline: 1px solid var(--color-border); outline-offset: -1px; }
 .seg[data-tone="pass"] { background: var(--verdict-pass); }
 .seg[data-tone="fail"] { background: var(--verdict-fail); }
 .seg[data-tone="warn"] { background: var(--color-semantic-warning); }
@@ -26,8 +26,9 @@
 .legendItem[data-tone="fail"] .glyph { color: var(--verdict-fail); }
 .legendItem[data-tone="warn"] .glyph { color: var(--color-semantic-warning); }
 .glyph { width: var(--spacing-3); color: var(--color-text-subtle); text-align: center; }
-.count { margin-left: auto; font-family: var(--font-code); color: var(--color-text-primary); }
+.count { margin-left: auto; color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
 .legendItem[data-zero] .count { color: var(--color-text-subtle); }
-.empty { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
-.caption { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); max-width: 40ch; }
-.asOf { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
+.empty { margin: 0; color: var(--color-text-subtle); font: var(--type-meta); }
+.caption { margin: 0; color: var(--color-text-secondary); font: var(--type-meta); max-width: 40ch; }
+.asOf { margin: 0; color: var(--color-text-subtle); font: var(--type-meta); }
+.legendItem[data-zero] .count { font-weight: var(--font-weight-normal); }

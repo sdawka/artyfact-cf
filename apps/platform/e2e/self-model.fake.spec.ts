@@ -62,7 +62,7 @@ test.describe("the self-model @fake", () => {
   });
 
   test("every view renders for Artyfact without console errors @fake", async ({ page }, testInfo) => {
-    await sweepViews(page, testInfo, BASE, "self");
+    await sweepViews(page, testInfo, BASE, "self", "Artyfact");
   });
 
   test("an intent about the platform lands under thing.platform; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {
@@ -88,9 +88,11 @@ test.describe("the self-model @fake", () => {
       if ((await agree.getAttribute("aria-pressed")) === "false") await agree.click();
     }
     await page.getByRole("button", { name: "Accept agreed" }).click();
-    await expect(page).toHaveURL(/\/work\?.*realization=/);
-    const rid = new URL(page.url()).searchParams.get("realization")!;
-    await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
+    // Work selects the accepted Evolution; its attempt row names the realization (Review decides on it).
+    await expect(page).toHaveURL(/\/work\?.*evolution=/);
+    const attempt = page.locator('[data-testid^="realization-"]').first();
+    await expect(attempt).toBeVisible();
+    const rid = (await attempt.getAttribute("data-testid"))!.replace(/^realization-/, "");
 
     // Acceptance commits the exact Genome delta. Compare the snapshot captured before acceptance with that candidate.
     const { candidates } = await (await request.get(`/api/systems/${SYS}/candidates`)).json() as { candidates: { id: string; realization: string }[] };
@@ -100,7 +102,7 @@ test.describe("the self-model @fake", () => {
     await page.getByRole("tab", { name: "Genome" }).click();
     await expect(page.getByText(proposal.ops[0]!.node).first()).toBeVisible();
     await page.getByRole("tab", { name: "Files" }).click();
-    await expect(page.getByRole("link", { name: new RegExp(`^thing\\.platform/.*${proposal.ops[0]!.node}/node\\.yaml$`) })).toBeVisible();
-    await checkPage(page, testInfo, "self-compare-files", undefined, ['[data-op] > [class*="num"]']);
+    await expect(page.getByRole("link", { name: new RegExp(`^thing\\.platform/.*${proposal.ops[0]!.node}/node\\.yaml( added| modified| removed)?$`) })).toBeVisible();
+    await checkPage(page, testInfo, "self-compare-files");
   });
 });

@@ -1,0 +1,17 @@
+id: affordance.review.promote-plan
+kind: affordance
+fields:
+  name: Promote reviewed implementation
+  description: Promotes the integrated plan with its rationale.
+  actor: user
+  trigger: click
+  preconditions:
+    - No promotion blocker remains
+    - An admin token is set
+  effects:
+    - The plan is promoted and leaves the queue
+  failure:
+    - "409: the stale head or blocker is named"
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-post-realization-plans-pid-promote

@@ -2,7 +2,13 @@ id: component.part.signifiers
 kind: component
 fields:
   name: Part page signifiers
-  description: Part name, version and what it contains.
+  description: The meta line facts and the payload summary.
   states:
-    - version (subtle)
-    - public (subtle)
+    - id@version (subtle)
+    - pinned <version> (subtle)
+    - published <time> (subtle)
+    - digest sha256:… (subtle)
+    - N files, no Genome nodes (subtle)
+    - N Genome nodes (subtle)
+    - "empty: No dependencies or inputs."
+    - "empty: No saved commands."

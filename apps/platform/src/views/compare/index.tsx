@@ -2,14 +2,16 @@ import { Button } from "@/components/ui";
 import { useSearchParams } from "react-router";
 import type { FileScope } from "../../../shared/api";
 import { useClientMode, useCompare, useRevisions } from "@/api/queries";
+import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { Tabs } from "@/components/Tabs/Tabs";
 import type { RevisionOption } from "@/model/revisions";
 import { ComparePicker } from "./ComparePicker";
-import { FilesLevel } from "./FilesLevel";
+import { changedFileCount, FilesLevel } from "./FilesLevel";
 import { GenomeLevel } from "./GenomeLevel";
 import { LEGACY_NOTICE } from "./legacy";
 import { SystemLevel } from "./SystemLevel";
+import { systemRows } from "./systemRows";
 import { defaultPair } from "./pair";
 import styles from "./compare.module.css";
 
@@ -50,18 +52,21 @@ export default function CompareView() {
   const fixture = mode.data === "fixture";
   const legacy = !!(system.data?.genome.legacyFormat?.length || genome.data?.legacyFormat?.length);
   const current = level === "genome" ? genome : system;
-  const identical = level === "system"
-    ? system.data?.identical
-    : level === "genome"
-      ? !!genome.data?.delta && !genome.data.delta.added.length && !genome.data.delta.removed.length && !genome.data.delta.changed.length
-      : system.data?.identical;
+  const d = genome.data?.delta;
+  const counts: Record<Level, number | null> = {
+    system: system.data ? systemRows(system.data).filter((r) => r.changed).length : null,
+    genome: d ? d.added.length + d.removed.length + d.changed.length : null,
+    files: system.data && genome.data ? changedFileCount(system.data.app?.files, genome.data.files ?? undefined) : null,
+  };
+  const tabs = LEVELS.map((l) => ({ ...l, label: counts[l.id] === null || fixture ? l.label : `${l.label} ${counts[l.id]}` }));
 
   return (
     <section aria-labelledby="view-title" className={styles.view}>
-      <h1 id="view-title">Compare</h1>
-      <ComparePicker from={from} to={to} options={options} onChange={(p) => update({ from: p.from, to: p.to, path: null, repo: null })} />
+      <PageHeader title="Compare" purpose="Two revisions side by side, at the System, Genome or file level.">
+        <ComparePicker from={from} to={to} options={options} onChange={(p) => update({ from: p.from, to: p.to, path: null, repo: null })} />
+      </PageHeader>
       {legacy && <p role="note" className={styles.muted}>{LEGACY_NOTICE}</p>}
-      <Tabs tabs={LEVELS} value={level} onChange={(l) => update({ level: l === "system" ? null : l })} label="Compare level">
+      <Tabs tabs={tabs} value={level} onChange={(l) => update({ level: l === "system" ? null : l })} label="Compare level">
         {fixture ? (
           <EmptyState title="Compare needs the platform API.">
             The UI is showing fixture data, which has a single revision (head) and nothing to compare it with.
@@ -77,7 +82,6 @@ export default function CompareView() {
           </EmptyState>
         ) : (
           <div className={styles.stack}>
-            {identical && <p role="status" className={styles.identical}>The two revisions are identical{level === "genome" ? " in the Genome" : ""}.</p>}
             {level === "system" && system.data && <SystemLevel cmp={system.data} />}
             {level === "genome" && genome.data && <GenomeLevel cmp={genome.data} from={from} to={to} />}
             {level === "files" && (

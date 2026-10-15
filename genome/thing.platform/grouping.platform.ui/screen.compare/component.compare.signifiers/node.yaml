@@ -2,8 +2,10 @@ id: component.compare.signifiers
 kind: component
 fields:
   name: Delta signifiers
-  description: "Per node and file: added, changed or removed, and the layer it belongs to."
+  description: "System rows read changed or same; files and nodes read added, modified or removed, with a legend."
   states:
     - + added (subtle)
-    - ~ changed (attention)
+    - ~ modified (attention)
     - − removed (danger)
+    - ~ changed (attention)
+    - – same (subtle)

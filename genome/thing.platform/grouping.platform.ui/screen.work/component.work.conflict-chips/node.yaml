@@ -2,9 +2,9 @@ id: component.work.conflict-chips
 kind: component
 fields:
   name: Conflict chips
-  description: Typed conflicts between candidates; the hard-semantic kind is danger, the others attention.
+  description: "Typed conflicts between candidates, each naming the other party in visible text: <kind> with <candidates> on n nodes and n paths. Only the hard-semantic kind is danger. Review's queue shows the compact form, one chip per kind."
   states:
     - § file conflict (attention)
     - ≈ soft-semantic conflict (attention)
     - ⊥ hard-semantic conflict (danger)
-    - ◇ evidence conflict (attention)
+    - ◇ evidence conflict (subtle)

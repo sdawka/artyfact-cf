@@ -1,0 +1,19 @@
+id: affordance.work.integrate
+kind: affordance
+fields:
+  name: Integrate selected Task results
+  description: Combines every selected Task result; then Review integrated implementation opens it in Review.
+  actor: user
+  trigger: click
+  preconditions:
+    - Every Task has a selected candidate (otherwise Select a candidate for <task> first.)
+    - An admin token is set in the header
+  effects:
+    - The plan is integrated and awaits promotion in Review
+  failure:
+    - "409 replan-required: create a new plan"
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-post-realization-plans-pid-integrate
+  - rel: references
+    to: screen.review

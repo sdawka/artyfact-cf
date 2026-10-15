@@ -3,11 +3,29 @@
 
 ## Now
 
+- Current: UI refresh on integration branch `ui-refresh` (`9e2cfa08`: W0 foundation plus eight W1 slices merged locally). W2 records on `r-w2docs`: self-Genome UI nodes and `docs/design/ui.md` match the shipped UI. Evidence: [[journals/2026-10-14-ui-refresh]].
+- Verified: the self-Genome test passes (10 tests, info-only findings), along with the ontology, template, model-validation and site how-it-works suites. Full CI, the cross-slice rules review and after-shots have not run.
+- Merged: `origin/main` (intent authoring, integrity review, keyboard-accessible import path lists) into `ui-refresh`; integrity rows, the integrity panel and Start's intent handoff use the refreshed primitives.
+- Next action: merge `r-w2docs` into `ui-refresh`, fix the code follow-ups listed in the journal (stray per-form token fields), run full CI and open the one integration PR.
+- Tracking: canonical Markdown is authoritative; the vault validates (7 records). The RPC dry-run applied 0 and sync stays pending a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Previous release: intention fixes, [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) at `1ec3826`, platform `39aba8f8`, site `a5b7ff36` ([[journals/2026-10-14-intention-fixes]]).
+- Last updated: 2026-10-14T17:45:00-04:00.
+
+## Intent integrity release
+
 - Released intent authoring, truthful integrity review and the enriched self-Genome in [PR #80](https://github.com/sdawka/artyfact-cf/pull/80), followed by the keyboard repair in [PR #81](https://github.com/sdawka/artyfact-cf/pull/81). Revision `7e2fca8e` is deployed as Worker `73c64fdd-ff7a-4667-9c41-031077025c53`.
 - Final local gate: 3,072 units (9 skipped), 104 fixture and 16 fake browser checks, typecheck/build; exact-head hosted CI passed. Real-provider verification used 214/500 approved calls, including exact source-free materialization/import and explicit partial-report test dispositions. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
 - Production Artyfact loads at `sc-2-51b5f13d` with all ten Things and source bindings. All 15 live desktop/mobile checks pass, including keyboard scrolling and reduced motion, with no overflow, serious/critical axe findings, page errors or attempted writes. Self integrity remains explicitly unapproved; hosted judgments are simulated.
 - Remaining quality work: semantic confidence calibration and larger-graph/source-document coverage. GRREAT RPC preview applied 0; remote sync still awaits a confirmed separate Artyfact destination.
 - Last updated: 2026-10-14T18:57:16-04:00.
+
+## Intention fixes release
+
+- Released: all seven intention fixes merged in [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) as `1ec3826de3bd3a24ff4ac7eddb061ae8f0c56888`, preserving individual fix commits. Platform version `39aba8f8-dd0d-4810-b6a6-5feb373fa6c0` and site version `a5b7ff36-c033-4420-b9c6-49ce6518b300` are deployed from that revision.
+- Verified: independent reviews, full local/pre-push and hosted CI pass. Post-merge site checks pass. Live authenticated API reads and 16 desktop/mobile route checks pass; app checks found no serious/critical accessibility violations, overflow, page errors or attempted writes. Evidence: [[journals/2026-10-14-intention-fixes]].
+- Next action: resume the deferred real-Artifacts lifecycle verification; fresh-account provisioning and production task submission/promotion remain unverified by this read-only release smoke.
+- Tracking: canonical Markdown remains authoritative. Remote GRREAT sync is pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Last updated: 2026-10-14T11:53:48-04:00.
 
 ## Spike baseline
 
@@ -47,6 +65,7 @@
 - [[journals/2026-10-13-system-atlas]]: nested System atlas released, PR #66.
 - [[journals/2026-10-14-lifecycle-port]]: task-planning port onto the lifecycle; docs, runbook and site guide.
 - [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
+- [[journals/2026-10-14-ui-refresh]]: UI refresh audit, foundation, eight slices and the W2 records.
 
 ## Prior recorded release context
 

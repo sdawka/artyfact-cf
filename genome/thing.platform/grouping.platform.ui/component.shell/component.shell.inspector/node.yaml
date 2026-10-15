@@ -2,14 +2,15 @@ id: component.shell.inspector
 kind: component
 fields:
   name: Inspector
-  description: The side panel for the focused node, with six tabs. The [ and ] keys switch tabs and Esc closes it. The header shows the node chip with its id and the readiness verdict; only pass is green.
+  description: "The side panel for the focused node: 380px by default, resizable from 280 to 720px with a Resize Inspector grip (arrow keys step 16px), a bottom sheet on compact screens. On the Map it opens only with Details; elsewhere focusing a node opens it. The header shows the name with its kind glyph, a summary, the kind and id with Copy id, the readiness chip (only All criteria pass is green), a Containment path text trail, the candidate line and the actions. Six tabs on one row, What, Why, Links, Changes, Rules, Evidence, with counts on the last four. A footer shows Esc close and [ ] siblings: [ and ] move to the previous or next sibling node, and Esc clears the focus (on the Map it closes Details)."
   states:
     - closed
     - loaded
     - no node focused
-    - NodeChip + id (subtle)
-    - ✓ pass (success)
-    - × fail (danger)
-    - unknown (subtle)
-    - stale (subtle, dashed)
-    - not-run (subtle)
+    - "unknown id: Nothing in this revision has the id <id>."
+    - No criteria (subtle)
+    - ✓ All criteria pass (success)
+    - × n failing (danger)
+    - p of t pass (subtle)
+    - Not run (subtle)
+    - ◧ In N candidates, overlapping (attention)

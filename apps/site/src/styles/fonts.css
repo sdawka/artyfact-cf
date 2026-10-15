@@ -1,0 +1,52 @@
+/*
+ * Self-hosted faces, SIL OFL 1.1 (licenses/OFL-*.txt, THIRD_PARTY_NOTICES.md). Same versioned files in both apps
+ * (public/fonts, byte-identical; bump -vN when a file changes). Subset: Latin, Latin-1, General Punctuation, Arrows;
+ * features kern liga tnum case kept. Status glyphs the faces lack fall back to --font-glyph.
+ * Fallback faces carry metric overrides computed from the font files (weighted Latin advance widths), so the swap
+ * barely reflows: Atkinson Hyperlegible Next against Arial, Alegreya (500) against Georgia.
+ * Mirrored in apps/platform/src/theme/fonts.css and apps/site/src/styles/fonts.css. Import first.
+ */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("/fonts/atkinson-next-v1.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("/fonts/atkinson-next-italic-v1.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  src: url("/fonts/atkinson-mono-v1.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Alegreya";
+  src: url("/fonts/alegreya-v1.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
+  size-adjust: 99.97%;
+  ascent-override: 98.43%;
+  descent-override: 31.61%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Alegreya Fallback";
+  src: local("Georgia"), local("Gelasio");
+  size-adjust: 93.01%;
+  ascent-override: 109.23%;
+  descent-override: 37.09%;
+  line-gap-override: 0%;
+}

@@ -20,7 +20,7 @@ export function CandidateHalo({ candidates }: { candidates: readonly string[] })
           onClick={(e) => e.stopPropagation()}
           title={`Review ${candidates.join(", ")}`}
         >
-          overlap · {candidates.length}
+          Overlap, {candidates.length} candidates
         </Link>
       )}
       <span className="sr-only">Touched by {candidates.join(", ")}</span>
