@@ -18,8 +18,10 @@ function verifier(env:Env){
  if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw new HttpError(503,'verification-unconfigured','The configured verifier must use HTTPS without embedded credentials.');
  return {base:url.href.replace(/\/$/,''),token:env.VERIFICATION_TOKEN};
 }
+// workerd accepts only 'follow' | 'manual': a 3xx is not ok and is refused below, never followed.
+// Starting authorizes against the Genome before CI creates the run, so it gets longer than polls.
 async function remote(env:Env,path:string,method:string,transport:typeof fetch,body?:unknown):Promise<Response>{
- const c=verifier(env);const response=await transport(`${c.base}${path}`,{method,redirect:'error',signal:AbortSignal.timeout(30_000),headers:{authorization:`Bearer ${c.token}`,...(body!==undefined&&{'content-type':'application/json'})},...(body!==undefined&&{body:JSON.stringify(body)})});
+ const c=verifier(env);const response=await transport(`${c.base}${path}`,{method,redirect:'manual',signal:AbortSignal.timeout(method==='POST'?120_000:30_000),headers:{authorization:`Bearer ${c.token}`,...(body!==undefined&&{'content-type':'application/json'})},...(body!==undefined&&{body:JSON.stringify(body)})});
  if(!response.ok){await response.body?.cancel();throw new HttpError(502,'verification-unavailable',`Cloud verifier returned HTTP ${response.status}; the recorded run can be retried or polled.`);}
  return response;
 }
