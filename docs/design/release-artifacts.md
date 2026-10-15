@@ -12,7 +12,7 @@ Build output is the realized artifact, so the deployed version of the platform c
 
 ## Design
 
-1. `artyfact release` reads the source commit (refuses a dirty tree unless `--allow-dirty`) and names the release `v<yyyymmdd>-<sha7>`.
+1. `artyfact release` reads the source commit (refuses a dirty tree unless `--allow-dirty`) and names the release `v<yyyymmdd>-<sha7>` (UTC date).
 2. It builds `@artyfact/platform` and `@artyfact/site`, then stages a self-contained tree: `platform/` (the vite plugin's `dist`, whose `artyfact_platform/wrangler.json` has `main: index.js`, `no_bundle` and `assets: ../client`), `site/wrangler.jsonc` plus `site/dist/`, and `release.json` (version, git commit, tree hash of the self-Genome `genome/`, built-at, Worker configs, node and wrangler versions).
 3. It commits that tree to `artyfact/platform.builds` as `main` with an annotated tag, pushed with a write token; the repo is created on first use. A tag that already exists is fetched and reused, so re-running the same source commit never mints a second release.
 4. It deploys each Worker with `wrangler deploy --config <config>` and `cwd` in the checkout of `platform.builds`, never in the worktree; `release.json` in the repo is the deployment record.

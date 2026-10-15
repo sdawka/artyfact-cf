@@ -86,7 +86,7 @@ export interface ReleaseResult {
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRoot = () => resolve(here, "../../..");
 
-/** `v20261014-abc1234` from a build date and the source commit. */
+/** `v20261014-abc1234` from a build date (UTC) and the source commit. */
 export function releaseTag(date: Date, gitCommit: string): string {
   const ymd = date.toISOString().slice(0, 10).replaceAll("-", "");
   return `v${ymd}-${gitCommit.slice(0, 7)}`;
