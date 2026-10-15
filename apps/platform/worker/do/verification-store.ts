@@ -1,10 +1,9 @@
-import { normalizeVerificationRequest, type VerificationRequest, type VerificationResult } from '@artyfact/model';
+import { canonicalJson, normalizeVerificationRequest, type VerificationRequest, type VerificationResult } from '@artyfact/model';
 import type { RealizationPlan } from '../../shared/lifecycle';
 
 /** Canonical comparison also fences a response whose check list or model identity changed. */
 export function sameVerification(a:unknown,b:unknown):boolean {
- const canonical=(v:unknown):unknown=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).filter(([,x])=>x!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([k,x])=>[k,canonical(x)])):v;
- return JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+ return canonicalJson(a)===canonicalJson(b);
 }
 export const needsCloudVerification=(p:RealizationPlan)=>p.systemId==='system.artyfact';
 const fail=(message:string):never=>{throw new Error(`[verification-required] ${message}`);};

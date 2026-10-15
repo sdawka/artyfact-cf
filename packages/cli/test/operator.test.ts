@@ -67,7 +67,7 @@ function cloud(sourceName: string, sourceBare: string) {
 
 function activation(name: string, commit: string, digest: string, output = outputOf(required())): Activation {
   const source = { repo: name, commit }, genome = { repo: name, commit, prefix: "system", digest };
-  const verification = { version: 1 as const, request: { version: 1 as const, id: "verify-1", systemId: "system.artyfact", planId: "plan.self", candidateId: "candidate.one", artifactId: "artifact.platform", source, genome, profile: "artyfact-self-v1" as const }, status: "passed", steps: [{ name: "ci", command: "npm run ci -- --ultra-compact", status: "passed" }], finishedAt: "2026-10-14T20:00:00.000Z", output };
+  const verification = { version: 1 as const, request: { version: 1 as const, id: "verify-1", systemId: "system.artyfact", planId: "plan.self", candidateId: "candidate.one", artifactId: "artifact.platform", source, genome, profile: "artyfact-self-v1" as const, checks: [] }, status: "passed" as const, steps: [{ name: "ci", command: "npm run ci -- --ultra-compact", status: "passed" as const }], finishedAt: "2026-10-14T20:00:00.000Z", output };
   return { systemId: "system.artyfact", planId: "plan.self", systemCommit: "sc-2-bbbbbbbb", source, genome, verification };
 }
 
@@ -181,7 +181,8 @@ describe("approved activation", () => {
     expect(validateActivation(good, { systemId: good.systemId, planId: good.planId, artifactId: "artifact.platform" })).toEqual(good);
     expect(() => validateActivation({ ...good, source: { ...good.source, commit: "c".repeat(40) } }, { systemId: good.systemId, planId: good.planId, artifactId: "artifact.platform" })).toThrow(/provenance/);
     expect(() => validateActivation({ ...good, systemCommit: "b".repeat(40) }, { systemId: good.systemId, planId: good.planId, artifactId: "artifact.platform" })).toThrow(/canonical sc-/);
-    expect(() => validateActivation({ ...good, source: { ...good.source, commit: "sc-2-bbbbbbbb" } }, { systemId: good.systemId, planId: good.planId, artifactId: "artifact.platform" })).toThrow(/40-character commits/);
+    const shortSource = { ...good.source, commit: "sc-2-bbbbbbbb" };
+    expect(() => validateActivation({ ...good, source: shortSource, verification: { ...good.verification, request: { ...good.verification.request, source: shortSource } } }, { systemId: good.systemId, planId: good.planId, artifactId: "artifact.platform" })).toThrow(/source\.commit must be 40 lowercase hex/);
   });
 
   it("prepares the exact clean source with its in-fork changed model and keeps state outside replacement checkouts", () => {

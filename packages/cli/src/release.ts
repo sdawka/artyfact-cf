@@ -5,14 +5,14 @@
  * repo is the deployment record. Design: docs/design/release-artifacts.md.
  */
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
-import { CliError, git } from "./git.ts";
+import { isGenomeSource, verificationModelDigest } from "@artyfact/model";
+import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
 
 export const BUILDS_REPO = "platform.builds";
@@ -86,27 +86,22 @@ export interface ReleaseResult {
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRoot = () => resolve(here, "../../..");
 
-/** Stable for an immutable source commit; `date` remains for source compatibility with the PR #84 API. */
-export function releaseTag(_date: Date, gitCommit: string): string {
+/** Stable for an immutable source commit. */
+export function releaseTag(gitCommit: string): string {
   return `v-${gitCommit.slice(0, 12)}`;
 }
 
 /** A portable SHA-256 over sorted model paths and bytes at an exact commit. */
 export function modelDigestAt(root: string, commit: string, prefix: string): string {
   const args = ["ls-tree", "-r", "--name-only", "-z", commit, ...(prefix ? ["--", prefix] : [])];
-  const listed = git(root, args).split("\0").filter(Boolean).filter((path) => {
-    const relative = prefix ? path.slice(prefix.length + 1) : path;
-    return /\.ya?ml$/.test(relative) || relative === "intent/brief.md" || relative === "intent/manifest.json";
-  });
+  const relative = (path: string) => prefix ? path.slice(prefix.length + 1) : path;
+  const listed = git(root, args).split("\0").filter(Boolean).filter((path) => isGenomeSource(relative(path)));
   if (!listed.length) throw new CliError(`${prefix}/ is missing from source ${commit.slice(0, 12)}`);
-  const entries: [string, string][] = [];
-  for (const path of listed.sort()) {
-    const relative = prefix ? path.slice(prefix.length + 1) : path;
+  return verificationModelDigest(listed.map((path) => {
     const shown = spawnSync("git", ["show", `${commit}:${path}`], { cwd: root, encoding: null });
     if (shown.status !== 0) throw new CliError(`cannot read ${path} at ${commit.slice(0, 12)}`);
-    entries.push([relative, shown.stdout.toString("utf8")]);
-  }
-  return createHash("sha256").update(JSON.stringify(entries)).digest("hex");
+    return [relative(path), shown.stdout.toString("utf8")] as const;
+  }));
 }
 
 function defaultBuild(root: string): void {
@@ -164,12 +159,12 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
 
   // 1. Source facts, fail closed on a dirty tree: the record must name the commit that was built.
   const gitCommit = git(root, ["rev-parse", "HEAD"]);
-  if (git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "")
+  if (!isPristine(root))
     throw new CliError("the source tree has uncommitted or untracked changes; commit or remove them before release");
   const hasSystem = spawnSync("git", ["cat-file", "-e", `${gitCommit}:system`], { cwd: root, stdio: "ignore" }).status === 0;
   const modelPrefix = hasSystem ? "system" : "genome";
   const genome = { commit: gitCommit, prefix: modelPrefix, digest: modelDigestAt(root, gitCommit, modelPrefix) } as const;
-  const version = releaseTag(now(), gitCommit);
+  const version = releaseTag(gitCommit);
 
   // 2. Account and remote. The cloud's own checks keep names off argv and tokens off stdout.
   const cloud = io.cloud ?? cloudCli(spawnExec(root), io.env);
@@ -200,7 +195,7 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
       io.out(`  ${version} already in ${repo} at ${buildsCommit.slice(0, 7)}; deploying that release`);
     } else {
       if (!opts.noBuild) (io.build ?? defaultBuild)(root);
-      if (git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "")
+      if (!isPristine(root))
         throw new CliError("the build changed tracked or untracked source inputs; refusing to publish them under the original commit");
       const manifest: ReleaseManifest = {
         version, gitCommit, genome, builtAt: now().toISOString(),

@@ -1,5 +1,6 @@
 import { parse } from "yaml";
 import {
+  canonicalJson,
   normalizeVerificationRequest,
   verificationModelDigest,
   type VerificationCheck,
@@ -244,15 +245,6 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
   }
 }
 
-const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-};
-
 async function authorized(header: string | null, token: string): Promise<boolean> {
   if (!token || !header?.startsWith("Bearer ")) return false;
   const values = await Promise.all([header.slice(7), token].map((value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))));
@@ -351,11 +343,11 @@ export async function handleVerificationHttp(request: Request, deps: Verificatio
       return json({ error: String((error as Error)?.message ?? error).slice(0, 500) }, 422);
     }
     const existing = await deps.getResult(normalized.id);
-    if (existing) return canonical(existing.request) === canonical(normalized) ? json(existing, 202) : json({ error: "verification id already belongs to another request" }, 409);
+    if (existing) return canonicalJson(existing.request) === canonicalJson(normalized) ? json(existing, 202) : json({ error: "verification id already belongs to another request" }, 409);
     const queued: VerificationResult = { version: 1, request: normalized, status: "queued", steps: [], checks: [] };
     if (!await deps.createQueued(queued)) {
       const raced = await deps.getResult(normalized.id);
-      return raced && canonical(raced.request) === canonical(normalized) ? json(raced, 202) : json({ error: "verification id already belongs to another request" }, 409);
+      return raced && canonicalJson(raced.request) === canonicalJson(normalized) ? json(raced, 202) : json({ error: "verification id already belongs to another request" }, 409);
     }
     try {
       await deps.start(normalized);

@@ -6,7 +6,7 @@ import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
 import { CiSandbox, type CiBindings } from "@cloudflare/ci/worker";
 import type { CiBuildParams } from "./contract";
-import type { VerificationRequest, VerificationResult } from "@artyfact/model";
+import { canonicalJson, type VerificationRequest, type VerificationResult } from "@artyfact/model";
 import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
 import { runPipeline, type CiLike, type DoStep, type FetchLike } from "./pipeline";
 import { readVerificationGenome } from "./verification-artifacts";
@@ -93,19 +93,11 @@ async function getVerificationResult(bucket: R2Bucket, id: string): Promise<Veri
 }
 
 const terminal = (status: VerificationResult["status"]) => status === "passed" || status === "failed" || status === "error";
-const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-};
 
 async function persistVerificationResult(bucket: R2Bucket, result: VerificationResult): Promise<void> {
   const existing = await getVerificationResult(bucket, result.request.id);
   if (existing && terminal(existing.status)) {
-    if (canonical(existing) !== canonical(result)) throw new Error(`terminal verification ${result.request.id} is immutable`);
+    if (canonicalJson(existing) !== canonicalJson(result)) throw new Error(`terminal verification ${result.request.id} is immutable`);
     return;
   }
   await bucket.put(verificationResultKey(result.request.id), JSON.stringify(result), {

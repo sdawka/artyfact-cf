@@ -90,9 +90,8 @@ function harness(name: string, cloudRoot = join(tmp, `${name}-cloud`)) {
 }
 
 describe("releaseTag", () => {
-  it("is stable across dates for the same immutable source", () => {
-    const commit = "abc1234def0000000000000000000000000000000";
-    expect(releaseTag(new Date("2026-10-14T23:59:59Z"), commit)).toBe(releaseTag(new Date("2026-10-15T00:00:01Z"), commit));
+  it("names the immutable source commit", () => {
+    expect(releaseTag("abc1234def0000000000000000000000000000000")).toBe("v-abc1234def00");
   });
 });
 
@@ -100,7 +99,7 @@ describe("artyfact release", () => {
   it("pushes the build outputs, a manifest and a tag to platform.builds, then deploys from that checkout", async () => {
     const h = harness("full");
     const r = await release({}, h.io);
-    const tag = releaseTag(new Date("2026-10-14T21:05:00Z"), h.head);
+    const tag = releaseTag(h.head);
     expect(r.action).toBe("created");
     expect(r.manifest.version).toBe(tag);
     expect(h.builds).toEqual([h.root]);

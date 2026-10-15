@@ -70,6 +70,11 @@ export function isDirty(cwd: string): boolean {
   return git(cwd, ["status", "--porcelain"]) !== "";
 }
 
+/** No tracked change and no untracked file, ignored files aside. */
+export function isPristine(cwd: string): boolean {
+  return git(cwd, ["status", "--porcelain", "--untracked-files=all"]) === "";
+}
+
 /**
  * Stage every change except dependencies, Wrangler state and secret files, and commit when anything is staged; returns
  * HEAD sha. `note` hears which paths were left unstaged. The exclusion holds even in a repo without a `.gitignore`.

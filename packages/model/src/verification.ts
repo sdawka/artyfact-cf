@@ -1,4 +1,5 @@
 import { sha256Hex } from "@artyfact/rules";
+import { INTENT_BRIEF_PATH, INTENT_MANIFEST_PATH } from "./intent.ts";
 
 export const VERIFICATION_PROFILE = "artyfact-self-v1" as const;
 
@@ -138,6 +139,9 @@ export function normalizeVerificationRequest(value: unknown): VerificationReques
     checks: checks.map((check) => ({ criterionId: check.criterionId, hookId: check.hookId, command: check.command })),
   };
 }
+
+/** A Genome source file (Genome-relative path): YAML, or one of the two intent sidecars. Nothing else is part of the model. */
+export const isGenomeSource = (path: string): boolean => /\.ya?ml$/.test(path) || path === INTENT_BRIEF_PATH || path === INTENT_MANIFEST_PATH;
 
 /**
  * Canonical digest for the exact Genome file set. Paths are sorted and text bytes are preserved.
