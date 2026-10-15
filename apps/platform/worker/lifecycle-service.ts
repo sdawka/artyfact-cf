@@ -14,7 +14,7 @@ import { diffTrees, manifestHash, type TreeDiff } from './artifacts/candidates';
 import { listTree } from './artifacts/genome-source';
 import { nodesForPath, sourceMapFor } from './artifacts/source-map';
 import { newRealizationSecret } from './auth';
-import { badRequest, conflict, fromRpc, notFound, unprocessable } from './errors';
+import { badRequest, conflict, fromRpc, notFound, rpc, unprocessable } from './errors';
 import { hookRunner } from './hooks';
 import { selectHooks } from './hooks/run';
 import type { CandidateRef, SubmissionContext } from './hooks/contract';
@@ -44,7 +44,6 @@ const submitSchema=attemptSchema.extend({commit:sha,previewUrl:z.string().url().
 const selectSchema=z.object({candidateId:nonempty}).strict();
 const promoteSchema=z.object({expectedHead:z.string().nullable(),rationale:z.string().trim().min(1).max(4000),candidateIds:strings.min(1),acceptModelDelta:z.boolean().optional()}).strict();
 function parse<T>(schema:z.ZodType<T>,body:unknown):T {const out=schema.safeParse(body);if(!out.success)throw badRequest('invalid lifecycle request',out.error.issues);return out.data;}
-async function rpc<T>(promise:Promise<T>):Promise<T> {try{return await promise;}catch(e){throw fromRpc(e)??e;}}
 function taskOf(p:RealizationPlan,tid:string):Task {const t=p.tasks.find(t=>t.id===tid);if(!t)throw notFound(`unknown task ${tid}`);return t;}
 const topo=(p:RealizationPlan)=>p.analysis.waves.flatMap(w=>w.map(id=>taskOf(p,id)));
 /** Loads a candidate's model with the System's accepted template packs (the model delta and its review). */

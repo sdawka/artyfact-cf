@@ -5,13 +5,12 @@ import { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan,
 import { reviewLifecycleTask, reviewLifecycleTaskFile } from '../lifecycle-task-review';
 import { systemStub } from '../service';
 import { draftRealizationPlan } from '../tasks/planner';
-import { fromRpc } from '../errors';
+import { rpc as call } from '../errors';
 import { assertImportReviewed } from '../import-review';
 import { body, origin, type AppEnv, type Ctx } from './app';
 import { MAX_SUBMIT_BODY } from '../evidence';
 const prefix='/systems/:id/realization-plans';
 const plan=`${prefix}/:pid`,task=`${plan}/tasks/:tid`;
-async function call<T>(p:Promise<T>) {try{return await p;}catch(e){throw fromRpc(e)??e;}}
 /** Creating or starting work waits for the System's import review (409 `import-unreviewed`). */
 const reviewed:MiddlewareHandler<AppEnv>=async(c,next)=>{await assertImportReviewed(c.env,c.req.param('id')!);await next();};
 const ids=(c:Ctx)=>[c.req.param('id')!,c.req.param('pid')!,c.req.param('tid')!] as const;

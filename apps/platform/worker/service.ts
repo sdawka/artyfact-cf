@@ -19,7 +19,7 @@ import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./
 import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, readGenomeSourceFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import { REGISTRY, TERMINAL_REALIZATION, type EndedCredential, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
-import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
+import { badRequest, conflict, rpc, HttpError, notFound, unprocessable } from "./errors";
 import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
 import { buildGenomeReview } from "./genome/review";
@@ -44,15 +44,6 @@ export type SystemApi = {
 
 export const systemStub = (env: Env, id: string) => env.SYSTEMS.getByName(id) as unknown as SystemApi;
 export const registryStub = (env: Env) => systemStub(env, REGISTRY);
-
-/** Run a DO RPC call, mapping `[code] message` errors to HTTP errors. */
-async function rpc<T>(p: Promise<T> | T): Promise<T> {
-  try {
-    return await p;
-  } catch (e) {
-    throw fromRpc(e) ?? e;
-  }
-}
 
 async function headState(env: Env, systemId: string): Promise<HeadState> {
   const s = await systemStub(env, systemId).state();

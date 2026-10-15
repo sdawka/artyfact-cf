@@ -18,3 +18,12 @@ export function fromRpc(e: unknown): HttpError | undefined {
   if (!m) return undefined;
   return m[1] === "not-found" ? notFound(m[2]) : conflict(m[1], m[2]);
 }
+
+/** Await a DO RPC result, preserving unmapped failures and translating known conflict codes. */
+export async function rpc<T>(value: Promise<T> | T): Promise<T> {
+  try {
+    return await value;
+  } catch (error) {
+    throw fromRpc(error) ?? error;
+  }
+}

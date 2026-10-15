@@ -4,7 +4,7 @@ import { buildIndex } from "@/model/index";
 import { resolveKindView } from "@artyfact/ontology";
 import { kindViews, type KindViews } from "@/model/kinds";
 import { modelKinds } from "./MapView";
-import { bandFrameId, buildMapGraph, certaintyStroke, DEFAULT_FILTERS, ENVIRONMENT_SCOPE, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
+import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, ENVIRONMENT_SCOPE, findingSubjectIds, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
 const ids = (g: ReturnType<typeof buildMapGraph>, role?: string) =>
@@ -140,23 +140,6 @@ describe("findingSubjectIds", () => {
   });
 });
 
-describe("mapLayoutRequest", () => {
-  it("nests children in the scope group and partitions externals before internals", () => {
-    const g = buildMapGraph(index, "screen.people");
-    const req = mapLayoutRequest(g, "genome");
-    const n = (id: string) => req.nodes.find((x) => x.id === id)!;
-    expect(n("component.SearchInput").parentId).toBe(bandFrameId("experience"));
-    expect(n(bandFrameId("experience")).parentId).toBe("screen.people");
-    expect(n("ext.owner").layoutOptions?.["elk.partitioning.partition"]).toBe("0");
-    expect(n("screen.people").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
-    expect(n("entity.ContactRecord").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
-    expect(req.nodes.indexOf(n("screen.people"))).toBeLessThan(req.nodes.indexOf(n("component.SearchInput")));
-    const serves = req.edges.find((e) => e.id === "screen.people>serves>ext.owner")!;
-    expect([serves.source, serves.target]).toEqual(["ext.owner", "screen.people"]);
-    expect(mapLayoutRequest(g, "phenome").nodes.find((x) => x.id === "component.SearchInput")!.height).toBeGreaterThan(n("component.SearchInput").height);
-  });
-});
-
 describe("Map bands", () => {
   it("bands children by template layer, in template order, and hides hidden layers", () => {
     const g = buildMapGraph(index, "screen.people");
@@ -170,22 +153,10 @@ describe("Map bands", () => {
     expect(ids(buildMapGraph(index, "system.peopling"), "child")).toContain("thing.webapp");
   });
 
-  it("chains band frames in layer order inside the scope", () => {
-    const req = mapLayoutRequest(buildMapGraph(index, "screen.people"), "genome");
-    const frames = req.nodes.filter((n) => n.id.startsWith(bandFrameId(""))).map((n) => n.id);
-    expect(frames).toEqual(["experience"].map(bandFrameId));
-    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("screen.people");
-    const chain = req.edges.filter((e) => e.source.startsWith(bandFrameId(""))).map((e) => [e.source, e.target]);
-    expect(chain).toEqual(frames.slice(1).map((f, i) => [frames[i], f]));
-  });
-
-  it("without template layers bands by containment depth and draws no frames", () => {
+  it("without template layers bands by containment depth", () => {
     const g = buildMapGraph(index, "screen.people", DEFAULT_FILTERS, new Set(), unlayered);
     expect(g.layered).toBe(false);
     expect(g.bands).toEqual([{ id: "depth-5", label: "Depth 5" }]);
-    const req = mapLayoutRequest(g, "genome");
-    expect(req.nodes.some((n) => n.id.startsWith(bandFrameId("")))).toBe(false);
-    expect(req.nodes.find((n) => n.id === "component.SearchInput")!.parentId).toBe("screen.people");
   });
 });
 
