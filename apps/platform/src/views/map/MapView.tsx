@@ -6,7 +6,7 @@ import { ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import { useLocation } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { isTyping } from "@/app/Shell";
-import { useCompactLayout } from "@/app/useCompactLayout";
+import { SHELL_COMPACT_MAX, SHELL_RAIL_WIDTH, useCompactLayout, useViewportWidth } from "@/app/useCompactLayout";
 import { LayerSwitch } from "@/app/LayerSwitch";
 import { useEvolutions } from "@/api/queries";
 import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
@@ -26,7 +26,8 @@ import type { CrossLinkFlowEdge, MapFlowNode, MapNodeData } from "./nodes/types"
 import { candidateHalos, phenomeCounters, realizationCount } from "./overlays/overlayData";
 import { useCandidateTouches } from "./overlays/useCandidateTouches";
 import { DEFAULT_FILTERS, ENVIRONMENT_SCOPE, mapScopeFor, useFindingSubjects, useMapGraph, type MapFilterState } from "./useMapGraph";
-import { layoutAtlas } from "./atlasLayout";
+import { columnsForCanvas, layoutAtlas } from "./atlasLayout";
+import { useTextMeasure } from "./useTextMeasure";
 import { atlasFlowEdges, atlasFlowNodes } from "./atlasFlow";
 import { selectedBoundaryEdges } from "./atlasConnections";
 import type { AtlasTravel } from "./atlasCameraMotion";
@@ -39,6 +40,8 @@ import styles from "./MapView.module.css";
 
 const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode };
 const EDGE_TYPES = { crossLink: CrossLinkEdge };
+/** The view's side gutter plus the canvas border, near enough to size columns. */
+const CANVAS_GUTTER = 33;
 /** Locate belongs to a history entry; its consumption survives view remounts like the session camera. */
 const consumedLocateEntries = new Set<string>();
 export { fitViewport } from "./atlasViewport";
@@ -97,7 +100,11 @@ export function MapView() {
   const graph = useMapGraph(navigation.scope, filters);
   const committedScope = useRef(graph.scope);
   useEffect(() => { committedScope.current = graph.scope; }, [graph.scope]);
-  const layout = useMemo(() => layoutAtlas(graph), [graph]);
+  // Columns follow the window (rail and gutters taken off), never the canvas, so opening Details never reflows the tiles.
+  const viewportWidth = useViewportWidth();
+  const maxColumns = columnsForCanvas(viewportWidth - (viewportWidth >= SHELL_COMPACT_MAX ? SHELL_RAIL_WIDTH : 0) - 2 * CANVAS_GUTTER);
+  const measure = useTextMeasure();
+  const layout = useMemo(() => layoutAtlas(graph, { views, maxColumns, measure }), [graph, views, maxColumns, measure]);
   const touches = useCandidateTouches(candidates);
   const halos = useMemo(() => candidateHalos(index, graph, touches), [index, graph, touches]);
   const { data: board } = useEvolutions();

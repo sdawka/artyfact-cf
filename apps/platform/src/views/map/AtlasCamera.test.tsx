@@ -11,7 +11,7 @@ vi.mock("@artyfact/effects", () => ({ useSystemReducedMotion: () => state.reduce
 vi.mock("@/effects/effectsPreference", () => ({ useEffectsPreference: () => ({ enabled: state.enabled }) }));
 vi.mock("@/model/useModel", () => ({ useModel: () => ({ index }) }));
 const graph = { scope: "a", nodes: [], edges: [], ids: new Set() } as unknown as MapGraph;
-const layout = { boxes: { a: { x: 0, y: 0, width: 600, height: 400 }, b: { x: 100, y: 80, width: 200, height: 100 } }, width: 600, height: 400 };
+const layout = { boxes: { a: { x: 0, y: 0, width: 600, height: 400 }, b: { x: 100, y: 80, width: 200, height: 100 } }, metrics: {}, width: 600, height: 400 };
 let canvas: HTMLDivElement, key = 0;
 const props = () => ({ cameraKey: `camera-test-${++key}`, graph, layout, canvas, focusId: null, locate: null, travel: null, onTravel: vi.fn(), onCancelTravel: vi.fn() });
 beforeEach(() => {

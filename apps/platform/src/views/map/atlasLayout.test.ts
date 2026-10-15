@@ -2,43 +2,58 @@ import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
 import { buildMapGraph, ENVIRONMENT_SCOPE, type MapGraph, type MapNode } from "./useMapGraph";
-import { layoutAtlas } from "./atlasLayout";
+import { columnsForCanvas, layoutAtlas, SCOPE_HEADER, SCOPE_PAD } from "./atlasLayout";
+import { TILE } from "./atlasTile";
 
-const tile = (id: string, extra: Partial<MapNode> = {}): MapNode => ({ id, name: id, kind: "component", role: "child", childCount: 0, description: "", preview: [], ...extra });
+const tile = (id: string, extra: Partial<MapNode> = {}): MapNode => ({ id, name: id, kind: "component", role: "child", childCount: 0, description: "", inside: [], ...extra });
 const graph = (nodes: MapNode[], scope = ENVIRONMENT_SCOPE): MapGraph => ({ scope, nodes, edges: [], ids: new Set(nodes.map((n) => n.id)), bands: [], layered: false });
 const overlap = (a: { x: number; y: number; width: number; height: number }, b: typeof a) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 
 describe("layoutAtlas", () => {
-  it("packs readable content-sized rectangles with shared row boundaries and no gutters", () => {
+  it("packs content-sized tiles as masonry columns inside the scope frame, with no overlap and no wasted rows", () => {
     const g = graph([
       tile("frame", { role: "scope" }),
       tile("short"),
       tile("medium", { description: "A concise purpose explaining this component's job." }),
-      tile("large", { name: "A longer descriptive component name", description: "A purpose with enough context to explain the boundary and its responsibilities.", childCount: 3, preview: [{ id: "a", name: "First", kind: "component" }, { id: "b", name: "Second", kind: "component" }, { id: "c", name: "Third", kind: "component" }] }),
+      tile("large", { name: "A longer descriptive component name", description: "A purpose with enough context to explain the boundary and its responsibilities.", childCount: 3, inside: [{ kind: "component", count: 3 }] }),
       ...Array.from({ length: 5 }, (_, i) => tile(`more-${i}`)),
     ], "frame");
     const l = layoutAtlas(g);
+    const frame = l.boxes.frame!;
     expect(Object.keys(l.boxes)).toHaveLength(9);
-    expect(l.boxes.medium!.width * l.boxes.medium!.height).toBeGreaterThan(l.boxes.short!.width * l.boxes.short!.height);
-    expect(l.boxes.large!.width * l.boxes.large!.height).toBeGreaterThan(l.boxes.medium!.width * l.boxes.medium!.height);
-    for (const b of Object.values(l.boxes)) {
-      expect(b.width).toBeGreaterThanOrEqual(216);
-      expect(b.height).toBeGreaterThanOrEqual(144);
-      expect([b.x, b.y, b.width, b.height].every(Number.isFinite)).toBe(true);
-    }
+    // Height follows content; every tile has the same column width.
+    expect(l.boxes.medium!.height).toBeGreaterThan(l.boxes.short!.height);
+    expect(l.boxes.large!.height).toBeGreaterThan(l.boxes.medium!.height);
     const bs = Object.entries(l.boxes).filter(([id]) => id !== "frame").map(([, box]) => box);
-    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlap(bs[i]!, bs[j]!)).toBe(false);
-    const ys = [...new Set(bs.map((b) => b.y))].sort((a, b) => a - b);
-    let bottom = 80;
-    for (const y of ys) {
-      expect(y).toBe(bottom);
-      const row = bs.filter((b) => b.y === y).sort((a, b) => a.x - b.x);
-      let right = l.boxes.frame!.x;
-      for (const b of row) { expect(b.x).toBeCloseTo(right); right += b.width; expect(b.height).toBe(row[0]!.height); }
-      expect(right).toBeCloseTo(l.boxes.frame!.x + l.boxes.frame!.width);
-      bottom = y + row[0]!.height;
+    for (const b of bs) {
+      expect(b.width).toBe(TILE.width);
+      expect(b.height).toBeLessThan(TILE.width);
+      expect(b.x).toBeGreaterThanOrEqual(frame.x + SCOPE_PAD);
+      expect(b.y).toBeGreaterThanOrEqual(SCOPE_HEADER);
+      expect(b.x + b.width).toBeLessThanOrEqual(frame.x + frame.width - SCOPE_PAD);
+      expect(b.y + b.height).toBeLessThanOrEqual(frame.height - SCOPE_PAD);
     }
-    expect(bottom).toBe(l.boxes.frame!.height);
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlap(bs[i]!, bs[j]!)).toBe(false);
+    // Columns sit a gutter apart and each column stacks its tiles a gutter apart from the header down.
+    const columns = [...new Set(bs.map((b) => b.x))].sort((a, b) => a - b);
+    expect(columns.length).toBeGreaterThan(1);
+    columns.forEach((x, i) => {
+      expect(x).toBe(frame.x + SCOPE_PAD + i * (TILE.width + TILE.gap));
+      const stack = bs.filter((b) => b.x === x).sort((a, b) => a.y - b.y);
+      let top = SCOPE_HEADER;
+      for (const b of stack) { expect(b.y).toBe(top); top = b.y + b.height + TILE.gap; }
+    });
+    expect(frame.width).toBe(columns.length * TILE.width + (columns.length - 1) * TILE.gap + 2 * SCOPE_PAD);
+    expect(frame.height).toBe(Math.max(...bs.map((b) => b.y + b.height)) + SCOPE_PAD);
+  });
+
+  it("uses one column on a phone and as many columns as the canvas shows at the readable zoom", () => {
+    const nodes = [tile("frame", { role: "scope" }), ...Array.from({ length: 30 }, (_, i) => tile(`c-${i}`, { description: "A purpose of moderate length for the tile." }))];
+    const phone = layoutAtlas(graph(nodes, "frame"), { maxColumns: columnsForCanvas(358) });
+    expect(new Set(Object.entries(phone.boxes).filter(([id]) => id !== "frame").map(([, b]) => b.x)).size).toBe(1);
+    const laptop = layoutAtlas(graph(nodes, "frame"), { maxColumns: columnsForCanvas(1120) });
+    expect(new Set(Object.entries(laptop.boxes).filter(([id]) => id !== "frame").map(([, b]) => b.x)).size).toBe(4);
+    expect(laptop.boxes.frame!.width * 0.85).toBeLessThanOrEqual(1120 - 80);
   });
 
   it("uses absolute children inside a scope background and puts context outside it", () => {
@@ -86,9 +101,9 @@ describe("layoutAtlas", () => {
     ]);
     const l = layoutAtlas(g);
     const system = l.boxes["system.main"]!;
-    expect(system).toEqual({ x: 292, y: 0, width: 560, height: 320 });
-    expect(l.boxes["ext.a"]).toMatchObject({ x: 0, y: 0, width: 260 });
-    expect(l.boxes["ext.b"]).toMatchObject({ x: 884, y: 0, width: 260 });
+    expect(system).toMatchObject({ x: TILE.width + 32, y: 0, width: TILE.systemWidth });
+    expect(l.boxes["ext.a"]).toMatchObject({ x: 0, y: 0, width: TILE.width });
+    expect(l.boxes["ext.b"]).toMatchObject({ x: TILE.width + 32 + TILE.systemWidth + 32, y: 0, width: TILE.width });
     expect(l.boxes["ext.c"]!.y).toBeGreaterThan(l.boxes["ext.a"]!.y);
     expect(l.boxes["ext.d"]!.y).toBeGreaterThan(l.boxes["ext.b"]!.y);
     expect(system.x + system.width / 2).toBe(l.width / 2);
@@ -106,23 +121,25 @@ describe("layoutAtlas", () => {
       tile("context.second", { role: "outside" }),
     ], "scope");
     const l = layoutAtlas(g);
-    expect(l.boxes["ext.actor"]).toMatchObject({ x: 0, y: 0, width: 260 });
-    expect(l.boxes["context.other"]).toMatchObject({ x: 1188, y: 0, width: 260 });
+    expect(l.boxes["ext.actor"]).toMatchObject({ x: 0, y: 0, width: TILE.width });
+    expect(l.boxes["context.other"]).toMatchObject({ x: l.boxes.scope!.x + l.boxes.scope!.width + 72, y: 0, width: TILE.width });
+    expect(l.boxes.scope!.x).toBe(TILE.width + 32);
     expect(l.boxes["context.second"]!.y).toBeGreaterThanOrEqual(l.boxes["context.other"]!.height);
     const independent = Object.entries(l.boxes).filter(([id]) => id !== "child").map(([, box]) => box);
     for (let i = 0; i < independent.length; i++) for (let j = i + 1; j < independent.length; j++) expect(overlap(independent[i]!, independent[j]!)).toBe(false);
     for (const id of ["ext.actor", "context.other", "context.second"]) {
-      expect(l.boxes[id]!.height).toBeGreaterThanOrEqual(144);
+      expect(l.boxes[id]!.height).toBeGreaterThanOrEqual(TILE.tab + TILE.titleLine);
       expect(l.boxes[id]!.y + l.boxes[id]!.height).toBeLessThanOrEqual(l.height);
     }
   });
 
   it("handles an empty graph and a leaf scope with finite positive bounds", () => {
-    expect(layoutAtlas(graph([]))).toEqual({ boxes: {}, width: 0, height: 0 });
+    expect(layoutAtlas(graph([]))).toEqual({ boxes: {}, metrics: {}, width: 0, height: 0 });
     const g = graph([tile("leaf", { role: "scope" })], "leaf");
     const l = layoutAtlas(g);
-    expect(l.boxes.leaf).toMatchObject({ x: 292, y: 0 });
-    expect(l.width).toBeGreaterThanOrEqual(216);
-    expect(l.height).toBeGreaterThanOrEqual(144);
+    // No externals: the frame starts at the left edge instead of leaving an empty perimeter column.
+    expect(l.boxes.leaf).toMatchObject({ x: 0, y: 0 });
+    expect(l.width).toBeGreaterThanOrEqual(TILE.width);
+    expect(l.height).toBeGreaterThanOrEqual(SCOPE_HEADER);
   });
 });

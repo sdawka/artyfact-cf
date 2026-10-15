@@ -23,7 +23,7 @@ export function atlasFlowNodes(graph: MapGraph, layout: AtlasLayout, extra: {
       width: box.width, height: box.height,
       handles: [{ type: "target", position: Position.Left, x: 0, y: box.height / 2, width: 0, height: 0 }, { type: "source", position: Position.Right, x: box.width, y: box.height / 2, width: 0, height: 0 }],
       style: { width: box.width, height: box.height },
-      data: { node, relation: directions.get(node.id), emphasized: extra.emphasizedIds?.has(node.id), layer: extra.layer, candidates: extra.halos.get(node.id) ?? [], dim: false, status: extra.status.get(node.id), onOpen: extra.onOpen },
+      data: { node, metrics: layout.metrics[node.id], relation: directions.get(node.id), emphasized: extra.emphasizedIds?.has(node.id), layer: extra.layer, candidates: extra.halos.get(node.id) ?? [], dim: false, status: extra.status.get(node.id), onOpen: extra.onOpen },
       selected: node.id === extra.focusId, draggable: false, connectable: false, zIndex: node.role === "scope" ? 0 : 1,
       ariaLabel: [node.name, node.kind, node.role === "outside" ? "outside this scope, inside System" : node.role === "external" ? "outside System" : node.role === "scope" ? "current scope" : "", node.description, node.childCount ? `${node.childCount} inside` : "", extra.describe(node.id)].filter(Boolean).join(", "),
     }] as MapFlowNode[];

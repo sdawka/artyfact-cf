@@ -3,7 +3,7 @@ import type { Finding } from "@artyfact/model";
 import { useReadiness } from "@/api/queries";
 import { LAYERED_RIGHT, partition, type LayoutRequest } from "@/graph/elk";
 import type { ModelIndex } from "@/model/index";
-import { kindViews, type KindViews } from "@/model/kinds";
+import { kindViews, titleOf, type KindViews } from "@/model/kinds";
 import type { Certainty, Criterion, JourneyStep, Relation } from "@/model/types";
 import { useModel } from "@/model/useModel";
 import type { Layer } from "@/model/useSelection";
@@ -20,8 +20,8 @@ export interface MapNode {
   name: string;
   role: MapRole;
   description: string;
-  /** Bounded preview of immediate real containment children. */
-  preview: Array<{ id: string; name: string; kind: string }>;
+  /** Immediate real containment children counted by kind, most numerous first (ties by kind). */
+  inside: Array<{ kind: string; count: number }>;
   /** The band (template layer id, or `depth-<n>`) a `child` is drawn in. */
   band?: string;
   /** The scope id for `child` nodes (React Flow parent). */
@@ -157,6 +157,13 @@ export function findingSubjectIds(index: ModelIndex, findings: readonly Pick<Fin
   return out;
 }
 
+/** Children counted per kind: the tile says "3 endpoints, 2 modules" instead of listing names. */
+export function countKinds(children: readonly { kind: string }[]): MapNode["inside"] {
+  const counts = new Map<string, number>();
+  for (const { kind } of children) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  return [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0));
+}
+
 export function buildMapGraph(
   index: ModelIndex,
   scope: string,
@@ -196,8 +203,8 @@ export function buildMapGraph(
     const description = typeof authored === "string" ? authored : e.type === "system" ? (index.model.description?.narrative ?? "") : "";
     const direct = index.children(id);
     return {
-      id, kind: e.kind, name: e.name, role, childCount: direct.length, description,
-      preview: direct.slice(0, 3).map(({ id, name, kind }) => ({ id, name, kind })),
+      id, kind: e.kind, name: titleOf(e, views.of(e.kind)), role, childCount: direct.length, description,
+      inside: countKinds(direct),
       ...(role === "child" && !environment && { parentId: scopeId, band: bandOf(id, e.kind) }),
     };
   };
