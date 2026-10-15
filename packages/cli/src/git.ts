@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NEVER_STAGED_DIRS, neverStaged } from "./ignore.ts";
 
 export class CliError extends Error {}
@@ -75,9 +77,32 @@ export function isPristine(cwd: string): boolean {
   return git(cwd, ["status", "--porcelain", "--untracked-files=all"]) === "";
 }
 
+/** The instruction blocks `start` / `task claim` merge into a tracked AGENTS.md (agents-md.ts). */
+const INJECTED_BLOCK = /\n?<!-- (artyfact(?:-task)?):start -->\n[\s\S]*?<!-- \1:end -->\n?/g;
+
+/**
+ * A tracked AGENTS.md is staged without the injected blocks, so they never reach a candidate; the working tree keeps
+ * them. Unstaged entirely when nothing else in it changed.
+ */
+function keepInjectedBlocksOut(cwd: string): void {
+  const head = spawnSync("git", ["show", "HEAD:AGENTS.md"], { cwd, encoding: "utf8" });
+  if (head.status !== 0 || !existsSync(join(cwd, "AGENTS.md"))) return;
+  const strip = (s: string) => s.replace(INJECTED_BLOCK, "");
+  const content = strip(readFileSync(join(cwd, "AGENTS.md"), "utf8"));
+  if (content === strip(head.stdout)) {
+    git(cwd, ["reset", "-q", "--", "AGENTS.md"]);
+    return;
+  }
+  const blob = spawnSync("git", ["hash-object", "-w", "--stdin"], { cwd, encoding: "utf8", input: content });
+  if (blob.status !== 0) throw new CliError(`git hash-object failed: ${blob.stderr.trim()}`);
+  const mode = git(cwd, ["ls-files", "-s", "--", "AGENTS.md"]).split(" ")[0]!;
+  git(cwd, ["update-index", "--cacheinfo", `${mode},${blob.stdout.trim()},AGENTS.md`]);
+}
+
 /**
  * Stage every change except dependencies, Wrangler state and secret files, and commit when anything is staged; returns
  * HEAD sha. `note` hears which paths were left unstaged. The exclusion holds even in a repo without a `.gitignore`.
+ * Injected AGENTS.md blocks stay out of the commit.
  */
 export function commitIfDirty(cwd: string, message: string, note: (s: string) => void = () => {}): string {
   if (isDirty(cwd)) {
@@ -88,6 +113,7 @@ export function commitIfDirty(cwd: string, message: string, note: (s: string) =>
       git(cwd, ["--literal-pathspecs", "reset", "-q", "--", ...dropped]);
       note(`not staged (secret files are never committed): ${dropped.join(", ")}`);
     }
+    if (staged.includes("AGENTS.md")) keepInjectedBlocksOut(cwd);
     if (spawnSync("git", ["diff", "--cached", "--quiet"], { cwd }).status === 1) {
       // Fall back to a neutral identity only when the user has none configured.
       const hasEmail = spawnSync("git", ["config", "user.email"], { cwd, encoding: "utf8" }).stdout.trim() !== "";

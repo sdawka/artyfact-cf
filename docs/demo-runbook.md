@@ -434,19 +434,21 @@ walked against real Artifacts.
 
 ## Queue path
 
-Artifacts emits `pushed` only from a **repository-level** event subscription (`--source artifacts.repo` with
-`--source-namespace` and `--source-repo-name`). The account-level `artifacts` source has `repo.created`,
-`repo.forked`, `repo.imported` and `repo.deleted`, but no push. So pushes to a new fork reach
-`artyfact-artifacts-events` only after someone creates a subscription for that fork:
+Artifacts emits `pushed` only from a **repository-level** event subscription (an `artifacts.repo` source naming the
+namespace and repo). The account-level `artifacts` source has `repo.created`, `repo.forked`, `repo.imported` and
+`repo.deleted`, but no push. So pushes to a new fork reach `artyfact-artifacts-events` only through a subscription for
+that fork. The platform creates one per fork when work starts and removes it when the realization ends; this needs the
+`CF_API_TOKEN` secret (Event Subscriptions edit) and the `EVENTS_QUEUE_ID` var ([deploy.md](deploy.md)). Without them
+it is skipped. To create one by hand (the typed flags cannot name an `artifacts.repo` source):
 
 ```sh
-pnpm exec wrangler queues subscription create artyfact-artifacts-events --source artifacts.repo --events pushed \
-  --source-namespace artyfact --source-repo-name peopling.app--task-<id>
+npx cf queues subscriptions create --body '{"name":"artyfact-peopling.app--r1","enabled":true,
+  "source":{"type":"artifacts.repo","namespace":"artyfact","repo_name":"peopling.app--r1"},
+  "events":["pushed"],"destination":{"type":"queues.queue","queue_id":"<EVENTS_QUEUE_ID>"}}'
 ```
 
 The local dev server also never receives messages from a remote queue. **`artyfact task submit` is therefore the primary
-path.** The queue consumer is a deployed-only convenience. Wiring it needs a subscription per fork at start, which in
-turn needs an API token in the Worker, and that is not built. When a push and a CLI submit both arrive, they
+path.** The queue consumer is a deployed-only safety net. When a push and a CLI submit both arrive, they
 converge on one candidate per (attempt, commit). The route tests cover that, including duplicate delivery.
 
 ## Timings (recorded run, before the plan flow)

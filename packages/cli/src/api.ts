@@ -1,3 +1,4 @@
+import { Agent, fetch as undiciFetch } from "undici";
 import { CliError } from "./git.ts";
 import { assertBearerTransport } from "./platform-url.ts";
 import { sendJson, type FetchLike } from "./transport.ts";
@@ -18,6 +19,14 @@ export class PlatformError extends CliError {
   }
 }
 
+let untimed: Agent | undefined;
+/**
+ * fetch without undici's 300 s headers/body timeouts, for admin calls that can run for minutes (plan integrate and
+ * promote, operator verification start). Node's fetch would cancel them while the server keeps working.
+ */
+export const longFetch = ((input: string, init?: RequestInit) =>
+  undiciFetch(input, { ...(init as object), dispatcher: (untimed ??= new Agent({ headersTimeout: 0, bodyTimeout: 0 })) })) as unknown as typeof fetch;
+
 export class PlatformClient {
   readonly base: string;
   readonly #secret: string | undefined;
@@ -31,8 +40,9 @@ export class PlatformClient {
     this.#fetch = fetchImpl;
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await sendJson(this.#fetch, { method, base: this.base, path, body, token: this.#secret, target: "platform" });
+  /** `opts.long`: no headers timeout (see {@link longFetch}) unless a fetch was injected. */
+  async request<T>(method: string, path: string, body?: unknown, opts: { long?: boolean } = {}): Promise<T> {
+    const res = await sendJson(this.#fetch ?? (opts.long ? longFetch : undefined), { method, base: this.base, path, body, token: this.#secret, target: "platform" });
     if (!res.ok) {
       let detail = res.text;
       let code: string | undefined, details: unknown, message: string | undefined;

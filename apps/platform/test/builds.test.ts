@@ -791,4 +791,20 @@ describe("push subscriptions", () => {
     // b had no candidate, so the promotion did not end it: its subscription stays.
     expect(await subOf(b.rid)).toBe("sub-2");
   });
+
+  it("start work that fails after creating the subscription removes it", async () => {
+    setSubscriptionsOverride({ fetch: fakeApi, config: cfg });
+    const ctx = await imported();
+    const proto = await inDo(ctx.systemId, (i) => Object.getPrototypeOf(i) as SystemAuthority);
+    const original = proto.setRealizationSubscription;
+    proto.setRealizationSubscription = () => { throw new Error("storage down"); };
+    try {
+      const s = await call("POST", `/systems/${ctx.systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN);
+      expect(s.status).toBe(500);
+    } finally {
+      proto.setRealizationSubscription = original;
+    }
+    expect(apiCalls.map((x) => x.method)).toEqual(["POST", "DELETE"]);
+    expect(apiCalls[1]).toMatchObject({ url: expect.stringMatching(/\/sub-1$/) });
+  });
 });

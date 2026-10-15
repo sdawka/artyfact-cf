@@ -37,7 +37,7 @@ it('polls only the configured verifier and refuses identity substitution before 
  const configured={...env,VERIFICATION_URL:'https://verify.example.test',VERIFICATION_TOKEN:'private-test-token'};
  let result:VerificationResult;
  const transport=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
-  expect(String(input)).toMatch(/^https:\/\/verify.example.test\/verify/);expect(new Headers(init?.headers).get('authorization')).toBe('Bearer private-test-token');
+  expect(String(input)).toMatch(/^https:\/\/verify.example.test\/verify/);expect(new Headers(init?.headers).get('authorization')).toBe('Bearer private-test-token');expect(init?.redirect).toBe('manual');
   if(init?.method==='POST'){const request=JSON.parse(String(init.body));result={version:1,request,status:'queued',steps:[]};}
   return Response.json(result);
  }) as unknown as typeof fetch;
@@ -51,6 +51,15 @@ it('polls only the configured verifier and refuses identity substitution before 
  const promoted=await call('POST',`${root}/promote`,{expectedHead:review.expectedHead,candidateIds:review.bindings.map(b=>b.candidateId),rationale:'Human approval'},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
  const activation=await activationDescriptor(configured,f.systemId,p.id,'artifact.webapp');
  expect(activation.source).toEqual(original.request.source);expect(activation.genome).toEqual(original.request.genome);expect(activation.systemCommit).toBe((await systemStub(env,f.systemId).state())!.head);
+});
+
+it('refuses a verifier redirect as 502 verification-unavailable without following it',async()=>{
+ const {f,p}=await integrated();
+ const {startVerification}=await import('../worker/verification');
+ const configured={...env,VERIFICATION_URL:'https://verify.example.test',VERIFICATION_TOKEN:'private-test-token'};
+ const transport=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{expect(init?.redirect).toBe('manual');return new Response(null,{status:302,headers:{location:'https://elsewhere.example.test/'}});}) as unknown as typeof fetch;
+ await expect(startVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).rejects.toMatchObject({status:502,code:'verification-unavailable'});
+ expect(transport).toHaveBeenCalledTimes(1);
 });
 
 it('refreshes immediate and cached success, recovering an interrupted evidence update',async()=>{

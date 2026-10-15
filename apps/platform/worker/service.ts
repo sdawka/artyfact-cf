@@ -448,6 +448,7 @@ export async function startWork(
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
+  let subscription: string | null = null;
   try {
     await registryStub(env).registerRealization(rid, systemId, evolutionId, reserved.forkRepo);
     const ns = artifactsFor(env);
@@ -478,7 +479,7 @@ export async function startWork(
     }
     const realization = activated;
     // B3: the fork's push subscription feeds the queue safety net (best effort; a no-op without CF_API_TOKEN).
-    const subscription = await ensurePushSubscription(env, reserved.forkRepo);
+    subscription = await ensurePushSubscription(env, reserved.forkRepo);
     if (subscription) await stub.setRealizationSubscription(rid, subscription);
     await refreshRegistry(env, systemId);
     const cli = packet.startCommand.replace("<token>", token.plaintext).replace("<secret>", secret);
@@ -495,6 +496,7 @@ export async function startWork(
       registryStub(env).unregisterRealization(systemId, rid),
     ];
     if (tokenId) cleanup.push(withRepo(artifactsFor(env), reserved.forkRepo, (r) => r.revokeToken(tokenId!)));
+    if (subscription) cleanup.push(removePushSubscription(env, subscription));
     for (const r of await Promise.allSettled(cleanup)) {
       if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
     }

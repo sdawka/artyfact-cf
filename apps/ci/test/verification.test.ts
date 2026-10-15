@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { VerificationRequest, VerificationResult } from "@artyfact/model";
 import { verificationModelDigest } from "@artyfact/model";
 import {
+  authorized,
   authorizeVerification,
   createQueuedResult,
   failQueuedResult,
@@ -308,5 +309,24 @@ describe("verification result store", () => {
     }), deps);
     expect(response.status).toBe(202);
     expect((await response.json() as VerificationResult).status).toBe("running");
+  });
+});
+
+describe("authorized", () => {
+  it("accepts the bare token when the configured secret ends with a newline", async () => {
+    expect(await authorized("Bearer s3cret", "s3cret\n")).toBe(true);
+    expect(await authorized("Bearer s3cret", "s3cret\r\n")).toBe(true);
+  });
+
+  it("still matches the header exactly", async () => {
+    expect(await authorized("Bearer s3cret\n", "s3cret\n")).toBe(false);
+    expect(await authorized("Bearer s3cret ", "s3cret")).toBe(false);
+    expect(await authorized("Bearer s3cre", "s3cret")).toBe(false);
+  });
+
+  it("rejects everything when the secret is empty or whitespace", async () => {
+    expect(await authorized("Bearer ", "")).toBe(false);
+    expect(await authorized("Bearer ", "\n")).toBe(false);
+    expect(await authorized("Bearer  ", "  ")).toBe(false);
   });
 });

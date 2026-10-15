@@ -11,7 +11,7 @@
   "homepage": "https://github.com/sdawka/artyfact-cf/tree/main/packages/cli#readme",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19"
   },
   "exports": {
     "./naming": "./src/naming.ts",
@@ -36,6 +36,7 @@
     "@artyfact/ontology": "workspace:*",
     "@artyfact/templates": "workspace:*",
     "picomatch": "^4.0.7",
+    "undici": "^8.11.2",
     "yaml": "^2.9.1",
     "@types/node": "^26.6.5",
     "@types/picomatch": "^4.0.3"

@@ -28,11 +28,11 @@ FAKE_S1=1
 ALLOW_LOCAL_PREVIEW=1
 # Extra preview hosts, comma-separated (*.workers.dev and *.pages.dev are always allowed).
 PREVIEW_HOST_ALLOWLIST=
-# CI (artyfact-ci Workflow): bearer CI sends with build reports, the API token it deploys app Workers with, and the
-# artyfact-artifacts-events queue id per-fork event subscriptions deliver to. Leave empty to run without CI.
+# CI (artyfact-ci Workflow): bearer CI sends with build reports. Leave empty to run without CI.
 CI_REPORT_TOKEN=
+# Account API token (Event Subscriptions edit) for per-fork push subscriptions to EVENTS_QUEUE_ID (a wrangler.jsonc var);
+# CI deploys with its own CF_TOKEN. Keep it unset locally: local subscriptions would deliver to the production queue.
 CF_API_TOKEN=
-EVENTS_QUEUE_ID=
 # Optional runtime metrics / Flagship controls. Only configured System/artifact bindings are accessible.
 # See docs/design/lifecycle.md for the operations boundary; leave empty to show unavailable state.
 OPERATIONS_BINDINGS=

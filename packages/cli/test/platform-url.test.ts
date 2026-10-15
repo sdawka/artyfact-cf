@@ -75,3 +75,29 @@ describe("assertBearerTransport", () => {
     expect(() => new PlatformClient("http://p.example")).not.toThrow();
   });
 });
+
+describe("PlatformClient long requests", () => {
+  it("send the same request through the untimed dispatcher and parse the answer", async () => {
+    const { createServer } = await import("node:http");
+    const { PlatformClient } = await import("../src/api.ts");
+    const seen: { method?: string; auth?: string; body: string }[] = [];
+    const server = createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        seen.push({ method: req.method, auth: req.headers.authorization, body });
+        // Headers arrive late, as from a long integrate.
+        setTimeout(() => res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}'), 200);
+      });
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    try {
+      const { port } = server.address() as { port: number };
+      const client = new PlatformClient(`http://127.0.0.1:${port}`, "s3cret");
+      expect(await client.request("POST", "/api/x", { a: 1 }, { long: true })).toEqual({ ok: true });
+      expect(seen).toEqual([{ method: "POST", auth: "Bearer s3cret", body: '{"a":1}' }]);
+    } finally {
+      server.close();
+    }
+  });
+});

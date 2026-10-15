@@ -246,8 +246,10 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
   }
 }
 
-export async function authorized(header: string | null, token: string): Promise<boolean> {
-  if (!token || !header?.startsWith("Bearer ")) return false;
+export async function authorized(header: string | null, configured: string): Promise<boolean> {
+  // A secret piped through `echo ... | wrangler secret put` keeps its newline; only the configured side is trimmed.
+  const token = configured.replace(/[\r\n]+$/, "");
+  if (!token.trim() || !header?.startsWith("Bearer ")) return false;
   const values = await Promise.all([header.slice(7), token].map((value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))));
   const [left, right] = values.map((value) => new Uint8Array(value));
   let difference = 0;

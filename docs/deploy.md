@@ -16,6 +16,8 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Queue consumer | `artyfact-artifacts-events` | `pnpm exec wrangler queues create artyfact-artifacts-events` before the first deploy |
 | Artifacts namespace `artyfact` | `platform`, `peopling.genome`, `peopling.app` repos | `artyfact init` (runbook step 2), not this doc |
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
+| Secret `CF_API_TOKEN` | account token with Event Subscriptions edit; enables per-fork push subscriptions to `artyfact-artifacts-events`. Not CI's deploy token (`CF_TOKEN`) | `wrangler secret put` (optional) |
+| Var `EVENTS_QUEUE_ID` | id of `artyfact-artifacts-events`, the destination of per-fork subscriptions | `wrangler.jsonc` `vars` |
 | R2 bucket `artyfact-evidence` (binding `EVIDENCE`) | screenshots for visual checks | `pnpm exec wrangler r2 bucket create artyfact-evidence` before the first deploy |
 | Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `pnpm run dev` adds both; the deployed hosted demo has neither |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
@@ -73,6 +75,15 @@ unset production_admin_token
 ```
 
 On 2026-10-14, the replacement credential initially returned 403 on the protected read after secret activation at 12:19:33Z, then 200 without another upload; it also returned 200 after deployment. No exact propagation duration is established.
+
+## Rotating VERIFICATION_TOKEN
+
+`artyfact-ci` checks `VERIFICATION_TOKEN` on `/verify` and `/site-deploys`; the platform and the operator send the same value.
+
+1. Generate it into an unexported variable: `t=$(openssl rand -hex 32)`.
+2. Upload it without a trailing newline (run in `apps/ci`): `printf %s "$t" | pnpm exec wrangler secret put VERIFICATION_TOKEN --name artyfact-ci`.
+3. Put the same value in the operator `--vars-file` and in the platform's `VERIFICATION_TOKEN` secret (`apps/platform`).
+4. Check it: `GET https://artyfact-ci.<subdomain>.workers.dev/site-deploys/latest` with `Authorization: Bearer $t` (sent through stdin as above). 401 means a mismatch; 200 or 404 means the token was accepted. Then `unset t`.
 
 ## Migrate a v1 Genome
 
