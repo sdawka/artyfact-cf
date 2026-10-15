@@ -67,6 +67,8 @@ checkpoint. The platform then treats the candidate as code **and** a model propo
   is refused (all 409 `model-delta-invalid`). The DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
   compare-and-swap that moves the app head, exactly as `accept` does for a Genome amendment fork. Open plans pinned to
   the previous Genome are checked by `assertGenomeCompatible` as after any accept.
+- Task scope includes every ancestor on its nodes' and criteria' containment paths, so accepting any Genome amendment
+  under the same Thing makes `assertGenomeCompatible` refuse the open plan with 409 `replan-required`.
 - The promoted app head is the integrated fork commit, so it carries the pinned Genome under `system/` whether or not a
   delta was accepted. Compare and the Changelog list those paths apart from the app's files, as one collapsed "Pinned
   Genome copy under system/" row naming the Genome commit it equals, and leave them out of the App count.
