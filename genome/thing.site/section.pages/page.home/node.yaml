@@ -4,4 +4,11 @@ fields:
   name: Home
   route: /
   rendering: prerendered
-  description: Introduces Artyfact through one illustrative application shown as Genome, Proteome and Phenome, so a visitor learns what the platform is for. Below the story it shows the model's nesting with three defined terms, the practices as grouped rows, the agent environment as three zones (brief, guardrails, freedom) with the parallel-agents line pulled out and three rows contrasting local worktrees, unbounded cloud and Artifacts with intent, the Cloudflare backbone diagram with each product's job, and a closing panel with every way to get Artyfact (the source on GitHub, the hosted platform, the agent guide, how it works, the theory).
+  description: Introduces Artyfact as the Git platform that keeps track of meaning, not just information, so a visitor learns what the platform is for. The hero contrasts Git's factory floor for files with a model of what the product is for. A thesis band follows with four beats (a product evolves with its builders and users, many roles shape it continuously, agents need rails and room, and once the theory says where and what to change the code is mostly translation that cheaper or local models can do for simple Tasks) and the three views of one model (Genome, Proteome as the agents and the code they write, Phenome). Then an illustrative checkout lifecycle story, and below it the model's nesting with three defined terms, the practices as grouped rows, the agent environment as three zones (brief, guardrails, freedom) with the parallel-agents line pulled out and three rows contrasting local worktrees, unbounded cloud and Artifacts with intent, the Cloudflare backbone diagram with each product's job, and a closing panel with every way to get Artyfact (the source on GitHub, the hosted platform, the agent guide, how it works, the theory).
+files:
+  - src/pages.tsx
+  - src/LandingStory.tsx
+  - src/ModelNesting.tsx
+  - src/PracticeStack.tsx
+  - src/practiceStackData.ts
+  - src/AgentEnvironment.tsx

@@ -243,7 +243,7 @@ describe("the Artyfact self-Genome", () => {
     expect(manifest.version).toBe(1);
     expect(Buffer.byteLength(JSON.stringify(manifest), "utf8")).toBeLessThanOrEqual(128 * 1024);
     expect(manifest.nodes.map((entry) => entry.nodeId).sort()).toEqual([
-      "J.author-intent", "commitment.integrity-review", "commitment.intent-fidelity", "feature.intent-integrity", "system.artyfact",
+      "J.author-intent", "commitment.integrity-review", "commitment.intent-fidelity", "feature.intent-integrity", "system.artyfact", "thing.site",
     ]);
     for (const entry of manifest.nodes) {
       expect(entry.briefSections.length, entry.nodeId).toBeGreaterThan(0);

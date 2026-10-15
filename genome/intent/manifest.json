@@ -38,6 +38,11 @@
         { "path": "docs/design/intent-integrity.md", "hash": "sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766" },
         { "path": "docs/decision_log.md", "hash": "sha256:bfbd8c8903c093f3bc4ddb0155afc1bc5506570c2a81d13d6ce0701b67329de8" }
       ]
+    },
+    {
+      "nodeId": "thing.site",
+      "briefSections": ["public-site"],
+      "documents": []
     }
   ]
 }

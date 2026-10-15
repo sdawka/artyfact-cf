@@ -3,7 +3,7 @@ kind: step
 fields:
   step: revise
   actor: user
-  action: Reads what happened against the claims the product makes and describes the next change, so the model and the product move together.
+  action: Reads what happened against the claims the product makes and describes the next change. A product keeps evolving with the people who build and use it, so the model and the product move together.
   kind: end
   next:
     - to: propose
