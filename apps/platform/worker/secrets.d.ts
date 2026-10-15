@@ -1,6 +1,8 @@
 // Secrets are not in wrangler.jsonc, so `wrangler types` does not emit them.
 // Keep in sync with .dev.vars.example.
 interface Secrets {
+  VERIFICATION_URL?: string;
+  VERIFICATION_TOKEN?: string;
   /** Bearer token required for admin routes (import, promote, accept, reject). */
   ADMIN_TOKEN: string;
   /** System One providers, in this order: FAKE_S1=1 (local and tests only), TypeSafe, Clef (the AI binding), OpenRouter; none is off. */

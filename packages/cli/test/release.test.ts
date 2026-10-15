@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Cloud } from "../src/cloud.ts";
 import { main } from "../src/main.ts";
-import { BUILDS_REPO, WORKERS, release, releaseTag, type ReleaseIo } from "../src/release.ts";
+import { BUILDS_REPO, WORKERS, modelDigestAt, release, releaseTag, type ReleaseIo } from "../src/release.ts";
 
 for (const k of Object.keys(process.env)) {
   if (/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|COMMON_DIR|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|QUARANTINE_PATH|NAMESPACE|CEILING_DIRECTORIES|CONFIG\w*)$/.test(k)) delete process.env[k];
@@ -44,14 +44,15 @@ function localCloud(root: string) {
 /** A monorepo stand-in: one commit, a `genome/` dir, and build outputs shaped like the real ones. */
 function sourceRepo(name: string) {
   const root = join(tmp, name);
-  mkdirSync(join(root, "genome"), { recursive: true });
-  writeFileSync(join(root, "genome/node.yaml"), "id: system.artyfact\n");
+  mkdirSync(join(root, "system"), { recursive: true });
+  writeFileSync(join(root, "system/node.yaml"), "id: system.artyfact\n");
   writeFileSync(join(root, "package.json"), "{}\n");
+  mkdirSync(join(root, "apps/site"), { recursive: true });
+  writeFileSync(join(root, "apps/site/wrangler.jsonc"), `{ "name": "artyfact-site", "assets": { "directory": "./dist" } }\n`);
+  writeFileSync(join(root, ".gitignore"), "dist/\n");
   sh(root, "init", "-q", "-b", "main");
   sh(root, "add", "-A");
   sh(root, ...IDENT, "commit", "-q", "-m", "source");
-  mkdirSync(join(root, "apps/site"), { recursive: true });
-  writeFileSync(join(root, "apps/site/wrangler.jsonc"), `{ "name": "artyfact-site", "assets": { "directory": "./dist" } }\n`);
   return { root, head: sh(root, "rev-parse", "HEAD") };
 }
 
@@ -89,8 +90,9 @@ function harness(name: string, cloudRoot = join(tmp, `${name}-cloud`)) {
 }
 
 describe("releaseTag", () => {
-  it("is v<yyyymmdd>-<sha7>", () => {
-    expect(releaseTag(new Date("2026-10-14T23:59:59Z"), "abc1234def0000000000000000000000000000000")).toBe("v20261014-abc1234");
+  it("is stable across dates for the same immutable source", () => {
+    const commit = "abc1234def0000000000000000000000000000000";
+    expect(releaseTag(new Date("2026-10-14T23:59:59Z"), commit)).toBe(releaseTag(new Date("2026-10-15T00:00:01Z"), commit));
   });
 });
 
@@ -98,7 +100,7 @@ describe("artyfact release", () => {
   it("pushes the build outputs, a manifest and a tag to platform.builds, then deploys from that checkout", async () => {
     const h = harness("full");
     const r = await release({}, h.io);
-    const tag = `v20261014-${h.head.slice(0, 7)}`;
+    const tag = releaseTag(new Date("2026-10-14T21:05:00Z"), h.head);
     expect(r.action).toBe("created");
     expect(r.manifest.version).toBe(tag);
     expect(h.builds).toEqual([h.root]);
@@ -114,10 +116,10 @@ describe("artyfact release", () => {
     expect(files.some((f) => f.includes(".vite") || f.startsWith("genome/") || f === "package.json")).toBe(false);
     for (const w of WORKERS) expect(files).toContain(w.config);
 
-    // Manifest: source commit, Genome tree, build time, workers and tool versions.
+    // Manifest: source commit, accepted model prefix/digest, build time, workers and tool versions.
     const manifest = JSON.parse(h.fileAt("release.json"));
     expect(manifest).toMatchObject({
-      version: tag, gitCommit: h.head, genomeTree: sh(h.root, "rev-parse", "HEAD:genome"), builtAt: "2026-10-14T21:05:00.000Z",
+      version: tag, gitCommit: h.head, genome: { commit: h.head, prefix: "system", digest: modelDigestAt(h.root, h.head, "system") }, builtAt: "2026-10-14T21:05:00.000Z",
       workers: { "artyfact-platform": { config: "platform/artyfact_platform/wrangler.json" }, "artyfact-site": { config: "site/wrangler.jsonc" } },
     });
     expect(manifest.versions.node).toBe(process.version);
@@ -154,6 +156,16 @@ describe("artyfact release", () => {
     expect(h.deploys.map((d) => d.config)).toEqual(WORKERS.map((w) => w.config));
   });
 
+  it("reuses the same release on a later UTC date", async () => {
+    const h = harness("cross-day");
+    const first = await release({}, h.io);
+    h.io.now = () => new Date("2026-10-15T21:05:00Z");
+    const second = await release({}, h.io);
+    expect(second.action).toBe("reused");
+    expect(second.manifest.version).toBe(first.manifest.version);
+    expect(second.buildsCommit).toBe(first.buildsCommit);
+  });
+
   it("--dry-run builds and stages but creates no repo, pushes nothing and deploys with --dry-run", async () => {
     const h = harness("dry");
     const r = await release({ dryRun: true }, h.io);
@@ -178,11 +190,14 @@ describe("artyfact release", () => {
     expect(sh(h.root, "--git-dir", h.lc.path("artyfact", BUILDS_REPO), "rev-parse", "main")).toBe(before);
   });
 
-  it("fails closed on a dirty source tree, a missing build and --no-deploy skips deploys", async () => {
+  it("fails closed on tracked or untracked source inputs, a missing build and --no-deploy skips deploys", async () => {
     const h = harness("closed");
     writeFileSync(join(h.root, "package.json"), "{ }\n");
-    await expect(release({}, h.io)).rejects.toThrow(/uncommitted changes/);
+    await expect(release({}, h.io)).rejects.toThrow(/uncommitted or untracked changes/);
     sh(h.root, "checkout", "--", "package.json");
+    writeFileSync(join(h.root, "untracked-input.ts"), "export {}\n");
+    await expect(release({}, h.io)).rejects.toThrow(/uncommitted or untracked changes/);
+    rmSync(join(h.root, "untracked-input.ts"));
     await expect(release({ noBuild: true }, h.io)).rejects.toThrow(/apps\/platform\/dist is missing/);
     expect(h.lc.calls).toEqual([`createRepo artyfact/${BUILDS_REPO}`, `token ${BUILDS_REPO} write`]);
     const r = await release({ noDeploy: true }, h.io);

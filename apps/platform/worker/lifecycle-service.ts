@@ -1,3 +1,5 @@
+import { cloudEvaluations } from './verification-evidence';
+import { needsCloudVerification } from './do/verification-store';
 import { dispatchPreviewBuild } from './deployments';
 import { compareExplicitFile } from './compare';
 import { acceptedTemplateResolver } from './ontology-packages/store';
@@ -147,7 +149,7 @@ async function runCandidate(env:Env,p:RealizationPlan,task:Pick<Task,'checks'|'w
  // Same freshness rule as the legacy gate: latest evaluation per blocking criterion binds this candidate (commit, Genome or preview).
  const evidenceFreshNow=evidenceFresh(g.model,{acceptanceCriteria:task.checks},ref,await stub.evaluations(candidate.id),candidate.submittedAt,p.genome.commit);
  const ctx:SubmissionContext={systemId:p.systemId,candidate:ref,genomeCommit:p.genome.commit,genomeFiles:Object.fromEntries(g.files),tree,permittedPaths:taskPermittedGlobs(task.footprint.globs),protectedPaths:TASK_PROTECTED,openCandidates:[],trigger,evolution:{id:'',kind:'implementation',acceptanceCriteria:task.checks,affectedNodes:task.writeNodes,state:'realizing'},...(trigger==='promotion'&&{promotionFacts:{currentBaseCommit:task.base.commit,manifestExact:exact,evidenceFresh:evidenceFreshNow}})};
- const evaluations=await hookRunner(env,acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates).runSubmission(ctx);await stub.recordEvaluations(candidate.id,evaluations,'evaluated',trigger==='promotion');return evaluations;
+ const raw=await hookRunner(env,acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates).runSubmission(ctx);const result=(await stub.verifications(p.id)).find(v=>v.request.candidateId===candidate.id)??null;const evaluations=cloudEvaluations(g.model,raw,result);await stub.recordEvaluations(candidate.id,evaluations,'evaluated',trigger==='promotion');return evaluations;
 }
 export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown):Promise<TaskSubmitResponse> {
  const i=parse(submitSchema,body),stub=systemStub(env,sid),f=await rpc(stub.lifecycleFence(pid,tid,i.attemptId,i.generation));await assertGenomeCompatible(env,f.plan);
@@ -248,6 +250,7 @@ export async function integrateLifecyclePlan(env:Env,sid:string,pid:string,platf
 export async function reviewLifecyclePlan(env:Env,sid:string,pid:string):Promise<ImplementationReview> {
  const stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid)),state=await stub.state(),g=await genomeAt(env,sid,p.genome.commit,p.genome.repo),evaluations:Evaluation[]=[],candidates:Candidate[]=[],blockers:string[]=[];
  if(p.status!=='integrated')blockers.push('Integrate all selected tasks before promotion.');
+ const verifications=await stub.verifications(pid);if(needsCloudVerification(p)||verifications.length){try{await stub.assertPlanVerified(pid);}catch(e){blockers.push((e as Error).message);}if(state?.genomeCommit!==p.genome.commit)blockers.push('The verified model changed; replan before promotion.');}
  const withModel=p.integration.filter(b=>b.model);if(withModel.length>1)blockers.push('Several integrated bindings change the model; only one Genome can be accepted per promotion.');
  const modelDelta=withModel[0]?{source:withModel[0].source,model:withModel[0].model!}:undefined;if(modelDelta?.model.loadError)blockers.push(`The integrated model does not load: ${modelDelta.model.loadError}`);
  try{await assertGenomeCompatible(env,p);}catch(e){blockers.push((e as Error).message);}
@@ -263,7 +266,7 @@ export async function reviewLifecyclePlan(env:Env,sid:string,pid:string):Promise
    const off=new Set(gate.offTriggerHooks??[]),rows=es.filter(e=>e.criterion===gate.id&&!(e.execution==='not-run'&&off.has(e.hook)));if(!rows.length||rows.some(e=>e.execution!=='completed'||e.verdict!=='pass'))blockers.push(`Integrated ${binding.artifactId}: ${gate.id} is not passing.`);
   }
  }
- return {plan:p,bindings:p.integration,candidates,evaluations,ready:blockers.length===0,blockers,expectedHead:state?.head??null,layers:evidenceLayers(g.model,evaluations),...(modelDelta&&{modelDelta})};
+ return {plan:p,bindings:p.integration,candidates,evaluations,verifications,verificationRequired:needsCloudVerification(p)||verifications.length>0,ready:blockers.length===0,blockers,expectedHead:state?.head??null,layers:evidenceLayers(g.model,evaluations),...(modelDelta&&{modelDelta})};
 }
 export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:unknown):Promise<PlanPromoteResponse> {
  const input=parse(promoteSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid));await assertGenomeCompatible(env,p);

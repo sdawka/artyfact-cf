@@ -1,3 +1,4 @@
+import { startVerification, pollVerification, activationDescriptor, verificationOutput } from '../verification';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { requireAdmin, requireRealizationSecret } from '../auth';
 import { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan, promoteLifecyclePlan, reviewLifecycleFile, reviewLifecyclePlan, selectLifecycleTask, startLifecycleTask, submitLifecycleTask } from '../lifecycle-service';
@@ -26,6 +27,10 @@ export const lifecycle=new Hono<AppEnv>()
  .get(`${plan}/review/files`,async c=>c.json(await reviewLifecycleFile(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'',c.req.query('path')??'')))
  .post(`${plan}/integrate`,requireAdmin,reviewed,async c=>c.json(await integrateLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),origin(c))))
  .post(`${plan}/promote`,requireAdmin,reviewed,async c=>c.json(await promoteLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
+ .post(`${plan}/verification/start`,requireAdmin,reviewed,async c=>c.json(await startVerification(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
+ .post(`${plan}/verification/poll`,requireAdmin,reviewed,async c=>c.json(await pollVerification(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
+ .get(`${plan}/activation`,requireAdmin,async c=>c.json(await activationDescriptor(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'')))
+ .get(`${plan}/verification/output`,requireAdmin,async c=>verificationOutput(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??''))
  .get(`${task}/review`,async c=>c.json(await reviewLifecycleTask(c.env,...ids(c))))
  .get(`${task}/review/files`,async c=>c.json(await reviewLifecycleTaskFile(c.env,...ids(c),c.req.query('candidateId')??'',c.req.query('path')??'')))
  .post(`${task}/checkpoint`,async c=>{await authed(c);return c.json(await checkpointLifecycleTask(c.env,...ids(c),await body(c)));})

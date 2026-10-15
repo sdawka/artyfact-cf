@@ -1,5 +1,6 @@
 /** SystemAuthority SQLite schema (backend.md B.2 plus platform tables). Applied idempotently on construction. */
 export const SCHEMA = `
+CREATE TABLE IF NOT EXISTS plan_verifications (plan_id TEXT NOT NULL, artifact_id TEXT NOT NULL, result_json TEXT NOT NULL, PRIMARY KEY(plan_id,artifact_id));
 CREATE TABLE IF NOT EXISTS head (k TEXT PRIMARY KEY, v TEXT);
 CREATE TABLE IF NOT EXISTS system_commits (id TEXT PRIMARY KEY, parent TEXT, manifest_json TEXT NOT NULL, manifest_hash TEXT NOT NULL,
   evolution_ids TEXT NOT NULL, decision_json TEXT NOT NULL, created_at TEXT NOT NULL);

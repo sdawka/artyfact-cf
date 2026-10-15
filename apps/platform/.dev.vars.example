@@ -37,3 +37,7 @@ EVENTS_QUEUE_ID=
 # See docs/design/lifecycle.md for the operations boundary; leave empty to show unavailable state.
 OPERATIONS_BINDINGS=
 OPERATIONS_API_TOKEN=
+
+# Trusted cloud verifier for the local operator (same secret as artyfact-ci).
+VERIFICATION_URL="https://artyfact-ci.dawka.workers.dev"
+VERIFICATION_TOKEN=""

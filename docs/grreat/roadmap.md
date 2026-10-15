@@ -1,7 +1,15 @@
 <!-- grreat:record id=roadmap.next kind=roadmap_item status=active parent=goal.north-star -->
 # Intent authoring and ontology integrity
 
-## Active follow-up: intent and integrity foundations
+## Active follow-up: local self-development bootstrap
+
+- Intended outcome: one improvement planned in local Artyfact, implemented by a local agent, verified on Cloudflare, approved in Artyfact, then run by the local instance. Hosted operation follows later.
+- Baseline: merged UI refresh #83 plus Task/model forks and Artifacts publisher #84. Reuse Work, Review, exact integrated fork references, and explicit model approval.
+- Work: (1) verification-only Cloudflare Workflow with immutable source/model identity, test evidence and output digest, no deployment credentials; (2) trusted polling into local Review and promotion guards; (3) publish verified outputs without rebuilding and activate the approved source with persistent local state; (4) use that loop for development events, transactional outbox, authenticated K2 and explicit Basin analytics bridge.
+- Acceptance: failed, stale, mismatched or forged CI cannot approve; explicit model approval names the accepted model; retries reuse the same output/release; local restart retains history; replay deduplicates by event ID. Prove the complete loop against real Cloudflare separately from local/fake-provider tests.
+- Constraints: source remains at its approved Artifacts fork/commit; no required source-main synchronization. Development analytics stays separate from runtime observations. Approval is a human action. Hosting the operator is deferred.
+
+## Earlier follow-up: intent and integrity foundations
 
 The user approved the foundation scope and repairing/enriching Artyfact’s app System map. The user approved implementation of the [architectural design](../design/intent-integrity.md); the [implementation plan](../design/intent-integrity-plan.md) defines ownership, contracts, tests and acceptance. Canonical Markdown remains authoritative; preserve existing release evidence and the earlier work below.
 

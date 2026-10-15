@@ -5,6 +5,7 @@
  * repo is the deployment record. Design: docs/design/release-artifacts.md.
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -40,12 +41,12 @@ export const WORKERS: ReleaseWorker[] = [
 ];
 
 export interface ReleaseManifest {
-  /** Tag name, `v<yyyymmdd>-<7-char git sha>`. */
+  /** Stable tag name derived from the immutable source, independent of retry date. */
   version: string;
   /** Monorepo commit the outputs were built from. */
   gitCommit: string;
-  /** Tree hash of the repo-root `genome/` at that commit: the self-Genome (`system.artyfact`) these outputs realize. */
-  genomeTree: string;
+  /** Model snapshot built into this source. Integrated sources carry the accepted model under `system/`. */
+  genome: { commit: string; prefix: "system" | "genome"; digest: string };
   builtAt: string;
   workers: Record<string, { config: string }>;
   versions: { node: string; wrangler?: string };
@@ -72,7 +73,6 @@ export interface ReleaseOptions {
   dryRun?: boolean;
   noBuild?: boolean;
   noDeploy?: boolean;
-  allowDirty?: boolean;
 }
 
 export interface ReleaseResult {
@@ -86,10 +86,27 @@ export interface ReleaseResult {
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRoot = () => resolve(here, "../../..");
 
-/** `v20261014-abc1234` from a build date (UTC) and the source commit. */
-export function releaseTag(date: Date, gitCommit: string): string {
-  const ymd = date.toISOString().slice(0, 10).replaceAll("-", "");
-  return `v${ymd}-${gitCommit.slice(0, 7)}`;
+/** Stable for an immutable source commit; `date` remains for source compatibility with the PR #84 API. */
+export function releaseTag(_date: Date, gitCommit: string): string {
+  return `v-${gitCommit.slice(0, 12)}`;
+}
+
+/** A portable SHA-256 over sorted model paths and bytes at an exact commit. */
+export function modelDigestAt(root: string, commit: string, prefix: string): string {
+  const args = ["ls-tree", "-r", "--name-only", "-z", commit, ...(prefix ? ["--", prefix] : [])];
+  const listed = git(root, args).split("\0").filter(Boolean).filter((path) => {
+    const relative = prefix ? path.slice(prefix.length + 1) : path;
+    return /\.ya?ml$/.test(relative) || relative === "intent/brief.md" || relative === "intent/manifest.json";
+  });
+  if (!listed.length) throw new CliError(`${prefix}/ is missing from source ${commit.slice(0, 12)}`);
+  const entries: [string, string][] = [];
+  for (const path of listed.sort()) {
+    const relative = prefix ? path.slice(prefix.length + 1) : path;
+    const shown = spawnSync("git", ["show", `${commit}:${path}`], { cwd: root, encoding: null });
+    if (shown.status !== 0) throw new CliError(`cannot read ${path} at ${commit.slice(0, 12)}`);
+    entries.push([relative, shown.stdout.toString("utf8")]);
+  }
+  return createHash("sha256").update(JSON.stringify(entries)).digest("hex");
 }
 
 function defaultBuild(root: string): void {
@@ -147,9 +164,11 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
 
   // 1. Source facts, fail closed on a dirty tree: the record must name the commit that was built.
   const gitCommit = git(root, ["rev-parse", "HEAD"]);
-  if (!opts.allowDirty && git(root, ["status", "--porcelain", "--untracked-files=no"]) !== "")
-    throw new CliError("the source tree has uncommitted changes; commit them or pass --allow-dirty");
-  const genomeTree = git(root, ["rev-parse", `${gitCommit}:genome`]);
+  if (git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "")
+    throw new CliError("the source tree has uncommitted or untracked changes; commit or remove them before release");
+  const hasSystem = spawnSync("git", ["cat-file", "-e", `${gitCommit}:system`], { cwd: root, stdio: "ignore" }).status === 0;
+  const modelPrefix = hasSystem ? "system" : "genome";
+  const genome = { commit: gitCommit, prefix: modelPrefix, digest: modelDigestAt(root, gitCommit, modelPrefix) } as const;
   const version = releaseTag(now(), gitCommit);
 
   // 2. Account and remote. The cloud's own checks keep names off argv and tokens off stdout.
@@ -181,8 +200,10 @@ export async function release(opts: ReleaseOptions, io: ReleaseIo): Promise<Rele
       io.out(`  ${version} already in ${repo} at ${buildsCommit.slice(0, 7)}; deploying that release`);
     } else {
       if (!opts.noBuild) (io.build ?? defaultBuild)(root);
+      if (git(root, ["status", "--porcelain", "--untracked-files=all"]) !== "")
+        throw new CliError("the build changed tracked or untracked source inputs; refusing to publish them under the original commit");
       const manifest: ReleaseManifest = {
-        version, gitCommit, genomeTree, builtAt: now().toISOString(),
+        version, gitCommit, genome, builtAt: now().toISOString(),
         workers: Object.fromEntries(WORKERS.map((w) => [w.name, { config: w.config }])),
         versions: { node: process.version, wrangler: wranglerVersion(root) },
       };
@@ -229,11 +250,11 @@ export async function releaseCommand(args: string[], io: ReleaseIo): Promise<num
     args, strict: true, allowPositionals: false,
     options: {
       namespace: { type: "string" }, repo: { type: "string" },
-      "dry-run": { type: "boolean" }, "no-build": { type: "boolean" }, "no-deploy": { type: "boolean" }, "allow-dirty": { type: "boolean" }, json: { type: "boolean" },
+      "dry-run": { type: "boolean" }, "no-build": { type: "boolean" }, "no-deploy": { type: "boolean" }, json: { type: "boolean" },
     },
   });
   const r = await release({
-    ns: values.namespace, repo: values.repo, dryRun: values["dry-run"], noBuild: values["no-build"], noDeploy: values["no-deploy"], allowDirty: values["allow-dirty"],
+    ns: values.namespace, repo: values.repo, dryRun: values["dry-run"], noBuild: values["no-build"], noDeploy: values["no-deploy"],
   }, io);
   if (values.json) io.out(JSON.stringify(r));
   return 0;

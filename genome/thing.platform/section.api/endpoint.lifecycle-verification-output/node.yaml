@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-verification-output
+kind: endpoint
+fields:
+  name: Verification output
+  description: "Download immutable verified output only for the current promoted implementation."
+  route: GET /api/systems/:id/realization-plans/:pid/verification/output
+  auth: Admin bearer token (ADMIN_TOKEN).
