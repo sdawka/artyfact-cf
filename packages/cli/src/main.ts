@@ -14,6 +14,7 @@ import { lifecycleCommand } from "./lifecycle.ts";
 import { skillCommand } from "./skill.ts";
 import { validateGenomeCommand } from "./validate-genome.ts";
 import { integrityCommand } from "./integrity.ts";
+import { releaseCommand, type ReleaseIo } from "./release.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -92,11 +93,15 @@ const USAGE = `artyfact <command>
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
 
+  release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--allow-dirty] [--json]
+        build the platform and site, push the outputs to <ns>/platform.builds (one commit and tag v<yyyymmdd>-<sha7> per
+        source commit, reused when it exists) and deploy each Worker from that checkout; --dry-run writes nothing remote.
+
   --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
   ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
 `;
 
-export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
+export async function main(argv: string[], io?: Partial<Io> & Partial<Pick<ReleaseIo, "build" | "deploy" | "now">>): Promise<number> {
   const full: Io = {
     out: io?.out ?? ((s) => process.stdout.write(`${s}\n`)),
     err: io?.err ?? ((s) => process.stderr.write(`${s}\n`)),
@@ -110,6 +115,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
     switch (cmd) {
       case "evolution": case "plan": case "task": case "ontology": case "operations": return await lifecycleCommand(cmd, rest, full);
       case "init": return await initCommand(rest, full);
+      case "release": return await releaseCommand(rest, { ...full, build: io?.build, deploy: io?.deploy, now: io?.now });
       case "platform-sync": return await platformSyncCommand(rest, full);
       case "start": return await start(rest, full);
       case "checkpoint": return await checkpoint(rest, full);

@@ -12,7 +12,7 @@ Start a System with an imported ontology or one authored by your agent. Map its 
 
 ## See it in 90 seconds
 
-Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md).
+Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md); `npm run release` pushes each build to the Artifacts repo `artyfact/platform.builds` and deploys the Workers from there.
 
 ![Map with two candidates overlapping on operation.contact.save](docs/images/map-candidates.png)
 

@@ -58,6 +58,10 @@ pushes only when the content changed.
 A Genome with no `worker-fullstack` artifact imports without an app repo. `init` does not invent source or send an
 `appRepo` for that System.
 
+## `release`
+
+`artyfact release` (root: `npm run release`) builds `@artyfact/platform` and `@artyfact/site`, commits the outputs and a `release.json` (version, source commit, self-Genome tree hash, built-at, Worker configs, tool versions) to the Artifacts repo `<namespace>/platform.builds` as `main` with the tag `v<yyyymmdd>-<sha7>` (UTC date), and runs `wrangler deploy --config …` for each Worker with its working directory in that checkout. A tag that exists is fetched and deployed again instead of rebuilt. It refuses a dirty source tree (`--allow-dirty` overrides), `--dry-run` reads at most with a read token and deploys with `wrangler deploy --dry-run`, `--no-build` reuses the outputs on disk, `--no-deploy` only pushes (for a Workers Builds connection), and `--json` prints the result. Tokens never reach stdout or argv. Design: `docs/design/release-artifacts.md`.
+
 ## Parts
 
 ```sh

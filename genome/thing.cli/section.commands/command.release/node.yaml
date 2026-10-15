@@ -1,0 +1,7 @@
+id: command.release
+kind: command
+fields:
+  name: release
+  usage: artyfact release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--allow-dirty] [--json]
+  exitCodes: 0 on success, 1 on any error.
+  description: Builds the platform and site, commits their outputs and release.json to the Artifacts repo platform.builds as tag v<yyyymmdd>-<sha7>, and deploys each Worker from that checkout; a tag that exists is deployed again, --dry-run writes nothing remote.

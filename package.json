@@ -16,7 +16,8 @@
     "typecheck": "tsc -b packages/effects packages/model packages/rules packages/ontology packages/semantic packages/templates packages/cli examples/peopling-system && npm run typecheck -w @artyfact/platform && npm run typecheck -w @artyfact/example-peopling-app && npm run typecheck -w @artyfact/ci",
     "lint": "echo \"lint not configured\"",
     "e2e": "npm run e2e -w @artyfact/platform",
-    "deploy": "npm run build -w @artyfact/platform && npm run deploy -w @artyfact/platform"
+    "deploy": "npm run build -w @artyfact/platform && npm run deploy -w @artyfact/platform",
+    "release": "artyfact release"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
