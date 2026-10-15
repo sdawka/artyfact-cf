@@ -12,7 +12,7 @@ export { diffModels, overlap } from "./diff.ts";
 export type { SemanticDelta } from "./diff.ts";
 export { toMermaid } from "./mermaid.ts";
 export { PhenomeEventHeader, PHENOME_LIMITS } from "./phenome.ts";
-export { composeParts, extractPart, upgradeComposition, partDigest, PartCompositionError } from "./parts.ts";
+export { composeParts, extractPart, upgradeComposition, partDigest, canonicalJson, PartCompositionError } from "./parts.ts";
 export type { PartResolver, ComposeOptions } from "./parts.ts";
 export type {
   PartRef, PartPackage, PartRecipe, PartContribution, PartUse, PartCommand, SavedPartCommand,

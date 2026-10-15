@@ -16,13 +16,21 @@ Build output is the realized artifact, so the deployed version of the platform c
 2. It builds `@artyfact/platform` and `@artyfact/site`, then stages a self-contained tree: `platform/` (the vite plugin's `dist`, whose `artyfact_platform/wrangler.json` has `main: index.js`, `no_bundle` and `assets: ../client`), `site/wrangler.jsonc` plus `site/dist/`, and `release.json` (version, git commit, tree hash of the self-Genome `genome/`, built-at, Worker configs, node and wrangler versions).
 3. It commits that tree to `artyfact/platform.builds` as `main` with an annotated tag, pushed with a write token; the repo is created on first use. A tag that already exists is fetched and reused, so re-running the same source commit never mints a second release.
 4. It deploys each Worker with `wrangler deploy --config <config>` and `cwd` in the checkout of `platform.builds`, never in the worktree; `release.json` in the repo is the deployment record.
-5. `--dry-run` builds, stages and commits locally, reads the repo with a read token when it exists, pushes nothing and runs `wrangler deploy --dry-run`. `--no-deploy` pushes only (for the Workers Builds path below). Tokens never reach stdout or argv.
+5. `--dry-run` builds, stages and commits locally, reads the repo with a read token when it exists, pushes nothing and runs `wrangler deploy --dry-run`. `--no-deploy` pushes only; `--site-via-ci` skips the local site deploy (below). Tokens never reach stdout or argv.
 
 The legacy `release` path is a local build/publish/deploy tool, not the self-development approval loop. Artyfact is already imported in production; that does not mean its local bootstrap has been approved or cloud-tested. `artyfact operator publish` instead requires a current promoted plan and immutable cloud output, and records System commit, exact source and accepted Genome refs, model digest, verification run and output digest. The accepted Genome can live under `system/` in the integrated fork; root `genome/` is not assumed to be authoritative. Local activation runs approved source with persistent operator state. Native hosted deployment remains deferred for this milestone.
 
-## Native path (optional, one-time, dashboard)
+## Public site from Artifacts (artyfact-ci)
 
-Once `platform.builds` has its first release, connect each Worker in the dashboard to the Artifacts repo `artyfact/platform.builds`, branch `main`, no build command, deploy command `npx wrangler deploy`, Path `platform/artyfact_platform` for `artyfact-platform` and `site` for `artyfact-site`. From then on `artyfact release --no-deploy` pushes and Workers Builds deploys. Until that is set up, the command's own `wrangler deploy` step is the deploy.
+Workers Builds is not used. The site deploys from the builds repo through `artyfact-ci` instead:
+
+1. An Artifacts event subscription (`scripts/site-deploy-subscription.mjs`, idempotent) delivers `pushed` events on `artyfact/platform.builds` to the queue `artyfact-site-deploys`, which `artyfact-ci` consumes.
+2. The consumer ignores anything but a push to `refs/heads/main` of that repo and starts the Workflow `artyfact-site-deploy` with instance id `site-<commit>`. A commit with a recorded run, or an instance that already exists, starts nothing new, so redelivery is a no-op.
+3. The Workflow reads `release.json` and `site/wrangler.jsonc` at that commit outside the sandbox. `release.json` must list `artyfact-site` at `site/wrangler.jsonc` and name its source commit (`gitCommit`, or `source.commit` for a verified release). The site config must stay assets-only (`name`, `compatibility_date`, `assets` from `./dist`, `routes`); the Workflow writes its own Wrangler config from it.
+4. If `main` still names the commit, one runner uploads the committed `site/dist` with the image's pinned Wrangler and only `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` in its environment (`CF_TOKEN`). Nothing is installed or built. A run whose commit main has already moved past is recorded `superseded`.
+5. The outcome (commit, release tag, source commit, Worker version id, times, error) goes to R2 `artyfact-ci-cache` under `site-deploys/v1/<commit>.json` and `site-deploys/v1/latest.json`, readable at `GET /site-deploys/latest|<commit>` with the operator bearer.
+
+`artyfact release --site-via-ci` pushes and deploys only `artyfact-platform` locally. The platform keeps its local `wrangler deploy`.
 
 ## Not in this slice
 

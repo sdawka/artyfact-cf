@@ -21,6 +21,8 @@ describe('verification evidence at the authority boundary',()=>{
    expect(()=>i.reserveVerification({...request,source:{...request.source,commit:A}})).toThrow(/source/);
    i.reserveVerification(request);
    expect(()=>i.recordVerification({...passed(request),request:{...request,candidateId:'other'}})).toThrow(/identity/);
+   for(const output of [{key:'verification/v1/other/output.tar.gz',digest:'b'.repeat(64),size:100},{key:`verification/v1/${request.id}/output.tar.gz`,digest:'B'.repeat(64),size:100},{key:`verification/v1/${request.id}/output.tar.gz`,digest:'b'.repeat(64),size:0},{key:`verification/v1/${request.id}/output.tar.gz`,digest:'b'.repeat(64),size:17*1024*1024}])
+    expect(()=>i.recordVerification({...passed(request),output})).toThrow(/bounded, digest-bound archive/);
    i.recordVerification({...passed(request),status:'failed',output:undefined});
    expect(()=>i.assertPlanVerified(p.id)).toThrow(/verification/);
    expect(()=>i.recordVerification(passed(request))).toThrow(/terminal/);

@@ -4,7 +4,7 @@ fields:
   name: The model
   route: /model
   rendering: prerendered
-  description: Explains Artyfact through this page itself, from the System and public site Thing to the ontology explanation component, its criteria and the evidence needed to assess them.
+  description: Presents Theory Driven Development (every product is a theory, and specs describe information while a theory carries meaning) and explains Artyfact through this page itself, from the System and public site Thing to the ontology explanation component, its criteria and the evidence needed to assess them.
 files:
   - src/ModelContent.tsx
   - src/pages.tsx

@@ -229,7 +229,7 @@ export function workerVersionLocator(accountId: string, workerName: string, vers
 }
 
 /** Consume at most one bounded deploy stdout stream and retain only Wrangler's version identifier. */
-export async function deployedOutput(p: CiBuildParams, accountId: string, runner: RunnerLike | null): Promise<BuildReport["output"]> {
+export async function deployedVersionId(runner: { logs?: { stdout: string | ReadableStream<Uint8Array> } } | null): Promise<string | undefined> {
   const stdout = runner?.logs?.stdout;
   if (!stdout) return undefined;
   let text = "";
@@ -259,7 +259,11 @@ export async function deployedOutput(p: CiBuildParams, accountId: string, runner
   }
   // At the cap, a trailing line may be incomplete; never turn its truncated prefix into output identity.
   if (capped && !text.endsWith("\n")) text = text.slice(0, text.lastIndexOf("\n") + 1);
-  const versionId = VERSION_ID.exec(text)?.[1];
+  return VERSION_ID.exec(text)?.[1]?.toLowerCase();
+}
+
+export async function deployedOutput(p: CiBuildParams, accountId: string, runner: RunnerLike | null): Promise<BuildReport["output"]> {
+  const versionId = await deployedVersionId(runner);
   return versionId ? { locator: workerVersionLocator(accountId, p.workerName, versionId) } : undefined;
 }
 

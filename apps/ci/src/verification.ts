@@ -1,7 +1,10 @@
 import { parse } from "yaml";
 import {
+  canonicalJson,
   normalizeVerificationRequest,
+  VERIFICATION_OUTPUT_MAX_BYTES as OUTPUT_MAX,
   verificationModelDigest,
+  verificationOutputKey,
   type VerificationCheck,
   type VerificationOutput,
   type VerificationRequest,
@@ -11,7 +14,6 @@ import {
 
 const ERROR_MAX = 4_000;
 const REQUEST_MAX = 64 * 1024;
-const OUTPUT_MAX = 16 * 1024 * 1024;
 const BASE64_MAX = Math.ceil(OUTPUT_MAX / 3) * 4;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
@@ -244,16 +246,7 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
   }
 }
 
-const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-};
-
-async function authorized(header: string | null, token: string): Promise<boolean> {
+export async function authorized(header: string | null, token: string): Promise<boolean> {
   if (!token || !header?.startsWith("Bearer ")) return false;
   const values = await Promise.all([header.slice(7), token].map((value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))));
   const [left, right] = values.map((value) => new Uint8Array(value));
@@ -289,7 +282,8 @@ export interface VerificationHttpDeps {
   getResult(id: string): Promise<VerificationResult | null>;
   /** Atomic create-if-absent. */
   createQueued(result: VerificationResult): Promise<boolean>;
-  replaceResult(result: VerificationResult): Promise<void>;
+  /** Settle a still-queued result whose Workflow failed to start; returns what is stored afterwards. */
+  failQueued(result: VerificationResult): Promise<VerificationResult | null>;
   start(request: VerificationRequest & { checks: VerificationCheck[] }): Promise<void>;
   getOutput(key: string): Promise<Response | null>;
 }
@@ -299,13 +293,58 @@ export interface VerificationBucketLike {
   put(
     key: string,
     value: Uint8Array | string,
-    options?: { onlyIf?: { etagDoesNotMatch?: string }; httpMetadata?: { contentType?: string; cacheControl?: string }; customMetadata?: Record<string, string>; sha256?: ArrayBuffer },
+    options?: { onlyIf?: { etagDoesNotMatch?: string; etagMatches?: string }; httpMetadata?: { contentType?: string; cacheControl?: string }; customMetadata?: Record<string, string>; sha256?: ArrayBuffer },
   ): Promise<unknown | null>;
-  get(key: string): Promise<{ body: ReadableStream<Uint8Array>; text(): Promise<string> } | null>;
+  get(key: string): Promise<{ body: ReadableStream<Uint8Array>; text(): Promise<string>; etag: string; uploaded: Date } | null>;
 }
 
 export const verificationResultKey = (id: string) => `verification/v1/${id}/result.json`;
-export const verificationOutputKey = (id: string) => `verification/v1/${id}/output.tar.gz`;
+export { verificationOutputKey };
+
+/** A run with no recorded progress for this long is settled as `error`, so the platform's retry path can proceed. */
+export const VERIFICATION_STALE_MS = 2 * 60 * 60 * 1000;
+const terminal = (status: VerificationResult["status"]) => status === "passed" || status === "failed" || status === "error";
+const RESULT_HTTP = { contentType: "application/json", cacheControl: "private, no-store" };
+
+async function readResult(bucket: VerificationBucketLike, id: string) {
+  const object = await bucket.get(verificationResultKey(id));
+  return object ? { result: JSON.parse(await object.text()) as VerificationResult, etag: object.etag, uploaded: object.uploaded } : null;
+}
+
+const putResult = (bucket: VerificationBucketLike, result: VerificationResult, onlyIf: { etagMatches: string } | { etagDoesNotMatch: "*" }) =>
+  bucket.put(verificationResultKey(result.request.id), JSON.stringify(result), { onlyIf, httpMetadata: RESULT_HTTP });
+
+/** Atomic create-if-absent of the first queued result. */
+export const createQueuedResult = async (bucket: VerificationBucketLike, result: VerificationResult) => !!await putResult(bucket, result, { etagDoesNotMatch: "*" });
+
+/** Read a result; one stuck without progress past the bound is settled as `error` atomically, so a late writer cannot revive it. */
+export async function getVerificationResult(bucket: VerificationBucketLike, id: string, now = new Date()): Promise<VerificationResult | null> {
+  const stored = await readResult(bucket, id);
+  if (!stored || terminal(stored.result.status) || now.getTime() - stored.uploaded.getTime() < VERIFICATION_STALE_MS) return stored?.result ?? null;
+  const expired: VerificationResult = { ...stored.result, status: "error", finishedAt: now.toISOString(),
+    error: `verification made no progress for ${VERIFICATION_STALE_MS / 3_600_000}h; retry it with a new id` };
+  if (await putResult(bucket, expired, { etagMatches: stored.etag })) return expired;
+  return (await readResult(bucket, id))?.result ?? null;
+}
+
+/** Compare-and-swap progress write. Terminal results are immutable; a concurrent writer fails the write so the step retries. */
+export async function persistVerificationResult(bucket: VerificationBucketLike, result: VerificationResult): Promise<void> {
+  const stored = await readResult(bucket, result.request.id);
+  if (stored && terminal(stored.result.status)) {
+    if (canonicalJson(stored.result) !== canonicalJson(result)) throw new Error(`terminal verification ${result.request.id} is immutable`);
+    return;
+  }
+  if (!await putResult(bucket, result, stored ? { etagMatches: stored.etag } : { etagDoesNotMatch: "*" }))
+    throw new Error(`verification ${result.request.id} changed concurrently`);
+}
+
+/** Only a result still `queued` is replaced; a Workflow that started despite the error keeps its own progress. */
+export async function failQueuedResult(bucket: VerificationBucketLike, result: VerificationResult): Promise<VerificationResult | null> {
+  const stored = await readResult(bucket, result.request.id);
+  if (!stored || stored.result.status !== "queued") return stored?.result ?? null;
+  if (await putResult(bucket, result, { etagMatches: stored.etag })) return result;
+  return (await readResult(bucket, result.request.id))?.result ?? null;
+}
 
 const hex = (value: ArrayBuffer) => [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
@@ -351,19 +390,19 @@ export async function handleVerificationHttp(request: Request, deps: Verificatio
       return json({ error: String((error as Error)?.message ?? error).slice(0, 500) }, 422);
     }
     const existing = await deps.getResult(normalized.id);
-    if (existing) return canonical(existing.request) === canonical(normalized) ? json(existing, 202) : json({ error: "verification id already belongs to another request" }, 409);
+    if (existing) return canonicalJson(existing.request) === canonicalJson(normalized) ? json(existing, 202) : json({ error: "verification id already belongs to another request" }, 409);
     const queued: VerificationResult = { version: 1, request: normalized, status: "queued", steps: [], checks: [] };
     if (!await deps.createQueued(queued)) {
       const raced = await deps.getResult(normalized.id);
-      return raced && canonical(raced.request) === canonical(normalized) ? json(raced, 202) : json({ error: "verification id already belongs to another request" }, 409);
+      return raced && canonicalJson(raced.request) === canonicalJson(normalized) ? json(raced, 202) : json({ error: "verification id already belongs to another request" }, 409);
     }
     try {
       await deps.start(normalized);
       return json(queued, 202);
     } catch (error) {
       const failed = { ...queued, status: "error" as const, finishedAt: new Date().toISOString(), error: String((error as Error)?.message ?? error).slice(0, ERROR_MAX) };
-      await deps.replaceResult(failed);
-      return json(failed, 503);
+      const current = await deps.failQueued(failed);
+      return current && current !== failed ? json(current, 202) : json(failed, 503);
     }
   }
   const match = /^\/verify\/([^/]+)(\/output)?$/.exec(url.pathname);

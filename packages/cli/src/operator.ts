@@ -6,7 +6,8 @@ import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:p
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
-import { CliError, git } from "./git.ts";
+import { canonicalJson, normalizeVerificationRequest, type VerificationOutput, type VerificationRequest, type VerificationResult } from "@artyfact/model";
+import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
 import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
 import { BUILDS_REPO, WORKERS, modelDigestAt } from "./release.ts";
@@ -16,7 +17,6 @@ const DEFAULT_ARTIFACT = "artifact.platform";
 const MAX_ARCHIVE = 64 * 1024 * 1024;
 const MAX_EXTRACTED = 256 * 1024 * 1024;
 const IDENTITY = ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
-const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const SYSTEM_COMMIT = /^sc-[1-9][0-9]*-[0-9a-f]{8}$/;
 const WORKER_ENV = [
@@ -25,20 +25,19 @@ const WORKER_ENV = [
   "CI_REPORT_TOKEN", "CF_API_TOKEN", "OPERATIONS_BINDINGS", "OPERATIONS_API_TOKEN", "EVENTS_QUEUE_ID",
 ] as const;
 const OPERATOR_ENV = new Set<string>(["ARTYFACT_ADMIN_TOKEN", ...WORKER_ENV, "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]);
+const CHILD_ENV = new Set(["PATH", "HOME", "USER", "SHELL", "TMPDIR", "LANG", "TERM"]);
+const MAX_VARS_FILE = 64 * 1024;
+/** Longer than artyfact-ci's own no-progress bound, after which it reports a stuck run as `error`. */
+const VERIFY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
 
-export interface VerificationOutput { key: string; digest: string; size: number }
-export interface VerificationRequest {
-  version: 1; id: string; systemId: string; planId: string; candidateId: string; artifactId: string;
-  source: { repo: string; commit: string };
-  genome: { repo: string; commit: string; prefix: string; digest: string };
-  pinnedGenome?: { repo: string; commit: string; prefix: string; digest: string };
-  profile: "artyfact-self-v1";
-  checks?: { criterionId: string; hookId: string; command: string }[];
+/** The ambient environment npm in the approved checkout gets: an allowlist, never an operator credential. */
+export function childEnv(base: NodeJS.ProcessEnv, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(base))
+    if (value !== undefined && !OPERATOR_ENV.has(key) && (CHILD_ENV.has(key) || key.startsWith("NODE_") || key.startsWith("npm_config_"))) out[key] = value;
+  return { ...out, ...extra };
 }
-export interface VerificationResult {
-  version: 1; request: VerificationRequest; status: string; steps: unknown[];
-  finishedAt?: string; output?: VerificationOutput; [key: string]: unknown;
-}
+
 export interface Activation {
   systemId: string; planId: string; systemCommit: string;
   source: VerificationRequest["source"];
@@ -54,6 +53,7 @@ export interface OperatorIo {
   fetch?: typeof fetch;
   cloud?: Cloud;
   pollMs?: number;
+  verifyTimeoutMs?: number;
   install?: (checkout: string) => void;
   run?: (checkout: string, args: string[], env: NodeJS.ProcessEnv) => number;
 }
@@ -74,42 +74,14 @@ export function validateActivation(raw: unknown, expected: { systemId: string; p
     throw new CliError("activation identity does not match the requested System and plan");
   const systemCommit = string(a.systemCommit, "activation systemCommit");
   if (!SYSTEM_COMMIT.test(systemCommit)) throw new CliError("activation systemCommit must be a canonical sc-<sequence>-<hash> id");
-  const source = object(a.source, "activation source") as unknown as VerificationRequest["source"];
-  const genome = object(a.genome, "activation genome") as unknown as VerificationRequest["genome"];
-  assertName("source repo", string(source.repo, "source repo"));
-  assertName("Genome repo", string(genome.repo, "Genome repo"));
-  if (!HEX40.test(string(source.commit, "source commit")) || !HEX40.test(string(genome.commit, "Genome commit")))
-    throw new CliError("activation source and Genome must name exact 40-character commits");
-  if (!HEX64.test(string(genome.digest, "Genome digest"))) throw new CliError("activation Genome digest must be a SHA-256 hex digest");
-  if (typeof genome.prefix !== "string") throw new CliError("invalid Genome prefix in platform response");
-  const prefix = genome.prefix;
-  if (prefix && (isAbsolute(prefix) || prefix.split(/[\\/]/).some((p) => !p || p === "." || p === ".."))) throw new CliError("activation Genome prefix is unsafe");
-  const verification = object(a.verification, "activation verification") as unknown as VerificationResult;
-  const request = object(verification.request, "verification request") as unknown as VerificationRequest;
-  if (verification.version !== 1 || request.version !== 1 || verification.status !== "passed") throw new CliError("activation does not carry a passed version 1 verification");
-  string(request.id, "verification id");
-  string(request.candidateId, "verification candidateId");
-  if (request.systemId !== expected.systemId || request.planId !== expected.planId || request.artifactId !== expected.artifactId ||
-      !same(request.source, source) || !same(request.genome, genome)) throw new CliError("activation provenance does not match its verification request");
-  if (request.profile !== "artyfact-self-v1") throw new CliError("activation verification profile is not artyfact-self-v1");
-  if (!Array.isArray(verification.steps) || !verification.steps.length || verification.steps.some((step) => object(step, "verification step").status !== "passed"))
-    throw new CliError("activation verification does not carry successful step evidence");
-  string(verification.finishedAt, "verification finishedAt");
-  const output = object(verification.output, "verification output") as unknown as VerificationOutput;
-  if (!HEX64.test(string(output.digest, "output digest")) || !Number.isSafeInteger(output.size) || output.size < 1 || output.size > MAX_ARCHIVE)
-    throw new CliError("activation verification output is invalid or too large");
-  string(output.key, "output key");
-  return { systemId: expected.systemId, planId: expected.planId, systemCommit, source, genome, verification };
-}
-
-function canonical(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
-  if (v && typeof v === "object") return `{${Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => `${JSON.stringify(k)}:${canonical(x)}`).join(",")}}`;
-  return JSON.stringify(v);
+  const verification = validatePassedVerification(object(a.verification, "activation verification"), expected);
+  if (!same(verification.request.source, a.source) || !same(verification.request.genome, a.genome))
+    throw new CliError("activation provenance does not match its verification request");
+  return { systemId: expected.systemId, planId: expected.planId, systemCommit, source: verification.request.source, genome: verification.request.genome, verification };
 }
 
 export function verifiedReleaseIdentity(a: Activation): string {
-  return createHash("sha256").update(canonical({ systemId: a.systemId, planId: a.planId, systemCommit: a.systemCommit,
+  return createHash("sha256").update(canonicalJson({ systemId: a.systemId, planId: a.planId, systemCommit: a.systemCommit,
     source: a.source, genome: a.genome, verification: a.verification })).digest("hex");
 }
 
@@ -210,23 +182,14 @@ function verificationOf(raw: unknown): VerificationResult {
 
 function validatePassedVerification(raw: unknown, expected: { systemId: string; planId: string; artifactId: string }): VerificationResult {
   const verification = object(raw, "verification result") as unknown as VerificationResult;
-  const request = object(verification.request, "verification request") as unknown as VerificationRequest;
-  if (verification.version !== 1 || request.version !== 1 || verification.status !== "passed")
-    throw new CliError("verification is not a passed version 1 result");
+  if (verification.version !== 1 || verification.status !== "passed") throw new CliError("verification is not a passed version 1 result");
+  let request: VerificationRequest;
+  try { request = normalizeVerificationRequest(verification.request); }
+  catch (e) { throw new CliError(`invalid verification request: ${(e as Error).message}`); }
   if (request.systemId !== expected.systemId || request.planId !== expected.planId || request.artifactId !== expected.artifactId)
     throw new CliError("verification identity does not match the requested System, plan, and artifact");
-  string(request.id, "verification id");
-  string(request.candidateId, "verification candidateId");
-  if (request.profile !== "artyfact-self-v1") throw new CliError("verification profile is not artyfact-self-v1");
-  const source = object(request.source, "verification source") as unknown as VerificationRequest["source"];
-  const genome = object(request.genome, "verification Genome") as unknown as VerificationRequest["genome"];
-  assertName("source repo", string(source.repo, "source repo"));
-  assertName("Genome repo", string(genome.repo, "Genome repo"));
-  if (!HEX40.test(string(source.commit, "source commit")) || !HEX40.test(string(genome.commit, "Genome commit")))
-    throw new CliError("verification source and Genome must name exact 40-character commits");
-  if (!HEX64.test(string(genome.digest, "Genome digest"))) throw new CliError("verification Genome digest must be a SHA-256 hex digest");
-  if (typeof genome.prefix !== "string" || (genome.prefix && (isAbsolute(genome.prefix) || genome.prefix.split(/[\\/]/).some((p) => !p || p === "." || p === ".."))))
-    throw new CliError("verification Genome prefix is unsafe");
+  assertName("source repo", request.source.repo);
+  assertName("Genome repo", request.genome.repo);
   if (!Array.isArray(verification.steps) || !verification.steps.length || verification.steps.some((step) => object(step, "verification step").status !== "passed"))
     throw new CliError("verification does not carry successful step evidence");
   string(verification.finishedAt, "verification finishedAt");
@@ -263,6 +226,8 @@ export function publishVerifiedRelease(stage: string, activation: Activation, io
       git(checkout, ["checkout", "-q", "--detach", `refs/tags/${version}`]);
       const manifest = JSON.parse(readFileSync(join(checkout, "release.json"), "utf8")) as VerifiedManifest;
       if (manifest.identity !== identity) throw new CliError(`existing ${version} has mismatched immutable provenance`);
+      if (stagedTree(checkout, stage, join(parent, "verify.index")) !== git(checkout, ["rev-parse", "HEAD^{tree}"]))
+        throw new CliError(`existing ${version} does not hold the verified output; refusing to reuse it`);
       return { version, buildsCommit: git(checkout, ["rev-parse", "HEAD"]), action: "reused" };
     }
     for (const e of readdirSync(checkout)) if (e !== ".git") rmSync(join(checkout, e), { recursive: true, force: true });
@@ -278,6 +243,18 @@ export function publishVerifiedRelease(stage: string, activation: Activation, io
     git(checkout, ["push", "-q", "--", remote, "HEAD:refs/heads/main", `refs/tags/${version}`], token);
     return { version, buildsCommit, action: "created" };
   } finally { rmSync(parent, { recursive: true, force: true }); }
+}
+
+/** The tree `stage` plus the tag's own release.json would commit as, built in a scratch index the same way the release was. */
+function stagedTree(checkout: string, stage: string, index: string): string {
+  const run = (args: string[]) => {
+    const r = spawnSync("git", ["--git-dir", join(checkout, ".git"), "--work-tree", stage, ...args], { cwd: stage, encoding: "utf8", env: { ...process.env, GIT_INDEX_FILE: index } });
+    if (r.status !== 0) throw new CliError(`git ${args[0]} failed: ${(r.stderr || r.stdout).trim()}`);
+    return r.stdout.trim();
+  };
+  run(["add", "-A", "--", "."]);
+  run(["update-index", "--add", "--cacheinfo", `100644,${git(checkout, ["rev-parse", "HEAD:release.json"])},release.json`]);
+  return run(["write-tree"]);
 }
 
 function writeFileOrTree(from: string, to: string): void {
@@ -326,23 +303,30 @@ function canonicalOptionPath(cwd: string, value: string, label: string): string 
   return canonicalDirectory(normalized, label, false);
 }
 
-function assertCanonicalSeparation(checkout: string, stateDir: string): void {
-  const source = canonicalDirectory(checkout, "activation checkout");
-  const state = canonicalDirectory(stateDir, "activation state directory");
-  const rel = relative(source, state);
+function assertSeparation(checkout: string, stateDir: string): void {
+  const rel = relative(checkout, stateDir);
   if (!rel || (!rel.startsWith(`..${sep}`) && rel !== "..")) throw new CliError("--state-dir must resolve outside the canonical source checkout");
+}
+
+/** Open without following a final symlink (or blocking on a FIFO), then require a regular 0600 file owned by this user. */
+function readOwned(path: string, label: string, max = MAX_ARCHIVE): string {
+  let fd: number;
+  try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); }
+  catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") throw new CliError(`${label} does not exist: ${path}`);
+    throw new CliError(`${label} is missing or unsafe (symlinks are refused): ${path}`);
+  }
+  try {
+    const s = fstatSync(fd);
+    if (!s.isFile() || (s.mode & 0o077) !== 0 || (process.getuid && s.uid !== process.getuid()) || s.size > max)
+      throw new CliError(`${label} must be a regular 0600 file owned by the current user, at most ${max / 1024} KiB: ${path}`);
+    return readFileSync(fd, "utf8");
+  } finally { closeSync(fd); }
 }
 
 function readPrivate(path: string): string {
   canonicalDirectory(dirname(path), `private receipt parent for ${path}`);
-  const before = lstat(path);
-  if (!before || before.isSymbolicLink() || !before.isFile() || (before.mode & 0o077) !== 0) throw new CliError(`private receipt is missing or unsafe: ${path}`);
-  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  try {
-    const opened = fstatSync(fd);
-    if (!opened.isFile() || (opened.mode & 0o077) !== 0) throw new CliError(`private receipt is not a secure regular file: ${path}`);
-    return readFileSync(fd, "utf8");
-  } finally { closeSync(fd); }
+  return readOwned(path, "private receipt");
 }
 
 /** Read dotenv-shaped credentials as data. Fake-mode flags are deliberately never carried into a real activation. */
@@ -350,15 +334,12 @@ export function operatorVars(path: string | undefined, base: Record<string, stri
   const out = { ...base };
   if (!path) return out;
   if (!isAbsolute(path)) throw new CliError("--vars-file must be an absolute path outside the source checkout");
-  const s = lstatSync(path);
-  if (!s.isFile() || s.isSymbolicLink() || (s.mode & 0o077) !== 0 || s.size > 64 * 1024) throw new CliError("--vars-file must be a regular 0600 file no larger than 64 KiB");
-  for (const [index, raw] of readFileSync(path, "utf8").split(/\r?\n/).entries()) {
+  for (const [index, raw] of readOwned(path, "--vars-file", MAX_VARS_FILE).split(/\r?\n/).entries()) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
     const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
     if (!match) throw new CliError(`invalid --vars-file line ${index + 1}`);
     const key = match[1]!, rawValue = match[2]!;
-    if (key === "FAKE_S1" || key === "FAKE_ARTIFACTS" || key === "FAKE_SEED" || key === "FAKE_MODEL_DELTA") continue;
     if (!OPERATOR_ENV.has(key)) continue;
     let value = rawValue;
     if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
@@ -380,7 +361,7 @@ function dotenvValue(value: string): string {
 /** Materialize only Worker-visible secrets outside source, then link them where Wrangler loads secret_text bindings. */
 function linkWorkerSecrets(checkout: string, stateDir: string, env: Record<string, string | undefined>): void {
   mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-  assertCanonicalSeparation(checkout, stateDir);
+  assertSeparation(canonicalDirectory(checkout, "activation checkout"), canonicalDirectory(stateDir, "activation state directory"));
   const values: Record<string, string | undefined> = { ...env, ADMIN_TOKEN: env.ADMIN_TOKEN ?? env.ARTYFACT_ADMIN_TOKEN };
   const body = WORKER_ENV.flatMap((key) => values[key] === undefined ? [] : [`${key}=${dotenvValue(values[key]!)}`]).join("\n");
   if (!body.includes("ADMIN_TOKEN=")) throw new CliError("local activation requires ADMIN_TOKEN or ARTYFACT_ADMIN_TOKEN");
@@ -388,7 +369,7 @@ function linkWorkerSecrets(checkout: string, stateDir: string, env: Record<strin
   writePrivate(external, `${body}\n`);
   const local = join(checkout, "apps", "platform", ".dev.vars");
   mkdirSync(dirname(local), { recursive: true });
-  if (existsSync(local) || (() => { try { lstatSync(local); return true; } catch { return false; } })()) unlinkSync(local);
+  if (lstat(local)) unlinkSync(local);
   symlinkSync(external, local);
   const exclude = join(checkout, ".git", "info", "exclude");
   const current = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
@@ -396,7 +377,8 @@ function linkWorkerSecrets(checkout: string, stateDir: string, env: Record<strin
 }
 
 function defaultInstall(checkout: string): void {
-  const r = spawnSync("npm", ["ci"], { cwd: checkout, stdio: "inherit" });
+  // Lifecycle scripts stay on: esbuild and workerd install their native binaries from them.
+  const r = spawnSync("npm", ["ci"], { cwd: checkout, stdio: "inherit", env: childEnv(process.env) });
   if (r.status !== 0) throw new CliError("npm ci failed in the approved source checkout");
 }
 
@@ -408,13 +390,12 @@ function defaultRun(checkout: string, args: string[], env: NodeJS.ProcessEnv): n
 
 export function prepareActivation(activation: Activation, opts: { dir: string; stateDir: string; namespace?: string }, io: OperatorIo): { checkout: string; stateDir: string } {
   const checkout = canonicalOptionPath(io.cwd, opts.dir, "activation checkout"), stateDir = canonicalOptionPath(io.cwd, opts.stateDir, "activation state directory");
-  const rel = relative(checkout, stateDir);
-  if (!rel || (!rel.startsWith(`..${sep}`) && rel !== "..")) throw new CliError("--state-dir must be outside the source checkout");
+  assertSeparation(checkout, stateDir);
   const receiptPath = join(checkout, ".git", "artyfact-activation.json");
   if (lstat(receiptPath)) {
     const prior = JSON.parse(readPrivate(receiptPath)) as { releaseIdentity?: string; stateDir?: string };
     if (prior.releaseIdentity !== verifiedReleaseIdentity(activation) || prior.stateDir !== stateDir ||
-        git(checkout, ["rev-parse", "HEAD"]) !== activation.source.commit || git(checkout, ["status", "--porcelain", "--untracked-files=all"]))
+        git(checkout, ["rev-parse", "HEAD"]) !== activation.source.commit || !isPristine(checkout))
       throw new CliError(`existing activation checkout does not match the current approval: ${checkout}`);
     linkWorkerSecrets(checkout, stateDir, io.env);
     return { checkout, stateDir };
@@ -433,7 +414,7 @@ export function prepareActivation(activation: Activation, opts: { dir: string; s
     git(checkout, ["remote", "add", "origin", remote]);
     git(checkout, ["fetch", "-q", "--depth=1", "origin", activation.source.commit], token);
     git(checkout, ["checkout", "-q", "--detach", "FETCH_HEAD"]);
-    if (git(checkout, ["rev-parse", "HEAD"]) !== activation.source.commit || git(checkout, ["status", "--porcelain", "--untracked-files=all"]))
+    if (git(checkout, ["rev-parse", "HEAD"]) !== activation.source.commit || !isPristine(checkout))
       throw new CliError("prepared source is not the exact clean approved commit");
     if (git(checkout, ["ls-files", "--", ".dev.vars", "**/.dev.vars"])) throw new CliError("approved source contains a tracked .dev.vars secret file");
     const containedGenome = activation.genome.repo === activation.source.repo && activation.genome.commit === activation.source.commit;
@@ -443,7 +424,7 @@ export function prepareActivation(activation: Activation, opts: { dir: string; s
     const actualDigest = modelDigestAt(checkout, activation.source.commit, modelPrefix);
     if (actualDigest !== activation.genome.digest) throw new CliError("approved source does not contain the accepted Genome digest");
     (io.install ?? defaultInstall)(checkout);
-    if (git(checkout, ["status", "--porcelain", "--untracked-files=all"])) throw new CliError("dependency installation changed the approved source snapshot");
+    if (!isPristine(checkout)) throw new CliError("dependency installation changed the approved source snapshot");
     linkWorkerSecrets(checkout, stateDir, io.env);
     const receipt = { version: 1, preparedAt: new Date().toISOString(), stateDir, ...activation, releaseIdentity: verifiedReleaseIdentity(activation) };
     writePrivate(join(checkout, ".git", "artyfact-activation.json"), `${JSON.stringify(receipt, null, 2)}\n`);
@@ -455,7 +436,10 @@ export function prepareActivation(activation: Activation, opts: { dir: string; s
   }
 }
 
-async function verifyCommand(values: Record<string, string | boolean | undefined>, io: OperatorIo): Promise<number> {
+type Values = Record<string, string | boolean | undefined>;
+
+/** Operator preamble: the requested identity, credentials, an authenticated platform transport, and the activation gate. */
+async function connect(values: Values, io: OperatorIo) {
   const systemId = string(values.system ?? io.env.ARTYFACT_SYSTEM, "--system");
   const planId = string(values.plan, "--plan");
   const artifactId = string(values.artifact ?? DEFAULT_ARTIFACT, "--artifact");
@@ -464,31 +448,34 @@ async function verifyCommand(values: Record<string, string | boolean | undefined
   const fetcher = io.fetch ?? fetch;
   const base = await resolvePlatform(typeof values.platform === "string" ? values.platform : undefined, io.env, fetcher, io.err);
   assertBearerTransport(base, "the operator admin token");
-  const p = paths(systemId, planId, artifactId);
-  let verification = verificationOf(await jsonRequest(fetcher, base, token, "POST", p.start, { artifactId, ...(values.retry && { retry: true }) }));
+  const expected = { systemId, planId, artifactId }, p = paths(systemId, planId, artifactId);
+  const send = (method: string, path: string, body?: unknown) => request(fetcher, base, token, method, path, body);
+  const json = (method: string, path: string, body?: unknown) => jsonRequest(fetcher, base, token, method, path, body);
+  const fetchActivation = async () => validateActivation(await json("GET", p.activation), expected);
+  return { expected, runtimeEnv, p, send, json, fetchActivation };
+}
+
+async function verifyCommand(values: Values, io: OperatorIo): Promise<number> {
+  const { expected, p, json } = await connect(values, io);
+  let verification = verificationOf(await json("POST", p.start, { artifactId: expected.artifactId, ...(values.retry && { retry: true }) }));
+  const timeout = io.verifyTimeoutMs ?? VERIFY_TIMEOUT_MS, deadline = Date.now() + timeout;
   while (["queued", "running"].includes(verification.status)) {
+    if (Date.now() >= deadline)
+      throw new CliError(`verification still ${verification.status} after ${Math.round(timeout / 60_000)} minutes; inspect the artyfact-ci run, then rerun with --retry once it reports failed or error`);
     await new Promise((done) => setTimeout(done, io.pollMs ?? 1000));
-    verification = verificationOf(await jsonRequest(fetcher, base, token, "POST", p.poll, { artifactId }));
+    verification = verificationOf(await json("POST", p.poll, { artifactId: expected.artifactId }));
   }
   if (verification.status !== "passed") throw new CliError(`verification ${verification.status}; refusing to accept result`);
-  verification = validatePassedVerification(verification, { systemId, planId, artifactId });
+  verification = validatePassedVerification(verification, expected);
   io.out(JSON.stringify({ verification }));
   return 0;
 }
 
-async function publishCommand(values: Record<string, string | boolean | undefined>, io: OperatorIo): Promise<number> {
-  const systemId = string(values.system ?? io.env.ARTYFACT_SYSTEM, "--system");
-  const planId = string(values.plan, "--plan");
-  const artifactId = string(values.artifact ?? DEFAULT_ARTIFACT, "--artifact");
-  const runtimeEnv = operatorVars(typeof values["vars-file"] === "string" ? values["vars-file"] : undefined, io.env);
-  const token = string(runtimeEnv.ARTYFACT_ADMIN_TOKEN ?? runtimeEnv.ADMIN_TOKEN, "ARTYFACT_ADMIN_TOKEN or ADMIN_TOKEN");
-  const fetcher = io.fetch ?? fetch;
-  const base = await resolvePlatform(typeof values.platform === "string" ? values.platform : undefined, io.env, fetcher, io.err);
-  assertBearerTransport(base, "the operator admin token");
-  const p = paths(systemId, planId, artifactId);
-  const activation = validateActivation(await jsonRequest(fetcher, base, token, "GET", p.activation), { systemId, planId, artifactId });
+async function publishCommand(values: Values, io: OperatorIo): Promise<number> {
+  const { p, send, fetchActivation } = await connect(values, io);
+  const activation = await fetchActivation();
   const output = activation.verification.output!;
-  const response = await request(fetcher, base, token, "GET", p.output);
+  const response = await send("GET", p.output);
   const contentLength = response.headers.get("content-length");
   if (contentLength && Number(contentLength) !== output.size) throw new CliError("verification output Content-Length does not match trusted evidence");
   const headerDigest = response.headers.get("x-content-sha256");
@@ -499,7 +486,7 @@ async function publishCommand(values: Record<string, string | boolean | undefine
     importVerificationArchive(bytes, output, stage);
     // Re-read the gate after the potentially slow cross-service download/import so a
     // superseded approval cannot be published from stale evidence.
-    const current = validateActivation(await jsonRequest(fetcher, base, token, "GET", p.activation), { systemId, planId, artifactId });
+    const current = await fetchActivation();
     if (verifiedReleaseIdentity(current) !== verifiedReleaseIdentity(activation))
       throw new CliError("approved System changed during output preparation; run publish again");
     const published = publishVerifiedRelease(stage, current, io, typeof values.namespace === "string" ? values.namespace : DEFAULT_NS);
@@ -508,29 +495,20 @@ async function publishCommand(values: Record<string, string | boolean | undefine
   return 0;
 }
 
-async function activateCommand(values: Record<string, string | boolean | undefined>, io: OperatorIo): Promise<number> {
-  const systemId = string(values.system ?? io.env.ARTYFACT_SYSTEM, "--system");
-  const planId = string(values.plan, "--plan");
-  const artifactId = string(values.artifact ?? DEFAULT_ARTIFACT, "--artifact");
+async function activateCommand(values: Values, io: OperatorIo): Promise<number> {
   const dir = string(values.dir, "--dir"), stateDir = string(values["state-dir"], "--state-dir");
-  const runtimeEnv = operatorVars(typeof values["vars-file"] === "string" ? values["vars-file"] : undefined, io.env);
-  const token = string(runtimeEnv.ARTYFACT_ADMIN_TOKEN ?? runtimeEnv.ADMIN_TOKEN, "ARTYFACT_ADMIN_TOKEN or ADMIN_TOKEN");
-  const fetcher = io.fetch ?? fetch;
-  const base = await resolvePlatform(typeof values.platform === "string" ? values.platform : undefined, io.env, fetcher, io.err);
-  assertBearerTransport(base, "the operator admin token");
-  const p = paths(systemId, planId, artifactId);
-  const activation = validateActivation(await jsonRequest(fetcher, base, token, "GET", p.activation), { systemId, planId, artifactId });
+  const { runtimeEnv, fetchActivation } = await connect(values, io);
+  const activation = await fetchActivation();
   const prepared = prepareActivation(activation, { dir, stateDir, namespace: typeof values.namespace === "string" ? values.namespace : undefined }, { ...io, env: runtimeEnv });
   // Re-read the authoritative gate after preparation so a superseded System cannot be started from stale approval.
-  const current = validateActivation(await jsonRequest(fetcher, base, token, "GET", p.activation), { systemId, planId, artifactId });
+  const current = await fetchActivation();
   if (verifiedReleaseIdentity(current) !== verifiedReleaseIdentity(activation)) throw new CliError("approved System changed during local preparation; run activate again");
   if (values["prepare-only"]) { io.out(JSON.stringify({ prepared: true, ...prepared, activation })); return 0; }
   const port = typeof values.port === "string" ? values.port : "1337";
   if (!/^\d{2,5}$/.test(port)) throw new CliError("--port must be a numeric TCP port");
   const args = ["run", "dev", "-w", "@artyfact/platform", "--", "--host", "127.0.0.1", "--port", port, "--strictPort"];
-  const childEnv: NodeJS.ProcessEnv = { ...process.env, ...runtimeEnv, HOSTED_DEMO: "0", ARTYFACT_PERSIST_STATE_DIR: prepared.stateDir };
-  for (const key of [...WORKER_ENV, "ARTYFACT_ADMIN_TOKEN"]) delete childEnv[key];
-  return (io.run ?? defaultRun)(prepared.checkout, args, childEnv);
+  // Worker secrets reach the app only through the linked .dev.vars; Cloudflare access comes from the user's wrangler login.
+  return (io.run ?? defaultRun)(prepared.checkout, args, childEnv(process.env, { HOSTED_DEMO: "0", ARTYFACT_PERSIST_STATE_DIR: prepared.stateDir }));
 }
 
 export async function operatorCommand(args: string[], io: OperatorIo): Promise<number> {

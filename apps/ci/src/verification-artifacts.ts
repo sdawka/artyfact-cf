@@ -1,11 +1,11 @@
-import { VERIFICATION_MODEL_MAX_FILES, type VerificationGenomeRef } from "@artyfact/model";
+import {
+  INTENT_BRIEF_MAX_BYTES, INTENT_BRIEF_PATH, INTENT_MANIFEST_MAX_BYTES, INTENT_MANIFEST_PATH, isGenomeSource, VERIFICATION_MODEL_MAX_FILES,
+  type VerificationGenomeRef,
+} from "@artyfact/model";
 
 const MAX_TREE_ENTRIES = 5_000;
 const MAX_DEPTH = 24;
 const MAX_TOTAL_BYTES = 1_000_000;
-const INTENT_BRIEF = "intent/brief.md";
-const INTENT_MANIFEST = "intent/manifest.json";
-const isModelSource = (path: string) => /\.ya?ml$/.test(path) || path === INTENT_BRIEF || path === INTENT_MANIFEST;
 
 async function treeAt(repo: ArtifactsRepo, ref: VerificationGenomeRef): Promise<string> {
   const commit = await repo.readCommit(ref.commit);
@@ -29,7 +29,7 @@ async function listYaml(repo: ArtifactsRepo, tree: string, base: string, depth: 
     if (visited.count > MAX_TREE_ENTRIES) throw new Error(`Genome tree exceeds ${MAX_TREE_ENTRIES} entries`);
     const path = `${base}${entry.name}`;
     if (entry.type === "tree") await listYaml(repo, entry.hash, `${path}/`, depth + 1, out, visited);
-    else if (isModelSource(path) && entry.type !== "gitlink") {
+    else if (isGenomeSource(path) && entry.type !== "gitlink") {
       out.set(path, entry);
       if (out.size > VERIFICATION_MODEL_MAX_FILES) throw new Error(`Genome exceeds ${VERIFICATION_MODEL_MAX_FILES} files`);
     }
@@ -52,8 +52,8 @@ export async function readVerificationGenome(artifacts: Artifacts, ref: Verifica
         yamlTotal += blob.size;
         if (yamlTotal > MAX_TOTAL_BYTES) throw new Error(`Genome YAML exceeds ${MAX_TOTAL_BYTES} bytes`);
       }
-      if (path === INTENT_BRIEF && blob.size > 64 * 1024) throw new Error("Genome intent brief exceeds 64 KiB");
-      if (path === INTENT_MANIFEST && blob.size > 128 * 1024) throw new Error("Genome intent manifest exceeds 128 KiB");
+      if (path === INTENT_BRIEF_PATH && blob.size > INTENT_BRIEF_MAX_BYTES) throw new Error("Genome intent brief exceeds 64 KiB");
+      if (path === INTENT_MANIFEST_PATH && blob.size > INTENT_MANIFEST_MAX_BYTES) throw new Error("Genome intent manifest exceeds 128 KiB");
       files.set(path, await blob.text());
     }
     if (!files.has("node.yaml") && !files.has("system.yaml")) throw new Error(`Genome root file is missing under ${ref.prefix || "/"}`);

@@ -1,10 +1,9 @@
-import { normalizeVerificationRequest, type VerificationRequest, type VerificationResult } from '@artyfact/model';
+import { canonicalJson, normalizeVerificationRequest, VERIFICATION_OUTPUT_MAX_BYTES, verificationOutputKey, type VerificationRequest, type VerificationResult } from '@artyfact/model';
 import type { RealizationPlan } from '../../shared/lifecycle';
 
 /** Canonical comparison also fences a response whose check list or model identity changed. */
 export function sameVerification(a:unknown,b:unknown):boolean {
- const canonical=(v:unknown):unknown=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).filter(([,x])=>x!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([k,x])=>[k,canonical(x)])):v;
- return JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+ return canonicalJson(a)===canonicalJson(b);
 }
 export const needsCloudVerification=(p:RealizationPlan)=>p.systemId==='system.artyfact';
 const fail=(message:string):never=>{throw new Error(`[verification-required] ${message}`);};
@@ -47,6 +46,8 @@ export class VerificationStore {
    if(sameVerification(previous,result))return previous!;
    fail('terminal verification cannot change');
   }
+  const o=result.output;
+  if(o&&(o.key!==verificationOutputKey(result.request.id)||typeof o.digest!=='string'||!/^[0-9a-f]{64}$/.test(o.digest)||!Number.isSafeInteger(o.size)||o.size<1||o.size>VERIFICATION_OUTPUT_MAX_BYTES))fail('verification output must be the run\'s own bounded, digest-bound archive');
   if(result.status==='passed'&&(!result.output||!result.finishedAt||!result.steps.length||result.steps.some(s=>s.status!=='passed')))fail('passed verification lacks successful steps and output');
   this.sql.exec('UPDATE plan_verifications SET result_json=? WHERE plan_id=? AND artifact_id=?',JSON.stringify(result),p.id,result.request.artifactId);
   return result;

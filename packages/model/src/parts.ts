@@ -265,11 +265,12 @@ export function upgradeComposition(requestInput: schema.UpgradeRequest): schema.
   });
 }
 
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+/** JSON with sorted object keys and undefined members dropped, for digests and equality fences. */
+export function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).filter((k) => record[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonical(record[k])}`).join(",")}}`;
+    return `{${Object.keys(record).filter((k) => record[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonicalJson(record[k])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
@@ -277,5 +278,5 @@ function canonical(value: unknown): string {
 /** Digest of immutable package content. Publication state and the digest field itself are excluded. */
 export function partDigest(partInput: schema.PartPackage): string {
   const { digest: _digest, published: _published, ...content } = schema.PartPackage.parse(partInput);
-  return `sha256:${sha256Hex(canonical(content))}`;
+  return `sha256:${sha256Hex(canonicalJson(content))}`;
 }

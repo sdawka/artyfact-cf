@@ -1,4 +1,7 @@
-import { LegacyGenomeError, loadGenome, validate, type Readiness, type SystemModel, type TemplateStore } from "@artyfact/model";
+import {
+  INTENT_BRIEF_MAX_BYTES, INTENT_BRIEF_PATH, INTENT_MANIFEST_MAX_BYTES, INTENT_MANIFEST_PATH, isGenomeSource, LegacyGenomeError, loadGenome, validate,
+  type Readiness, type SystemModel, type TemplateStore,
+} from "@artyfact/model";
 import { NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
 import { metaTemplates } from "@artyfact/templates";
 import { unprocessable } from "../errors";
@@ -69,10 +72,7 @@ export async function walkTree(
 }
 
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
-export const INTENT_BRIEF = "intent/brief.md";
-export const INTENT_MANIFEST = "intent/manifest.json";
-/** A Genome source file (Genome-relative path): YAML, or one of the two intent sidecars. Nothing else is part of the model. */
-export const isGenomeSource = (p: string): boolean => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
+export { isGenomeSource };
 
 /** Where the Genome lives in a repo: root (`node.yaml`, or a legacy `system.yaml`) or `system/`. */
 export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Promise<string> {
@@ -114,8 +114,8 @@ export async function readGenomeSourceFiles(repo: ArtifactsRepoLike, commit: str
 /** The import caps on a set of Genome source files: YAML in all, and each intent sidecar. */
 export function assertGenomeSourceSize(files: Map<string, string>, commit: string): void {
   assertGenomeSize(new Map([...files].filter(([path]) => isYaml(path))), commit);
-  if (byteLength(files.get(INTENT_BRIEF) ?? "") > 64 * 1024) throw unprocessable("intent-too-large", "intent/brief.md exceeds 64 KiB");
-  if (byteLength(files.get(INTENT_MANIFEST) ?? "") > 128 * 1024) throw unprocessable("intent-too-large", "intent/manifest.json exceeds 128 KiB");
+  if (byteLength(files.get(INTENT_BRIEF_PATH) ?? "") > INTENT_BRIEF_MAX_BYTES) throw unprocessable("intent-too-large", "intent/brief.md exceeds 64 KiB");
+  if (byteLength(files.get(INTENT_MANIFEST_PATH) ?? "") > INTENT_MANIFEST_MAX_BYTES) throw unprocessable("intent-too-large", "intent/manifest.json exceeds 128 KiB");
 }
 
 export interface LoadedGenome {

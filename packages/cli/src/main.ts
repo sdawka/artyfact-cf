@@ -94,9 +94,10 @@ const USAGE = `artyfact <command>
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
 
-  release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--json]
+  release [--namespace ns] [--dry-run] [--no-build] [--no-deploy] [--site-via-ci] [--json]
         build the platform and site from a clean source, push the outputs to <ns>/platform.builds (one stable tag per
         source commit, reused when it exists) and deploy each Worker from that checkout; --dry-run writes nothing remote.
+        --site-via-ci leaves artyfact-site to artyfact-ci, which deploys it from the pushed commit.
   operator verify --system sid --plan pid [--artifact aid] [--retry] [--vars-file /secure/operator.env] [--platform url] [--namespace ns]
         run trusted Cloud verification and return its result before approval.
   operator publish --system sid --plan pid [--artifact aid] [--vars-file /secure/operator.env] [--platform url] [--namespace ns]

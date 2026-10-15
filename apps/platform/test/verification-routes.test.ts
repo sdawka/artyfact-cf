@@ -43,7 +43,7 @@ it('polls only the configured verifier and refuses identity substitution before 
  }) as unknown as typeof fetch;
  await startVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport);
  const original=result!;
- result={...original,status:'passed',request:{...original.request,source:{...original.request.source,commit:'a'.repeat(40)}},steps:[{name:'verify',command:'npm run ci -- --ultra-compact',status:'passed'}],finishedAt:new Date().toISOString(),output:{key:'output',digest:'b'.repeat(64),size:10}};
+ result={...original,status:'passed',request:{...original.request,source:{...original.request.source,commit:'a'.repeat(40)}},steps:[{name:'verify',command:'npm run ci -- --ultra-compact',status:'passed'}],finishedAt:new Date().toISOString(),output:{key:`verification/v1/${original.request.id}/output.tar.gz`,digest:'b'.repeat(64),size:10}};
  await expect(pollVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).rejects.toThrow(/identity/);
  expect((await systemStub(env,f.systemId).verification(p.id,'artifact.webapp'))!.status).toBe('queued');
  result={...result,request:original.request};
@@ -58,7 +58,7 @@ it('refreshes immediate and cached success, recovering an interrupted evidence u
  const {startVerification,pollVerification}=await import('../worker/verification');
  const configured={...env,VERIFICATION_URL:'https://verify.example.test',VERIFICATION_TOKEN:'private-test-token'};
  const run=vi.fn(passing.runSubmission);setHooks({runner:()=>({...passing,runSubmission:run})});
- const transport=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>Response.json({version:1,request:JSON.parse(String(init?.body)),status:'passed',steps:[{name:'verify',command:'npm run ci -- --ultra-compact',status:'passed'}],finishedAt:new Date().toISOString(),output:{key:'output',digest:'b'.repeat(64),size:10}})) as unknown as typeof fetch;
+ const transport=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{const request=JSON.parse(String(init?.body));return Response.json({version:1,request,status:'passed',steps:[{name:'verify',command:'npm run ci -- --ultra-compact',status:'passed'}],finishedAt:new Date().toISOString(),output:{key:`verification/v1/${request.id}/output.tar.gz`,digest:'b'.repeat(64),size:10}});}) as unknown as typeof fetch;
  run.mockRejectedValueOnce(new Error('interrupted evidence update'));
  await expect(startVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).rejects.toThrow('interrupted');
  expect((await systemStub(env,f.systemId).verification(p.id,'artifact.webapp'))!.status).toBe('passed');
