@@ -15,6 +15,8 @@
   // CI: the artyfact-ci Worker's Workflow (cross-script), which builds and deploys app commits. Absent from
   // wrangler.test.jsonc, so `env.CI` is optional in code.
   "workflows": [{ "binding": "CI", "name": "artyfact-ci", "class_name": "ArtyfactCI", "script_name": "artyfact-ci" }],
+  // FLAGS: Flagship app `artyfact` (flag `cat-mode`). Absent from the test configs, so `env.FLAGS` is optional in code.
+  "flagship": [{ "binding": "FLAGS", "app_id": "ce754c03-3f63-4a52-a84f-371727239d4a" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   // No Workers AI (AI) or Browser Run (BROWSER) here: the deployed Worker is the hosted demo (HOSTED_DEMO=1), whose
   // judgments are simulated. `npm run dev` adds both bindings and HOSTED_DEMO=0 in vite.config.ts, so local runs use

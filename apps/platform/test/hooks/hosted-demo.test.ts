@@ -95,9 +95,26 @@ describe("hosted demo", () => {
 
   it("GET /api/platform says whether this is the hosted demo", async () => {
     const on = await systems.request("/platform", {}, { HOSTED_DEMO: "1" });
-    expect(await on.json()).toEqual({ hostedDemo: true, notice: HOSTED_DEMO_NOTICE });
+    expect(await on.json()).toEqual({ hostedDemo: true, notice: HOSTED_DEMO_NOTICE, catMode: false });
     expect(HOSTED_DEMO_NOTICE).toBe("Hosted demo: judgments are simulated. Run it locally on your Cloudflare account for Clef or Jev.");
     const off = await systems.request("/platform", {}, { HOSTED_DEMO: "0" });
-    expect(await off.json()).toEqual({ hostedDemo: false });
+    expect(await off.json()).toEqual({ hostedDemo: false, catMode: false });
+  });
+
+  it("GET /api/platform reads the cat-mode Flagship flag; absent or failing reads as off", async () => {
+    const asked: [string, boolean][] = [];
+    const on = { getBooleanValue: async (key: string, fallback: boolean) => { asked.push([key, fallback]); return true; } };
+    const res = await systems.request("/platform", {}, { HOSTED_DEMO: "0", FLAGS: on });
+    expect(await res.json()).toEqual({ hostedDemo: false, catMode: true });
+    expect(asked).toEqual([["cat-mode", false]]);
+    const absent = await systems.request("/platform", {}, { HOSTED_DEMO: "0" });
+    expect(await absent.json()).toEqual({ hostedDemo: false, catMode: false });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = { getBooleanValue: async () => { throw new Error("flagship down"); } };
+    const failed = await systems.request("/platform", {}, { HOSTED_DEMO: "1", FLAGS: broken });
+    expect(failed.status).toBe(200);
+    expect(await failed.json()).toEqual({ hostedDemo: true, notice: HOSTED_DEMO_NOTICE, catMode: false });
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });

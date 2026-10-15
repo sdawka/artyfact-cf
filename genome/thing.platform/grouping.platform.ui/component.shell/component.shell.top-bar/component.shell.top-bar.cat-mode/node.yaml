@@ -1,0 +1,8 @@
+id: component.shell.top-bar.cat-mode
+kind: component
+fields:
+  name: Cat mode badge
+  description: "While the platform Worker's Flagship flag cat-mode is on, a cat glyph sits beside the wordmark in the top bar and on Home, with the words cat mode on for assistive tech, and the resting ambient room shifts a few degrees warmer. Off when the flag is off, the binding is absent or evaluation fails."
+  states:
+    - off
+    - "🐈 cat mode on (subtle)"

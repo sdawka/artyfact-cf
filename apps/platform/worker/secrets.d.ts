@@ -45,6 +45,11 @@ interface Secrets {
    */
   CI?: Workflow<import("../shared/api").CiBuildParams>;
   /**
+   * Flagship app `artyfact` (wrangler.jsonc `flagship`); gates `cat-mode`. Optional because the test configs omit it
+   * (absent means every flag is off); `wrangler types` emits it as required, so drop that generated line after regenerating.
+   */
+  FLAGS?: Flagship;
+  /**
    * Workers AI: selects Cloudflare Clef for System One and for visual checks. Browser Run: platform screenshots for
    * visual checks. Both are remote-only and local-only: `npm run dev` adds them (vite.config.ts); the deployed
    * wrangler.jsonc (the hosted demo) and wrangler.test.jsonc omit them, so they are optional here.
