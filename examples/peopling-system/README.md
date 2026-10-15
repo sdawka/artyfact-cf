@@ -20,4 +20,4 @@ One directory per node, each with its `node.yaml`; a node's children are its sub
 The unpinned authentication Kit is an intended readiness finding. The template's provisional `binding.d1`
 stays as shipped; `binding.contactsStore` is the Thing's intended D1 binding.
 
-Run `npm test -w @artyfact/example-peopling-system` or `npm test` from the repo root.
+Run `pnpm --filter @artyfact/example-peopling-system test` or `pnpm test` from the repo root.

@@ -3,23 +3,23 @@
   "private": true,
   "version": "0.0.0",
   "license": "Apache-2.0",
-  "workspaces": [
-    "packages/*",
-    "apps/*",
-    "examples/*"
-  ],
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "prepare": "node scripts/prepare.mjs",
     "ci": "node scripts/ci.mjs",
-    "build": "npm run build --workspaces --if-present",
+    "build": "pnpm -r run build",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/effects packages/model packages/rules packages/ontology packages/semantic packages/templates packages/cli examples/peopling-system && npm run typecheck -w @artyfact/platform && npm run typecheck -w @artyfact/example-peopling-app && npm run typecheck -w @artyfact/ci",
+    "typecheck": "tsc -b packages/effects packages/model packages/rules packages/ontology packages/semantic packages/templates packages/cli examples/peopling-system && pnpm --filter @artyfact/platform typecheck && pnpm --filter @artyfact/example-peopling-app typecheck && pnpm --filter @artyfact/ci typecheck",
     "lint": "echo \"lint not configured\"",
-    "e2e": "npm run e2e -w @artyfact/platform",
-    "deploy": "npm run build -w @artyfact/platform && npm run deploy -w @artyfact/platform",
+    "e2e": "pnpm --filter @artyfact/platform e2e",
+    "deploy": "pnpm --filter @artyfact/platform build && pnpm --filter @artyfact/platform deploy",
     "release": "artyfact release"
   },
   "devDependencies": {
+    "artyfact": "workspace:*",
     "esbuild": "0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"

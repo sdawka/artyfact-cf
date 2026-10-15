@@ -3,7 +3,7 @@
  * so it never calls a paid or external model and never reads a model key or binding: System One is the simulated
  * provider (the fake's canned answers, recorded as `simulated`), visual checks record a simulated verdict without
  * Browser Run or Clef, and intent translation and the plan draft planner are the deterministic fakes. Local runs
- * (`npm run dev` with `.dev.vars`) leave it unset and use the real providers.
+ * (`pnpm run dev` with `.dev.vars`) leave it unset and use the real providers.
  */
 import { fakeTranslator, simulatedSystemOne, type SystemOne, type Translator } from "@artyfact/ontology";
 

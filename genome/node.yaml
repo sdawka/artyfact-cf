@@ -30,7 +30,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm run typecheck
+          command: pnpm run typecheck
   - id: C.artyfact.unit
     title: Unit suites pass
     claim: Every workspace's vitest suite passes from the root; one failing test fails the candidate.
@@ -47,7 +47,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test
+          command: pnpm test
   - id: C.artyfact.self-genome
     title: The self-Genome maps every source file
     claim: This Genome loads under its pinned templates with no hard findings, and every non-ignored file under apps/ and packages/ maps to at least one node.
@@ -65,4 +65,4 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/templates -- test/self-genome.test.ts
+          command: pnpm --filter @artyfact/templates test test/self-genome.test.ts

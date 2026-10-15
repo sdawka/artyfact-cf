@@ -14,13 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@artyfact/ontology": "*",
+    "@artyfact/ontology": "workspace:*",
     "yaml": "^2.9.1",
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@artyfact/model": "*",
-    "@artyfact/rules": "*",
+    "@artyfact/model": "workspace:*",
+    "@artyfact/rules": "workspace:*",
     "@types/node": "^26.6.5",
     "@types/picomatch": "^4.0.3",
     "picomatch": "^4.0.7"

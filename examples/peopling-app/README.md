@@ -2,9 +2,9 @@
 
 Small Hono Worker (Static Assets + D1) that agents fork to realize evolutions of the peopling System.
 
-    npm install
-    npm run dev      # wrangler dev; GET /health, /api/contacts
-    npm test         # workerd via @cloudflare/vitest-plugin
+    pnpm install     # from the repo root
+    pnpm run dev     # wrangler dev; GET /health, /api/contacts
+    pnpm test        # workerd via @cloudflare/vitest-plugin
 
 Create the D1 database once (`database_name` peopling), put its id in `wrangler.jsonc`, then apply
 `migrations/0001_contacts.sql`. The Genome's nodes map these paths to model nodes through their `files` globs.

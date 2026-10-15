@@ -30,7 +30,7 @@ criteria:
           - candidate
           - promotion
         inputs:
-          command: npm test -w @artyfact/model
+          command: pnpm --filter @artyfact/model test
   - id: C.thing.model.checks
     title: Changed nodes meet their checks
     claim: Changed nodes meet the checks their kinds declare.

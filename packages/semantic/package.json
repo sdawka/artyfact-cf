@@ -12,6 +12,6 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@artyfact/ontology": "*"
+    "@artyfact/ontology": "workspace:*"
   }
 }

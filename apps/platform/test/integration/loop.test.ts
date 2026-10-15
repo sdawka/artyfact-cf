@@ -1,6 +1,6 @@
 /**
  * End-to-end loop against the real Cloudflare Artifacts service (namespace `artyfact-test`).
- * Opt-in: ARTYFACT_INTEGRATION=1 npm test -w @artyfact/platform -- --project integration
+ * Opt-in: ARTYFACT_INTEGRATION=1 pnpm --filter @artyfact/platform test --project integration
  * Needs `wrangler` logged in (and `cf` if the namespace does not exist yet). Never prints tokens.
  *
  * wrangler dev (wrangler.integration.jsonc) → `artyfact init` on a copy of the example renamed `system.itest-peopling-<run>`

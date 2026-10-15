@@ -10,36 +10,36 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 
 | Resource | Name | Created by |
 |---|---|---|
-| Worker + static assets | `artyfact-platform` | `npm run release` (or `npm run deploy`) |
-| Artifacts repo `artyfact/platform.builds` | build outputs and `release.json` per release | `npm run release` |
+| Worker + static assets | `artyfact-platform` | `pnpm run release` (or `pnpm run deploy`) |
+| Artifacts repo `artyfact/platform.builds` | build outputs and `release.json` per release | `pnpm run release` |
 | Durable Object `SystemAuthority` (SQLite) | migration in `wrangler.jsonc` `exports` | first deploy |
-| Queue consumer | `artyfact-artifacts-events` | `npx wrangler queues create artyfact-artifacts-events` before the first deploy |
+| Queue consumer | `artyfact-artifacts-events` | `pnpm exec wrangler queues create artyfact-artifacts-events` before the first deploy |
 | Artifacts namespace `artyfact` | `platform`, `peopling.genome`, `peopling.app` repos | `artyfact init` (runbook step 2), not this doc |
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
-| R2 bucket `artyfact-evidence` (binding `EVIDENCE`) | screenshots for visual checks | `npx wrangler r2 bucket create artyfact-evidence` before the first deploy |
-| Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `npm run dev` adds both; the deployed hosted demo has neither |
+| R2 bucket `artyfact-evidence` (binding `EVIDENCE`) | screenshots for visual checks | `pnpm exec wrangler r2 bucket create artyfact-evidence` before the first deploy |
+| Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `pnpm run dev` adds both; the deployed hosted demo has neither |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
-| Queue `artyfact-site-deploys` (consumer `artyfact-ci`) and Workflow `artyfact-site-deploy` | public site deploys from `platform.builds` | `npx wrangler queues create artyfact-site-deploys`, then deploy `artyfact-ci` |
+| Queue `artyfact-site-deploys` (consumer `artyfact-ci`) and Workflow `artyfact-site-deploy` | public site deploys from `platform.builds` | `pnpm exec wrangler queues create artyfact-site-deploys`, then deploy `artyfact-ci` |
 | Event subscription `artyfact-platform.builds-site-deploy` | `pushed` on `artyfact/platform.builds` → `artyfact-site-deploys` | `node scripts/site-deploy-subscription.mjs` (idempotent; `--dry-run` previews), or `npx cf queues subscriptions create --body '<same JSON>'` (the typed flags cannot name an `artifacts.repo` source). Created 2026-10-14 |
 
 There is no D1. R2 holds only evidence images. The deployed Worker is the hosted demo (`HOSTED_DEMO=1` in `wrangler.jsonc`): System One, visual checks, intent translation and plan drafting are simulated, and no model key or binding is read, so a hosted run spends nothing on models. To judge with Clef or Jev, run the platform locally (`npm run dev`) on your own account with keys in `.dev.vars`; see the platform README for `S1_PROVIDER`. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
 ## First deploy
 
-1. `npx wrangler whoami`; confirm the account.
-2. `npx wrangler queues create artyfact-artifacts-events` and `npx wrangler r2 bucket create artyfact-evidence`
+1. `pnpm exec wrangler whoami`; confirm the account.
+2. `pnpm exec wrangler queues create artyfact-artifacts-events` and `pnpm exec wrangler r2 bucket create artyfact-evidence`
 3. Set `vars.ACCOUNT_ID` in `apps/platform/wrangler.jsonc` to the account id. Leave `PREVIEW_HOST_ALLOWLIST` empty and never set `ALLOW_LOCAL_PREVIEW`.
-4. `npm run deploy`. Note the `https://artyfact-platform.<subdomain>.workers.dev` URL, put it in `vars.PUBLIC_URL`, and deploy again.
+4. `pnpm run deploy`. Note the `https://artyfact-platform.<subdomain>.workers.dev` URL, put it in `vars.PUBLIC_URL`, and deploy again.
 5. Configure `ADMIN_TOKEN` using the saved-token procedure below. Keep production and local `.dev.vars` tokens separate; never generate a token directly into the upload pipe.
 6. Check: `curl -i $URL/api/health` returns 200, and the SPA loads with the fixture-mode banner until a System is imported.
 
 ## Redeploy
 
-`npm run release`, run from a clean checkout of main, is the deploy path for both Workers; the first release ran on 2026-10-15 as tag `v20261015-c225282`, before tags became `v-<sha12>`. It builds the platform and the site, commits the outputs and a `release.json` to the Artifacts repo `artyfact/platform.builds` (tag `v-<sha12>`, one per source commit, reused when it exists) and runs `wrangler deploy` for both Workers from that checkout, so the deployed version always comes from Artifacts. It refuses a dirty tree, prints no tokens, and `--dry-run` writes nothing remote. Needs `npx wrangler login` and `cf auth login` on the same account. Design: [design/release-artifacts.md](design/release-artifacts.md).
+`pnpm run release`, run from a clean checkout of main, is the deploy path for both Workers; the first release ran on 2026-10-15 as tag `v20261015-c225282`, before tags became `v-<sha12>`. It builds the platform and the site, commits the outputs and a `release.json` to the Artifacts repo `artyfact/platform.builds` (tag `v-<sha12>`, one per source commit, reused when it exists) and runs `wrangler deploy` for both Workers from that checkout, so the deployed version always comes from Artifacts. It refuses a dirty tree, prints no tokens, and `--dry-run` writes nothing remote. Needs `npx wrangler login` and `cf auth login` on the same account. Design: [design/release-artifacts.md](design/release-artifacts.md).
 
-`npm run release -- --site-via-ci` deploys only the platform locally. The push to `platform.builds` main starts `artyfact-site-deploy` in `artyfact-ci`, which uploads the committed `site/dist` for that exact commit (no rebuild) with its `CF_TOKEN`. Check the outcome with `GET https://artyfact-ci.<subdomain>.workers.dev/site-deploys/latest` (or `/site-deploys/<builds-commit>`) and the `VERIFICATION_TOKEN` bearer: it records the commit, release tag, source commit and Worker version id. A reused release pushes nothing, so the site is not redeployed. `artyfact operator publish` pushes to the same `main`, so a verified release deploys the site the same way.
+`pnpm run release --site-via-ci` deploys only the platform locally. The push to `platform.builds` main starts `artyfact-site-deploy` in `artyfact-ci`, which uploads the committed `site/dist` for that exact commit (no rebuild) with its `CF_TOKEN`. Check the outcome with `GET https://artyfact-ci.<subdomain>.workers.dev/site-deploys/latest` (or `/site-deploys/<builds-commit>`) and the `VERIFICATION_TOKEN` bearer: it records the commit, release tag, source commit and Worker version id. A reused release pushes nothing, so the site is not redeployed. `artyfact operator publish` pushes to the same `main`, so a verified release deploys the site the same way.
 
-`npm run deploy` (builds the platform, then `wrangler deploy` from the worktree) remains the manual fallback. Secrets and the Queue persist either way.
+`pnpm run deploy` (builds the platform, then `wrangler deploy` from the worktree) remains the manual fallback. Secrets and the Queue persist either way.
 
 The deployed build keeps `wrangler.jsonc` as is: `HOSTED_DEMO=1`, no `AI` or `BROWSER`, and no model secrets needed. A self-hosted Worker that should judge for real removes `HOSTED_DEMO` and adds `"ai": { "binding": "AI" }` and `"browser": { "binding": "BROWSER" }` before deploying; then `S1_PROVIDER` and the keys apply as locally. `wrangler deploy` replaces `vars`.
 
@@ -82,13 +82,13 @@ Set the platform URL and the account id first:
 
 ```
 URL=https://artyfact-platform.dawka.workers.dev
-ACCOUNT_ID=<the account id from npx wrangler whoami>
+ACCOUNT_ID=<the account id from pnpm exec wrangler whoami>
 ```
 
 1. Clone the v1 head of `peopling.genome` (not the example on `main`: prod may have promoted Genome amendments since) and the head of `peopling.app`, for its own `source-map.yaml`. Pass each read token through the environment, never in argv:
    ```
    for repo in peopling.genome peopling.app; do
-     T=$(npx wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
+     T=$(pnpm exec wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
      GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" \
        git clone -q https://$ACCOUNT_ID.artifacts.cloudflare.net/git/artyfact/$repo.git /tmp/$repo
    done
@@ -105,7 +105,7 @@ ACCOUNT_ID=<the account id from npx wrangler whoami>
    `--genome-only` never reads, pushes or seeds an app: `peopling.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
 4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.peopling/model` prints `200`.
 
-Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` has been run again for the Artifacts scope, and a 403 from `init` required checking the token source and platform secret. Use the saved-token procedure above; a newly activated secret can initially return 403, so verify with bounded retries before considering another upload. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
+Gotchas from the 2026-10-13 run: `issue-token` fails until `pnpm exec wrangler login` has been run again for the Artifacts scope, and a 403 from `init` required checking the token source and platform secret. Use the saved-token procedure above; a newly activated secret can initially return 403, so verify with bounded retries before considering another upload. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
 
 ## Remove a System
 
@@ -120,8 +120,8 @@ printf 'Authorization: Bearer %s\n' "$ADMIN_TOKEN" | \
 
 ```
 cd apps/platform
-npx wrangler versions list
-npx wrangler rollback <version-id>
+pnpm exec wrangler versions list
+pnpm exec wrangler rollback <version-id>
 ```
 Durable Object migrations are not rolled back; only add migrations, never edit applied ones.
 

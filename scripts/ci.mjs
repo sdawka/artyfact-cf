@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // The single CI definition. Hosted CI (.github/workflows/ci.yml) runs the four jobs in parallel; the pre-push hook runs --fast.
-//   npm run ci                        full run: every job, in sequence
-//   npm run ci -- --changed           only the jobs affected by the commits being pushed
-//   npm run ci -- --job <name>        one job: unit | e2e-fixture | e2e-fake | site
-//   npm run ci -- --fast              typecheck and unit tests of the changed workspaces only, two workers, no e2e
-//   npm run ci -- --plan              print `job=true|false` lines for the jobs that would run, then exit
+//   pnpm run ci                       full run: every job, in sequence
+//   pnpm run ci --changed             only the jobs affected by the commits being pushed
+//   pnpm run ci --job <name>          one job: unit | e2e-fixture | e2e-fake | site
+//   pnpm run ci --fast                typecheck and unit tests of the changed workspaces only, two workers, no e2e
+//   pnpm run ci --plan                print `job=true|false` lines for the jobs that would run, then exit
 //   --base <ref>                      compare against <ref> instead of the upstream or origin/main
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -48,7 +48,7 @@ const isSite = (f) =>
   f.startsWith("apps/site/") ||
   f.startsWith("packages/effects/") ||
   f.startsWith("packages/cli/") ||
-  f === "package-lock.json" ||
+  f === "pnpm-lock.yaml" ||
   f.startsWith("scripts/ci") ||
   f === ".github/workflows/ci.yml";
 // Every other code change runs the platform jobs (the root typecheck and tests also cover effects and cli).
@@ -112,35 +112,35 @@ const pkg = (dir) => JSON.parse(readFileSync(`${dir}/package.json`, "utf8"));
 function fastSteps() {
   const dirs = code === null ? null : [...new Set(code.map(workspaceOf))];
   if (dirs === null || dirs.includes(null)) {
-    return [["fast: typecheck", "npm run typecheck"], ["fast: unit tests", "npx vitest run --maxWorkers=2"]];
+    return [["fast: typecheck", "pnpm run typecheck"], ["fast: unit tests", "pnpm exec vitest run --maxWorkers=2"]];
   }
   const workspaces = dirs.filter((d) => existsSync(`${d}/package.json`));
   const steps = [];
   const tsc = [];
   for (const dir of workspaces) {
     const { name, scripts } = pkg(dir);
-    if (scripts?.typecheck) steps.push([`fast: typecheck ${name}`, `npm run typecheck -w ${name}`]);
+    if (scripts?.typecheck) steps.push([`fast: typecheck ${name}`, `pnpm --filter ${name} typecheck`]);
     else if (existsSync(`${dir}/tsconfig.json`)) tsc.push(dir);
   }
-  if (tsc.length) steps.unshift(["fast: typecheck", `npx tsc -b ${tsc.join(" ")}`]);
-  if (workspaces.length) steps.push(["fast: unit tests", `npx vitest run --maxWorkers=2 --passWithNoTests ${workspaces.map((d) => `${d}/`).join(" ")}`]);
+  if (tsc.length) steps.unshift(["fast: typecheck", `pnpm exec tsc -b ${tsc.join(" ")}`]);
+  if (workspaces.length) steps.push(["fast: unit tests", `pnpm exec vitest run --maxWorkers=2 --passWithNoTests ${workspaces.map((d) => `${d}/`).join(" ")}`]);
   return steps;
 }
 
 const jobSteps = {
   unit: [
-    ["platform: typecheck", "npm run typecheck"],
-    ["platform: unit tests", "npm test"],
-    ["platform: build", "npm run build -w @artyfact/platform"],
+    ["platform: typecheck", "pnpm run typecheck"],
+    ["platform: unit tests", "pnpm test"],
+    ["platform: build", "pnpm --filter @artyfact/platform build"],
   ],
-  "e2e-fixture": [["platform: e2e (fixture)", "npm run e2e"]],
-  "e2e-fake": [["platform: e2e (fake platform)", "npm run e2e:fake -w @artyfact/platform"]],
+  "e2e-fixture": [["platform: e2e (fixture)", "pnpm --filter @artyfact/platform e2e"]],
+  "e2e-fake": [["platform: e2e (fake platform)", "pnpm --filter @artyfact/platform e2e:fake"]],
   site: [
-    ["site: typecheck", "npm run typecheck -w @artyfact/site"],
-    ["site: unit tests", "npm run test -w @artyfact/site"],
-    ["site: build", "npm run build -w @artyfact/site"],
-    ["site: test:build", "npm run test:build -w @artyfact/site"],
-    ["site: e2e", "npm run e2e -w @artyfact/site"],
+    ["site: typecheck", "pnpm --filter @artyfact/site typecheck"],
+    ["site: unit tests", "pnpm --filter @artyfact/site test"],
+    ["site: build", "pnpm --filter @artyfact/site build"],
+    ["site: test:build", "pnpm --filter @artyfact/site test:build"],
+    ["site: e2e", "pnpm --filter @artyfact/site e2e"],
   ],
 };
 

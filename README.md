@@ -127,9 +127,9 @@ The screenshots in [docs/images/](docs/images/) predate the plan flow. [map-cand
 
 ### Prerequisites
 
-- Node 24 (`.nvmrc`) and npm. The repo is one npm workspace: run `npm install` once at the root.
-- A Playwright browser for the end-to-end suites: `npx playwright install chromium`.
-- For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `npx wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. They log in separately; `npx wrangler whoami` and `cf auth whoami` must show the same account, and `artyfact init` and `npm run release` check this.
+- Node 24 (`.nvmrc`) and pnpm, pinned by `packageManager` in `package.json` (`corepack enable` installs it). The repo is one pnpm workspace: run `pnpm install` once at the root.
+- A Playwright browser for the end-to-end suites: `pnpm exec playwright install chromium`.
+- For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `pnpm exec wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. They log in separately; `pnpm exec wrangler whoami` and `cf auth whoami` must show the same account, and `artyfact init` and `pnpm run release` check this.
 - Cost. Fixture and fake mode are free and talk to no Cloudflare service. The real backend uses Artifacts, which has a free tier of operations, plus Workers AI (`AI`, for Clef) and Browser Run (`BROWSER`, for preview screenshots), both billed to the logged-in account. [docs/costs.md](docs/costs.md) has the numbers.
 
 ### Three ways to run, cheapest first
@@ -137,34 +137,34 @@ The screenshots in [docs/images/](docs/images/) predate the plan flow. [map-cand
 **Fixture mode** needs no backend and no login. The SPA uses a bundled copy of the Peopling System. The same fallback appears whenever the API is unreachable, with a "fixture data" notice in the header.
 
 ```sh
-npm test                                          # unit tests; the live System One smoke test is skipped without a key
-npm run typecheck
-npm run e2e                                       # builds the SPA and runs the Playwright suite on port 1338
-npm run preview:fixture -w @artyfact/platform     # http://localhost:1338
+pnpm test                                         # unit tests; the live System One smoke test is skipped without a key
+pnpm run typecheck
+pnpm run e2e                                      # builds the SPA and runs the Playwright suite on port 1338
+pnpm --filter @artyfact/platform preview:fixture   # http://localhost:1338
 ```
 
 **Fake platform** runs the whole backend on in-memory Artifacts seeded from `examples/`, with the fake System One and no AI or Browser Run. It needs no login and keeps no state between runs. The variables go in the shell, not in `.dev.vars`, because the Vite config reads them to drop the remote binding.
 
 ```sh
-FAKE_ARTIFACTS=1 npm run dev -w @artyfact/platform               # http://localhost:1337, Peopling imported
-FAKE_ARTIFACTS=1 FAKE_SEED=both npm run dev -w @artyfact/platform  # also Artyfact's own genome/
-npm run e2e:fake -w @artyfact/platform                           # use-case specs on port 1339 (self-model on 1340)
+FAKE_ARTIFACTS=1 pnpm --filter @artyfact/platform dev                 # http://localhost:1337, Peopling imported
+FAKE_ARTIFACTS=1 FAKE_SEED=both pnpm --filter @artyfact/platform dev  # also Artyfact's own genome/
+pnpm --filter @artyfact/platform e2e:fake                             # use-case specs on port 1339 (self-model on 1340)
 ```
 
 `FAKE_SEED` is `peopling` (default), `artyfact` or `both`. `FAKE_MODEL_DELTA=1` also seeds Task candidates that change the pinned model, for the Review view. The admin token is `fake-admin-token` unless `ADMIN_TOKEN` is set in the shell. Driving it with the real CLI and a local git transport is in [the runbook](docs/demo-runbook.md#the-fake-platform).
 
-**Real backend** uses the `ARTIFACTS` binding, which is remote even in development, plus `AI` and `BROWSER` on your account. `npm run dev` sets `HOSTED_DEMO=0`, so judgments are real.
+**Real backend** uses the `ARTIFACTS` binding, which is remote even in development, plus `AI` and `BROWSER` on your account. `pnpm run dev` sets `HOSTED_DEMO=0`, so judgments are real.
 
 ```sh
 cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # set ADMIN_TOKEN=$(openssl rand -hex 32) and ACCOUNT_ID
-npm run dev -w @artyfact/platform                            # http://localhost:1337 (Vite moves to the next free port)
+pnpm --filter @artyfact/platform dev                            # http://localhost:1337 (Vite moves to the next free port)
 ```
 
 `apps/platform/wrangler.jsonc` carries the maintainer's account values (`ACCOUNT_ID`, `PUBLIC_URL`, `WORKERS_SUBDOMAIN`, the Flagship `app_id`). `ACCOUNT_ID` in `.dev.vars` overrides the first locally; change the rest before deploying to your own account. Read routes are unauthenticated; admin routes (import, claim, accept, reject, promote) need `ADMIN_TOKEN`.
 
 ### Platform Worker variables
 
-Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed secret (`npx wrangler secret put` in `apps/platform`), or the shell that starts Vite.
+Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed secret (`pnpm exec wrangler secret put` in `apps/platform`), or the shell that starts Vite.
 
 | Variable | Needed for | Set in | Default | Meaning |
 | --- | --- | --- | --- | --- |
@@ -173,7 +173,7 @@ Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed
 | `ARTIFACTS_NAMESPACE` | always | vars | `artyfact` | Artifacts namespace of the deployment. |
 | `PUBLIC_URL` | CI builds | vars | the hosted origin | Deployed origin, used in CI report URLs and app vars. Local pages use the request origin. |
 | `WORKERS_SUBDOMAIN` | nothing in the Worker | vars | `dawka` | Recorded only; the CI Worker's own copy builds preview URLs. |
-| `HOSTED_DEMO` | deployed demo | vars | `1`; `npm run dev` forces `0` | `1` simulates System One, visual checks, translation and plan drafts and reads no model key. |
+| `HOSTED_DEMO` | deployed demo | vars | `1`; `pnpm run dev` forces `0` | `1` simulates System One, visual checks, translation and plan drafts and reads no model key. |
 | `S1_PROVIDER` | System One | `.dev.vars`, secret | `auto` | `auto` tries TypeSafe, then Clef, then OpenRouter; `clef`, `jev`, `openrouter`, `fake` or `off` pick one and never fall through. |
 | `FAKE_S1` | gate without keys | `.dev.vars` only | `1` in the example | Answers from the fake provider; the UI labels those judgments fake. Never deployed. |
 | `TYPESAFE_API_KEY` | Jev | `.dev.vars`, secret | unset | TypeSafe key; Jev model `jev-latest`. |
@@ -193,7 +193,7 @@ Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed
 | `ALLOW_LOCAL_PREVIEW` | local previews | `.dev.vars` only | `1` in the example | Lets the health hook fetch `http://localhost` and `127.0.0.1` previews. Never deployed. |
 | `PREVIEW_HOST_ALLOWLIST` | custom preview hosts | vars or `.dev.vars` | empty | Extra hosts, comma-separated; `*.workers.dev` and `*.pages.dev` are always allowed. |
 | `FAKE_ARTIFACTS`, `FAKE_SEED`, `FAKE_MODEL_DELTA` | fake platform | shell | unset | See fake platform above. A build refuses `FAKE_ARTIFACTS=1`. |
-| `ARTYFACT_PERSIST_STATE_DIR` | local state | shell | `.wrangler/state` | Where `npm run dev` keeps Durable Object state. |
+| `ARTYFACT_PERSIST_STATE_DIR` | local state | shell | `.wrangler/state` | Where `pnpm run dev` keeps Durable Object state. |
 | `ARTYFACT_E2E_PORT` | e2e | shell | 1338, or 1339 fake | Port for the Playwright suites when the default is taken. |
 
 Bindings need no variable. `FLAGS` is the Flagship app that gates the `cat-mode` flag; absent or failing, every flag is off. `EVIDENCE` is the R2 bucket `artyfact-evidence`, `SYSTEMS` the Durable Object, `CI` the cross-script Workflow in `artyfact-ci`.
@@ -233,7 +233,7 @@ The site (`apps/site`) has no runtime variables. Its build reads optional `SITE_
 
 ### Deploy and release
 
-`npm run release`, from a clean checkout of main, builds the platform and the site, commits them with a `release.json` to the Artifacts repo `artyfact/platform.builds` and deploys the platform Worker from that checkout ([design](docs/design/release-artifacts.md)). A push to that repo also starts the site deploy Workflow in `artyfact-ci`. `npm run deploy` is the manual fallback. Resources, first deploy and the production admin token are in [docs/deploy.md](docs/deploy.md).
+`pnpm run release`, from a clean checkout of main, builds the platform and the site, commits them with a `release.json` to the Artifacts repo `artyfact/platform.builds` and deploys the platform Worker from that checkout ([design](docs/design/release-artifacts.md)). A push to that repo also starts the site deploy Workflow in `artyfact-ci`. `pnpm run deploy` is the manual fallback. Resources, first deploy and the production admin token are in [docs/deploy.md](docs/deploy.md).
 
 ## Artyfact describes itself
 
@@ -241,7 +241,7 @@ The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-
 
 ```sh
 cd apps/platform
-FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Peopling too
+FAKE_ARTIFACTS=1 FAKE_SEED=artyfact pnpm exec vite --port 1337   # FAKE_SEED=both imports Peopling too
 ```
 
 A deployed app reports what it observes to `POST /api/systems/:id/phenome/events`; the header schema is `PhenomeEventHeader` in `packages/model/src/phenome.ts`, and the Deployments view groups the events by build. Runtime metrics and Flagship controls need `OPERATIONS_BINDINGS` and `OPERATIONS_API_TOKEN`; without them the view reports the data as unavailable.

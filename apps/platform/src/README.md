@@ -132,7 +132,7 @@ from `fixtures/peopling.files.json` (app scope is empty), `getRevisions` returns
 empty lists, entry/compare reads 404 and writes throw `FixtureModeError`. The TopBar and Home header then show "fixture
 data" and "Retry API" (`resetClientMode()` + refetch); the cause is logged with `console.warn`. The fixture summary
 zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/peopling-system`
-by `npm run build:fixture -w @artyfact/platform` (`scripts/build-fixture.ts`).
+by `pnpm --filter @artyfact/platform build:fixture` (`scripts/build-fixture.ts`).
 
 `queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route (iteration-2 hooks are disabled outside
 `/s/`): `useSystems, useClientMode, useModelBundle, useReadiness, useEvolutions` (polls every 5 s),
