@@ -83,4 +83,6 @@ App repos are untrusted. Agents write them, and the install and test steps run t
 
 ## Tests in CI
 
+Hosted CI (`.github/workflows/ci.yml`) runs one `setup` job that installs and decides which jobs the changes need, then `unit` (typecheck, Vitest, platform build), `e2e-fixture`, `e2e-fake` and `site` in parallel, and a final `ci` job that is the single required status. Each job runs `node scripts/ci.mjs --job <name>`. The pre-push hook runs only `npm run ci -- --fast`: typecheck and unit tests of the changed workspaces with two workers, nothing for docs-only pushes, no browser suites. `CI_LOCAL=full git push` runs every job locally instead.
+
 `npm run ci` runs the fixture Playwright suite and then the fake-platform suite (`npm run e2e:fake -w @artyfact/platform`). The fake suite boots `vite --port 1339` with `FAKE_ARTIFACTS=1`, so it needs no Cloudflare login, only the `git` that every runner has. `apps/platform/e2e/iteration2.live.spec.ts` needs a deployment: run it with `ARTYFACT_E2E_LIVE=1 ARTYFACT_ADMIN_TOKEN=… npm run e2e:live -w @artyfact/platform`, plus `ARTYFACT_CI=1` when `artyfact-ci` is deployed so it also waits for a preview build.
