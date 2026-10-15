@@ -7,10 +7,16 @@ import type { VerificationRequest, VerificationResult } from "@artyfact/model";
 import { verificationModelDigest } from "@artyfact/model";
 import {
   authorizeVerification,
+  createQueuedResult,
+  failQueuedResult,
+  getVerificationResult,
   handleVerificationHttp,
+  persistVerificationResult,
   planVerificationSteps,
   runVerificationPipeline,
   storeVerificationOutput,
+  VERIFICATION_STALE_MS,
+  type VerificationBucketLike,
   type VerificationHttpDeps,
 } from "../src/verification.ts";
 
@@ -103,7 +109,11 @@ describe("verification HTTP", () => {
         results.set(result.request.id, result);
         return true;
       },
-      replaceResult: async (result) => { results.set(result.request.id, result); },
+      failQueued: async (result) => {
+        if (results.get(result.request.id)?.status !== "queued") return results.get(result.request.id) ?? null;
+        results.set(result.request.id, result);
+        return result;
+      },
       start,
       getOutput: async (key) => outputs.has(key) ? new Response(outputs.get(key)) : null,
     };
@@ -223,5 +233,80 @@ describe("verification pipeline", () => {
       size: 4,
     });
     await expect(storeVerificationOutput(bucket, base.id, new Uint8Array([0x1f, 0x8b, 0x09]))).rejects.toThrow(/immutable/i);
+  });
+});
+
+describe("verification result store", () => {
+  /** An R2 stand-in with etags, upload times, and the two conditional-put forms the store uses. */
+  function fakeBucket() {
+    const objects = new Map<string, { text: string; etag: string; uploaded: Date }>();
+    let clock = 0, version = 0;
+    const bucket: VerificationBucketLike & { advance(ms: number): void } = {
+      advance: (ms) => { clock += ms; },
+      head: async () => null,
+      put: async (key, value, options) => {
+        const current = objects.get(key);
+        if (options?.onlyIf?.etagDoesNotMatch === "*" && current) return null;
+        if (options?.onlyIf?.etagMatches !== undefined && current?.etag !== options.onlyIf.etagMatches) return null;
+        objects.set(key, { text: String(value), etag: `e${++version}`, uploaded: new Date(clock) });
+        return {};
+      },
+      get: async (key) => {
+        const o = objects.get(key);
+        return o ? { body: new ReadableStream(), text: async () => o.text, etag: o.etag, uploaded: o.uploaded } : null;
+      },
+    };
+    return bucket;
+  }
+  const queuedOf = (): VerificationResult => ({ version: 1, request: { ...base, checks: base.checks ?? [] }, status: "queued", steps: [] });
+
+  it("writes progress by compare-and-swap and keeps terminal results immutable", async () => {
+    const bucket = fakeBucket();
+    expect(await createQueuedResult(bucket, queuedOf())).toBe(true);
+    expect(await createQueuedResult(bucket, queuedOf())).toBe(false);
+    await persistVerificationResult(bucket, { ...queuedOf(), status: "running", startedAt: "t0" });
+    const failed: VerificationResult = { ...queuedOf(), status: "failed", finishedAt: "t1" };
+    await persistVerificationResult(bucket, failed);
+    await expect(persistVerificationResult(bucket, failed)).resolves.toBeUndefined();
+    await expect(persistVerificationResult(bucket, { ...queuedOf(), status: "passed" })).rejects.toThrow(/immutable/);
+  });
+
+  it("never lets a start failure overwrite a run that already progressed", async () => {
+    const bucket = fakeBucket();
+    await createQueuedResult(bucket, queuedOf());
+    const running: VerificationResult = { ...queuedOf(), status: "running", startedAt: "t0" };
+    await persistVerificationResult(bucket, running);
+    const error: VerificationResult = { ...queuedOf(), status: "error", error: "start failed" };
+    expect(await failQueuedResult(bucket, error)).toEqual(running);
+    const other = fakeBucket();
+    await createQueuedResult(other, queuedOf());
+    expect(await failQueuedResult(other, error)).toEqual(error);
+  });
+
+  it("settles a run without progress past the bound as error, and a late writer cannot revive it", async () => {
+    const bucket = fakeBucket();
+    await createQueuedResult(bucket, queuedOf());
+    await persistVerificationResult(bucket, { ...queuedOf(), status: "running", startedAt: "t0" });
+    expect((await getVerificationResult(bucket, base.id, new Date(VERIFICATION_STALE_MS - 1)))?.status).toBe("running");
+    const settled = await getVerificationResult(bucket, base.id, new Date(VERIFICATION_STALE_MS));
+    expect(settled).toMatchObject({ status: "error", error: expect.stringMatching(/no progress/) });
+    await expect(persistVerificationResult(bucket, { ...queuedOf(), status: "passed" })).rejects.toThrow(/immutable/);
+  });
+
+  it("answers 202 with the stored run when the Workflow start fails after it progressed", async () => {
+    const results = new Map<string, VerificationResult>();
+    const deps: VerificationHttpDeps = {
+      token: "verification-secret", authorize: async () => {},
+      getResult: async (id) => results.get(id) ?? null,
+      createQueued: async (result) => { results.set(result.request.id, result); return true; },
+      failQueued: async () => ({ ...queuedOf(), status: "running" }),
+      start: async () => { throw new Error("create timed out"); },
+      getOutput: async () => null,
+    };
+    const response = await handleVerificationHttp(new Request("https://ci.test/verify", {
+      method: "POST", headers: { authorization: "Bearer verification-secret", "content-type": "application/json" }, body: JSON.stringify(base),
+    }), deps);
+    expect(response.status).toBe(202);
+    expect((await response.json() as VerificationResult).status).toBe("running");
   });
 });

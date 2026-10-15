@@ -73,8 +73,13 @@ it("reclaims an expired stranded lease from its durably scheduled alarm", async 
     await state.storage.setAlarm(stranded.expiresAt);
     return started.id;
   });
-  await runDurableObjectAlarm(env.SYSTEMS.getByName(systemId));
-  const completed = await env.SYSTEMS.getByName(systemId).integrityRun(runId);
+  // The past-due alarm may also fire on its own; a second run can find nothing to do, so poll until the run settles.
+  let completed = await env.SYSTEMS.getByName(systemId).integrityRun(runId);
+  for (let i = 0; i < 50 && (completed?.state === "queued" || completed?.state === "running"); i++) {
+    await runDurableObjectAlarm(env.SYSTEMS.getByName(systemId));
+    await new Promise((done) => setTimeout(done, 20));
+    completed = await env.SYSTEMS.getByName(systemId).integrityRun(runId);
+  }
   expect(completed?.state, completed?.error?.message).toBe("completed");
 });
 

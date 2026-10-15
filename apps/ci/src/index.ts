@@ -6,16 +6,19 @@ import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
 import { CiSandbox, type CiBindings } from "@cloudflare/ci/worker";
 import type { CiBuildParams } from "./contract";
-import { canonicalJson, type VerificationRequest, type VerificationResult } from "@artyfact/model";
+import type { VerificationRequest } from "@artyfact/model";
 import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
 import { runPipeline, type CiLike, type DoStep, type FetchLike } from "./pipeline";
 import { readVerificationGenome } from "./verification-artifacts";
 import {
   authorizeVerification,
+  createQueuedResult,
+  failQueuedResult,
+  getVerificationResult,
   handleVerificationHttp,
+  persistVerificationResult,
   runVerificationPipeline,
   storeVerificationOutput,
-  verificationResultKey,
   type VerificationBucketLike,
 } from "./verification";
 
@@ -57,6 +60,7 @@ export function toVerificationCiParams(p: VerificationRequest): VerificationPayl
   };
 }
 
+const bucket = (env: CiEnv) => env.BACKUP_BUCKET as unknown as VerificationBucketLike;
 const isPlatformParams = (v: unknown): v is CiBuildParams => !!v && typeof v === "object" && "buildId" in v && "workerName" in v;
 const isVerificationParams = (v: unknown): v is VerificationRequest => !!v && typeof v === "object" && "profile" in v && "source" in v && "genome" in v;
 
@@ -86,25 +90,6 @@ export class ArtyfactCI extends CIWorkflow<CloudflareArtifacts, CiEnv> {
   }
 }
 
-async function getVerificationResult(bucket: R2Bucket, id: string): Promise<VerificationResult | null> {
-  const object = await bucket.get(verificationResultKey(id));
-  if (!object) return null;
-  return JSON.parse(await object.text()) as VerificationResult;
-}
-
-const terminal = (status: VerificationResult["status"]) => status === "passed" || status === "failed" || status === "error";
-
-async function persistVerificationResult(bucket: R2Bucket, result: VerificationResult): Promise<void> {
-  const existing = await getVerificationResult(bucket, result.request.id);
-  if (existing && terminal(existing.status)) {
-    if (canonicalJson(existing) !== canonicalJson(result)) throw new Error(`terminal verification ${result.request.id} is immutable`);
-    return;
-  }
-  await bucket.put(verificationResultKey(result.request.id), JSON.stringify(result), {
-    httpMetadata: { contentType: "application/json", cacheControl: "private, no-store" },
-  });
-}
-
 async function authorizeFromArtifacts(env: CiEnv, request: VerificationRequest): Promise<void> {
   const effective = await readVerificationGenome(env.ARTIFACTS, request.genome);
   const pinnedRef = request.pinnedGenome ?? request.genome;
@@ -128,8 +113,8 @@ export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv>
       authorize: () => step.do("authorize verification", () => authorizeFromArtifacts(this.env, request)),
       ci,
       now: (name) => step.do(name, async () => new Date().toISOString()),
-      persist: (result, checkpoint) => step.do(checkpoint, () => persistVerificationResult(this.env.BACKUP_BUCKET, result)),
-      storeOutput: (bytes) => step.do("store output", () => storeVerificationOutput(this.env.BACKUP_BUCKET as unknown as VerificationBucketLike, request.id, bytes)),
+      persist: (result, checkpoint) => step.do(checkpoint, () => persistVerificationResult(bucket(this.env), result)),
+      storeOutput: (bytes) => step.do("store output", () => storeVerificationOutput(bucket(this.env), request.id, bytes)),
     });
   }
 }
@@ -140,12 +125,9 @@ export default {
     return handleVerificationHttp(request, {
       token: env.VERIFICATION_TOKEN,
       authorize: (verification) => authorizeFromArtifacts(env, verification),
-      getResult: (id) => getVerificationResult(env.BACKUP_BUCKET, id),
-      createQueued: async (result) => !!await env.BACKUP_BUCKET.put(verificationResultKey(result.request.id), JSON.stringify(result), {
-        onlyIf: { etagDoesNotMatch: "*" },
-        httpMetadata: { contentType: "application/json", cacheControl: "private, no-store" },
-      }),
-      replaceResult: (result) => persistVerificationResult(env.BACKUP_BUCKET, result),
+      getResult: (id) => getVerificationResult(bucket(env), id),
+      createQueued: (result) => createQueuedResult(bucket(env), result),
+      failQueued: (result) => failQueuedResult(bucket(env), result),
       start: async (verification) => { await env.VERIFICATION_WORKFLOW.create({ id: verification.id, params: verification }); },
       getOutput: async (key) => {
         const object = await env.BACKUP_BUCKET.get(key);

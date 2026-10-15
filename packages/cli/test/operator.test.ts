@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Cloud } from "../src/cloud.ts";
-import { importVerificationArchive, operatorCommand, operatorVars, prepareActivation, publishVerifiedRelease, validateActivation, verifiedReleaseIdentity, type Activation } from "../src/operator.ts";
+import { childEnv, importVerificationArchive, operatorCommand, operatorVars, prepareActivation, publishVerifiedRelease, validateActivation, verifiedReleaseIdentity, type Activation } from "../src/operator.ts";
 import { modelDigestAt } from "../src/release.ts";
 
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-operator-test-"));
@@ -113,6 +113,14 @@ describe("operator verification and publication lifecycle", () => {
     expect(JSON.parse(output[0]!)).toEqual({ verification: a.verification });
   });
 
+  it("stops polling a run that never settles", async () => {
+    const a = activation("verify-stuck", "a".repeat(40), "d".repeat(64));
+    const fetcher = (async () => Response.json({ verification: { ...a.verification, status: "running" } })) as typeof fetch;
+    await expect(operatorCommand(["verify", "--system", a.systemId, "--plan", a.planId, "--platform", "http://127.0.0.1:1337"], {
+      out: () => {}, err: () => {}, cwd: tmp, env: { ARTYFACT_ADMIN_TOKEN: "admin-test" }, fetch: fetcher, pollMs: 1, verifyTimeoutMs: 20,
+    })).rejects.toThrow(/still running after .* --retry/);
+  });
+
   it("gates publication on current approval", async () => {
     const calls: string[] = [];
     const fetcher = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
@@ -173,6 +181,20 @@ describe("approved activation", () => {
     expect(operatorVars(file, {})).toEqual({ ADMIN_TOKEN: "admin", VERIFICATION_TOKEN: "verify" });
     chmodSync(file, 0o644);
     expect(() => operatorVars(file, {})).toThrow(/0600/);
+    chmodSync(file, 0o600);
+    const link = join(tmp, "operator-link.env");
+    symlinkSync(file, link);
+    expect(() => operatorVars(link, {})).toThrow(/symlinks are refused/);
+    expect(() => operatorVars(join(tmp, "missing.env"), {})).toThrow(/--vars-file does not exist/);
+    writeFileSync(join(tmp, "big.env"), "#".repeat(64 * 1024 + 1), { mode: 0o600 });
+    expect(() => operatorVars(join(tmp, "big.env"), {})).toThrow(/at most 64 KiB/);
+  });
+
+  it("gives npm only the ambient allowlist, never operator credentials", () => {
+    expect(childEnv({
+      PATH: "/bin", HOME: "/home/op", NODE_OPTIONS: "--max-old-space-size=4096", npm_config_cache: "/cache", RANDOM: "x",
+      CLOUDFLARE_API_TOKEN: "cf", CLOUDFLARE_ACCOUNT_ID: "acct", ARTYFACT_ADMIN_TOKEN: "admin", ADMIN_TOKEN: "admin", VERIFICATION_TOKEN: "v",
+    }, { HOSTED_DEMO: "0" })).toEqual({ PATH: "/bin", HOME: "/home/op", NODE_OPTIONS: "--max-old-space-size=4096", npm_config_cache: "/cache", HOSTED_DEMO: "0" });
   });
 
   it("rejects mismatched source/model identity", () => {
@@ -254,6 +276,8 @@ describe("approved activation", () => {
     const manifest = JSON.parse(sh(tmp, "--git-dir", lc.builds, "show", "main:release.json"));
     expect(manifest).toMatchObject({ identity: verifiedReleaseIdentity(a), source: a.source, genome: a.genome, verification: { output: a.verification.output } });
     expect(sh(tmp, "--git-dir", lc.builds, "show", "main:platform/client/index.html")).toContain("doctype");
+    writeFileSync(join(stage, "site/dist/index.html"), "tampered");
+    expect(() => publishVerifiedRelease(stage, a, io)).toThrow(/does not hold the verified output/);
   });
 
   it("rechecks approval and runs Vite in real local mode with the external state directory", async () => {
@@ -275,5 +299,6 @@ describe("approved activation", () => {
     expect(runs[0]!.env.ARTYFACT_PERSIST_STATE_DIR).toBe(join(realpathSync(tmp), "run-live-state"));
     expect(runs[0]!.env.ARTYFACT_ADMIN_TOKEN).toBeUndefined();
     expect(runs[0]!.env.ADMIN_TOKEN).toBeUndefined();
+    expect(Object.keys(runs[0]!.env).filter((key) => /TOKEN|CLOUDFLARE|SECRET|KEY/.test(key))).toEqual([]);
   });
 });

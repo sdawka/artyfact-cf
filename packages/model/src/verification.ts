@@ -35,6 +35,10 @@ export interface VerificationRequest {
 
 export type VerificationStatus = "queued" | "running" | "passed" | "failed" | "error";
 
+/** Largest packaged verification output, and the only R2 key a result may name for it. */
+export const VERIFICATION_OUTPUT_MAX_BYTES = 16 * 1024 * 1024;
+export const verificationOutputKey = (id: string) => `verification/v1/${id}/output.tar.gz`;
+
 /** Maximum canonical model-source files accepted by remote verification. */
 export const VERIFICATION_MODEL_MAX_FILES = 2_000;
 export interface VerificationStep {

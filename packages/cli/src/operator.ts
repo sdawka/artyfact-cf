@@ -25,6 +25,18 @@ const WORKER_ENV = [
   "CI_REPORT_TOKEN", "CF_API_TOKEN", "OPERATIONS_BINDINGS", "OPERATIONS_API_TOKEN", "EVENTS_QUEUE_ID",
 ] as const;
 const OPERATOR_ENV = new Set<string>(["ARTYFACT_ADMIN_TOKEN", ...WORKER_ENV, "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]);
+const CHILD_ENV = new Set(["PATH", "HOME", "USER", "SHELL", "TMPDIR", "LANG", "TERM"]);
+const MAX_VARS_FILE = 64 * 1024;
+/** Longer than artyfact-ci's own no-progress bound, after which it reports a stuck run as `error`. */
+const VERIFY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+
+/** The ambient environment npm in the approved checkout gets: an allowlist, never an operator credential. */
+export function childEnv(base: NodeJS.ProcessEnv, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(base))
+    if (value !== undefined && !OPERATOR_ENV.has(key) && (CHILD_ENV.has(key) || key.startsWith("NODE_") || key.startsWith("npm_config_"))) out[key] = value;
+  return { ...out, ...extra };
+}
 
 export interface Activation {
   systemId: string; planId: string; systemCommit: string;
@@ -41,6 +53,7 @@ export interface OperatorIo {
   fetch?: typeof fetch;
   cloud?: Cloud;
   pollMs?: number;
+  verifyTimeoutMs?: number;
   install?: (checkout: string) => void;
   run?: (checkout: string, args: string[], env: NodeJS.ProcessEnv) => number;
 }
@@ -213,6 +226,8 @@ export function publishVerifiedRelease(stage: string, activation: Activation, io
       git(checkout, ["checkout", "-q", "--detach", `refs/tags/${version}`]);
       const manifest = JSON.parse(readFileSync(join(checkout, "release.json"), "utf8")) as VerifiedManifest;
       if (manifest.identity !== identity) throw new CliError(`existing ${version} has mismatched immutable provenance`);
+      if (stagedTree(checkout, stage, join(parent, "verify.index")) !== git(checkout, ["rev-parse", "HEAD^{tree}"]))
+        throw new CliError(`existing ${version} does not hold the verified output; refusing to reuse it`);
       return { version, buildsCommit: git(checkout, ["rev-parse", "HEAD"]), action: "reused" };
     }
     for (const e of readdirSync(checkout)) if (e !== ".git") rmSync(join(checkout, e), { recursive: true, force: true });
@@ -228,6 +243,18 @@ export function publishVerifiedRelease(stage: string, activation: Activation, io
     git(checkout, ["push", "-q", "--", remote, "HEAD:refs/heads/main", `refs/tags/${version}`], token);
     return { version, buildsCommit, action: "created" };
   } finally { rmSync(parent, { recursive: true, force: true }); }
+}
+
+/** The tree `stage` plus the tag's own release.json would commit as, built in a scratch index the same way the release was. */
+function stagedTree(checkout: string, stage: string, index: string): string {
+  const run = (args: string[]) => {
+    const r = spawnSync("git", ["--git-dir", join(checkout, ".git"), "--work-tree", stage, ...args], { cwd: stage, encoding: "utf8", env: { ...process.env, GIT_INDEX_FILE: index } });
+    if (r.status !== 0) throw new CliError(`git ${args[0]} failed: ${(r.stderr || r.stdout).trim()}`);
+    return r.stdout.trim();
+  };
+  run(["add", "-A", "--", "."]);
+  run(["update-index", "--add", "--cacheinfo", `100644,${git(checkout, ["rev-parse", "HEAD:release.json"])},release.json`]);
+  return run(["write-tree"]);
 }
 
 function writeFileOrTree(from: string, to: string): void {
@@ -281,16 +308,25 @@ function assertSeparation(checkout: string, stateDir: string): void {
   if (!rel || (!rel.startsWith(`..${sep}`) && rel !== "..")) throw new CliError("--state-dir must resolve outside the canonical source checkout");
 }
 
-function readPrivate(path: string): string {
-  canonicalDirectory(dirname(path), `private receipt parent for ${path}`);
-  const before = lstat(path);
-  if (!before || before.isSymbolicLink() || !before.isFile() || (before.mode & 0o077) !== 0) throw new CliError(`private receipt is missing or unsafe: ${path}`);
-  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+/** Open without following a final symlink (or blocking on a FIFO), then require a regular 0600 file owned by this user. */
+function readOwned(path: string, label: string, max = MAX_ARCHIVE): string {
+  let fd: number;
+  try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); }
+  catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") throw new CliError(`${label} does not exist: ${path}`);
+    throw new CliError(`${label} is missing or unsafe (symlinks are refused): ${path}`);
+  }
   try {
-    const opened = fstatSync(fd);
-    if (!opened.isFile() || (opened.mode & 0o077) !== 0) throw new CliError(`private receipt is not a secure regular file: ${path}`);
+    const s = fstatSync(fd);
+    if (!s.isFile() || (s.mode & 0o077) !== 0 || (process.getuid && s.uid !== process.getuid()) || s.size > max)
+      throw new CliError(`${label} must be a regular 0600 file owned by the current user, at most ${max / 1024} KiB: ${path}`);
     return readFileSync(fd, "utf8");
   } finally { closeSync(fd); }
+}
+
+function readPrivate(path: string): string {
+  canonicalDirectory(dirname(path), `private receipt parent for ${path}`);
+  return readOwned(path, "private receipt");
 }
 
 /** Read dotenv-shaped credentials as data. Fake-mode flags are deliberately never carried into a real activation. */
@@ -298,9 +334,7 @@ export function operatorVars(path: string | undefined, base: Record<string, stri
   const out = { ...base };
   if (!path) return out;
   if (!isAbsolute(path)) throw new CliError("--vars-file must be an absolute path outside the source checkout");
-  const s = lstatSync(path);
-  if (!s.isFile() || s.isSymbolicLink() || (s.mode & 0o077) !== 0 || s.size > 64 * 1024) throw new CliError("--vars-file must be a regular 0600 file no larger than 64 KiB");
-  for (const [index, raw] of readFileSync(path, "utf8").split(/\r?\n/).entries()) {
+  for (const [index, raw] of readOwned(path, "--vars-file", MAX_VARS_FILE).split(/\r?\n/).entries()) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
     const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
@@ -343,7 +377,8 @@ function linkWorkerSecrets(checkout: string, stateDir: string, env: Record<strin
 }
 
 function defaultInstall(checkout: string): void {
-  const r = spawnSync("npm", ["ci"], { cwd: checkout, stdio: "inherit" });
+  // Lifecycle scripts stay on: esbuild and workerd install their native binaries from them.
+  const r = spawnSync("npm", ["ci"], { cwd: checkout, stdio: "inherit", env: childEnv(process.env) });
   if (r.status !== 0) throw new CliError("npm ci failed in the approved source checkout");
 }
 
@@ -423,7 +458,10 @@ async function connect(values: Values, io: OperatorIo) {
 async function verifyCommand(values: Values, io: OperatorIo): Promise<number> {
   const { expected, p, json } = await connect(values, io);
   let verification = verificationOf(await json("POST", p.start, { artifactId: expected.artifactId, ...(values.retry && { retry: true }) }));
+  const timeout = io.verifyTimeoutMs ?? VERIFY_TIMEOUT_MS, deadline = Date.now() + timeout;
   while (["queued", "running"].includes(verification.status)) {
+    if (Date.now() >= deadline)
+      throw new CliError(`verification still ${verification.status} after ${Math.round(timeout / 60_000)} minutes; inspect the artyfact-ci run, then rerun with --retry once it reports failed or error`);
     await new Promise((done) => setTimeout(done, io.pollMs ?? 1000));
     verification = verificationOf(await json("POST", p.poll, { artifactId: expected.artifactId }));
   }
@@ -469,9 +507,8 @@ async function activateCommand(values: Values, io: OperatorIo): Promise<number> 
   const port = typeof values.port === "string" ? values.port : "1337";
   if (!/^\d{2,5}$/.test(port)) throw new CliError("--port must be a numeric TCP port");
   const args = ["run", "dev", "-w", "@artyfact/platform", "--", "--host", "127.0.0.1", "--port", port, "--strictPort"];
-  const childEnv: NodeJS.ProcessEnv = { ...process.env, ...runtimeEnv, HOSTED_DEMO: "0", ARTYFACT_PERSIST_STATE_DIR: prepared.stateDir };
-  for (const key of [...WORKER_ENV, "ARTYFACT_ADMIN_TOKEN"]) delete childEnv[key];
-  return (io.run ?? defaultRun)(prepared.checkout, args, childEnv);
+  // Worker secrets reach the app only through the linked .dev.vars; Cloudflare access comes from the user's wrangler login.
+  return (io.run ?? defaultRun)(prepared.checkout, args, childEnv(process.env, { HOSTED_DEMO: "0", ARTYFACT_PERSIST_STATE_DIR: prepared.stateDir }));
 }
 
 export async function operatorCommand(args: string[], io: OperatorIo): Promise<number> {
