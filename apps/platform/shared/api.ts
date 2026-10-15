@@ -887,8 +887,12 @@ export interface SystemCompare {
     /** Sides whose Genome is in the retired v1 layout: never loaded, so `delta` is null; the UI shows the legacy notice. */
     legacyFormat?: ("from" | "to")[];
   };
-  /** The app binding's change; null when neither side binds an app. */
-  app: { from: ResolvedRef | null; to: ResolvedRef; files: ChangedFiles; pathNodes: Record<string, NodeId[]> } | null;
+  /**
+   * The app binding's change; null when neither side binds an app. `files` include the pinned model copy under
+   * `system/` (`splitPinnedModel` in `shared/model-path.ts` separates it); `pinnedGenome` is the Genome commit that copy
+   * equals at `to`, when the platform can tell.
+   */
+  app: { from: ResolvedRef | null; to: ResolvedRef; files: ChangedFiles; pathNodes: Record<string, NodeId[]>; pinnedGenome?: CommitHash } | null;
   manifest: { templateVersions: string[]; hookVersions: string[]; platformChanged: boolean };
   identical: boolean;
 }

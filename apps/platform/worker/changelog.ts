@@ -4,6 +4,7 @@
  * System commits are immutable. Builds and the deployment are attached at read time (they change after the commit).
  */
 import type { BuildSummary, ChangedFiles, ChangelogEntry, ChangelogResponse, ChangelogRow, Deployment, Evaluation, FileScope, ResolvedRef, SystemCommit, SystemCompare, Verdict } from "../shared/api";
+import { changedCount, splitPinnedModel } from "../shared/model-path";
 import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
 import { compareSystem, commitKind, findSystemCommit, headStateOf, isLegacyGenome, sideOfCommit, type SystemSide } from "./compare";
 import { buildSummary } from "./do/builds-store";
@@ -75,13 +76,13 @@ function baseRow(c: SystemCommit, titles: Titles, candidates: ChangelogRow["cand
 
 function rowOf(c: SystemCommit, cmp: SystemCompare, titles: Titles, candidates: ChangelogRow["candidates"]): CachedRow {
   const d = cmp.genome.delta;
-  const count = (f: ChangedFiles | null | undefined) => (f ? f.added.length + f.modified.length + f.removed.length : 0);
+  // The pinned model copy under the app's `system/` is not an app change; Compare and the entry show it as its own group.
   return {
     ...baseRow(c, titles, candidates),
     ...(cmp.genome.legacyFormat?.includes("to") && { legacyFormat: true as const }),
     summary: {
       nodesAdded: d?.added.length ?? 0, nodesChanged: d?.changed.length ?? 0, nodesRemoved: d?.removed.length ?? 0,
-      filesChanged: count(cmp.app?.files) + count(cmp.genome.files),
+      filesChanged: (cmp.app ? changedCount(splitPinnedModel(cmp.app.files).code) : 0) + changedCount(cmp.genome.files),
       criteriaAffected: d?.affectedCriteria.length ?? 0,
     },
   };

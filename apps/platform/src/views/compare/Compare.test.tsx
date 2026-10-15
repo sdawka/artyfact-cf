@@ -5,6 +5,7 @@ import type { FileCompare, GenomeCompare, RevisionOption, SystemCompare } from "
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { SYSTEM, entry } from "../changelog/testData";
+import { changedFileCount, fileGroups } from "./FilesLevel";
 import { defaultPair } from "./pair";
 import { systemRows, systemSentence } from "./systemRows";
 
@@ -82,6 +83,28 @@ describe("Compare", () => {
     // The selected file's diff carries a way back into Code at the `to` revision.
     const open = screen.getByRole("link", { name: "Open in Code" });
     expect(open.getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/code?repo=app&path=src%2Findex.ts`);
+  });
+
+  it("groups the pinned model copy under the app's system/ apart from App, out of the count, collapsed", async () => {
+    const files = { added: ["src/a.ts", "system/node.yaml", "system/screen.people/node.yaml"], modified: ["system"], removed: ["src/b.ts"] };
+    const g = fileGroups(files, { added: [], modified: ["system.yaml"], removed: [] });
+    expect(g.app.map((f) => f.path)).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(g.pinned.map((f) => f.path)).toEqual(["system", "system/node.yaml", "system/screen.people/node.yaml"]);
+    // `systemic/` is not the model.
+    expect(fileGroups({ added: ["systemic/x.ts"], modified: [], removed: [] }, undefined).pinned).toEqual([]);
+    expect(changedFileCount(files, { added: [], modified: ["system.yaml"], removed: [] })).toBe(3);
+
+    const withCopy: SystemCompare = { ...system, app: { ...system.app!, files: { ...system.app!.files, added: [...system.app!.files.added, "system/node.yaml", "system/evolutions/evolution.1.yaml"] }, pinnedGenome: "b".repeat(40) } };
+    renderApp(`${URL}?level=files`, undefined, seed({ system: withCopy }));
+    const app = await screen.findByRole("region", { name: "App files" });
+    expect(within(app).queryByText(/^system\//)).toBeNull();
+    const pinned = screen.getByRole("region", { name: "Pinned model copy files" });
+    const row = within(pinned).getByRole("button", { name: /Pinned Genome copy under system\/ · 2 files · Genome bbbbbbb/ });
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    expect(within(pinned).queryByRole("link")).toBeNull();
+    fireEvent.click(row);
+    expect(within(pinned).getByRole("link", { name: /^system\/node\.yaml/ }).getAttribute("href")).toContain("repo=app");
+    expect(screen.getByRole("tab", { name: /^Files/ }).textContent).toBe(`Files ${changedFileCount(system.app!.files, genome.files)}`);
   });
 
   it("swaps the two sides", async () => {

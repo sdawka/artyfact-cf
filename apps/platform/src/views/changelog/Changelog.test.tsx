@@ -98,6 +98,20 @@ describe("Changelog", () => {
     expect(screen.getByRole("link", { name: "Compare with parent" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/compare?from=sc-1&to=sc-2`);
   });
 
+  it("folds the app's pinned model copy under system/ into one collapsed row", async () => {
+    const pinned = ["system/node.yaml", "system/screen.people/node.yaml"].map((path) => ({ scope: "app" as const, path, repo: "peopling-app", commit: "a".repeat(40), nodes: [], status: "added" as const }));
+    const withCopy = { ...entry, codeLinks: [...entry.codeLinks, ...pinned], app: { ...entry.app!, pinnedGenome: "c".repeat(40) } };
+    renderApp(URL, undefined, (qc) => { seed()(qc); qc.setQueryData(qk.changelogEntry(SYSTEM, "sc-2"), withCopy); });
+    await expand(/sc-2/);
+    const files = screen.getByRole("region", { name: "Files" });
+    expect(within(files).queryByRole("link", { name: "system/node.yaml" })).toBeNull();
+    const row = within(files).getByRole("button", { name: "Pinned Genome copy under system/ · 2 files · Genome ccccccc", expanded: false });
+    fireEvent.click(row);
+    expect(within(files).getByRole("link", { name: "system/node.yaml" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/sc-2/code?repo=app&path=system%2Fnode.yaml`);
+    // A Genome kept at the root of its own repo is never the pinned copy.
+    expect(within(files).getByRole("link", { name: "thing.webapp/section.ui/screen.people/node.yaml" })).toBeTruthy();
+  });
+
   it("auto-expands and marks ?commit=", async () => {
     renderApp(`${URL}?commit=sc-2`, undefined, seed());
     const rows = rowsOf(await list());
