@@ -3,6 +3,15 @@
 
 ## Now
 
+- Current: the approved three refactors are implemented on `refactor/shared-platform-helpers`, based on `c2252821`: shared client routes, common Worker RPC error handling, and removal of the unused map ELK adapter. Evidence: [[journals/2026-10-14-refactor-shared-helpers]].
+- Verified: 138 focused tests, independent review with no actionable findings, and all ten steps of `npm run ci -- --ultra-compact` pass (331.9s). The vault validates: 7 records.
+- Next action: push and open the refactor PR, then verify all hosted checks on its final head.
+- Follow-up issues: middleware [#87](https://github.com/sdawka/artyfact-cf/issues/87), CLI transport [#88](https://github.com/sdawka/artyfact-cf/issues/88), and task provisioning/compensation [#89](https://github.com/sdawka/artyfact-cf/issues/89).
+- Tracking: RPC preview returned `pending: missing_credentials`, applied 0; the separate Artyfact destination remains unconfirmed and earlier conflicts stay visible.
+- Last updated: 2026-10-14T22:11:37-04:00.
+
+## Earlier UI refresh handoff
+
 - Current: UI refresh on integration branch `ui-refresh` (`9e2cfa08`: W0 foundation plus eight W1 slices merged locally). W2 records on `r-w2docs`: self-Genome UI nodes and `docs/design/ui.md` match the shipped UI. Evidence: [[journals/2026-10-14-ui-refresh]].
 - Verified: the self-Genome test passes (10 tests, info-only findings), along with the ontology, template, model-validation and site how-it-works suites. Full CI, the cross-slice rules review and after-shots have not run.
 - Merged: `origin/main` (intent authoring, integrity review, keyboard-accessible import path lists) into `ui-refresh`; integrity rows, the integrity panel and Start's intent handoff use the refreshed primitives.

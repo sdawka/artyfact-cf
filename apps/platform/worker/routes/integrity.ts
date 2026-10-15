@@ -4,7 +4,7 @@ import {
   type IntegrityProviderChoice, type IntegrityRunRequest,
 } from "../../shared/integrity";
 import { requireAdmin } from "../auth";
-import { badRequest, fromRpc, HttpError, notFound } from "../errors";
+import { badRequest, rpc, HttpError, notFound } from "../errors";
 import { isOntologySystemId } from "../ontology-packages/store";
 import { systemStub } from "../service";
 import { artifactsFor, withRepo } from "../artifacts/client";
@@ -34,7 +34,6 @@ async function destination(c: Ctx) {
   if (!(await stub.ontologyInitial()) && !(await stub.state())) throw notFound("System import destination not found");
   return { id, stub };
 }
-async function rpc<T>(value: Promise<T>): Promise<T> { try { return await value; } catch (error) { throw fromRpc(error) ?? error; } }
 
 function files(input: Record<string, unknown>): Record<string, string> {
   const value = input.files;

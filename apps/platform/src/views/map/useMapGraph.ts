@@ -1,12 +1,10 @@
 import { useMemo } from "react";
 import type { Finding } from "@artyfact/model";
 import { useReadiness } from "@/api/queries";
-import { LAYERED_RIGHT, partition, type LayoutRequest } from "@/graph/elk";
 import type { ModelIndex } from "@/model/index";
 import { kindViews, type KindViews } from "@/model/kinds";
 import type { Certainty, Criterion, JourneyStep, Relation } from "@/model/types";
 import { useModel } from "@/model/useModel";
-import type { Layer } from "@/model/useSelection";
 
 /** Environment shows the System boundary and every external. Entered scopes preserve real
  * immediate containment; descendant links are lifted without discarding their original members. */
@@ -295,55 +293,4 @@ export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
   const { index } = useModel();
   const subjects = useFindingSubjects();
   return useMemo(() => buildMapGraph(index, scope, filters, subjects, kindViews(index.model)), [index, scope, filters, subjects]);
-}
-
-export const NODE_WIDTH = 216;
-/** Node heights per layer: overlays add a badge row. */
-export const nodeHeight = (layer: Layer) => (layer === "genome" ? 52 : 80);
-export const GROUP_PADDING = "[top=72,left=20,bottom=20,right=20]";
-export const BAND_PADDING = "[top=36,left=12,bottom=12,right=12]";
-
-/** Layout id of the frame that holds a band's children. */
-export const bandFrameId = (band: string) => `__band:${band}`;
-
-/**
- * elk request: externals in partition 0 (left), the scope group and outside nodes in partition 1. Template bands are
- * frames inside the scope, chained in template order so elk keeps them in sequence along the flow (left to right).
- */
-export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
-  const h = nodeHeight(layer);
-  const nodes: LayoutRequest["nodes"] = [];
-  const frames = graph.layered ? graph.bands.map((b) => bandFrameId(b.id)) : [];
-  const order: MapRole[] = ["external", "scope", "outside", "child"];
-  for (const role of order) {
-    for (const n of graph.nodes) {
-      if (n.role !== role) continue;
-      if (role === "scope") {
-        nodes.push({ id: n.id, width: NODE_WIDTH, height: h, layoutOptions: { ...partition(1), "elk.padding": GROUP_PADDING } });
-        for (const f of frames) nodes.push({ id: f, width: NODE_WIDTH, height: h, parentId: n.id, layoutOptions: { "elk.padding": BAND_PADDING } });
-      } else if (role === "child") {
-        nodes.push({ id: n.id, width: NODE_WIDTH, height: h, parentId: graph.layered ? bandFrameId(n.band!) : n.parentId! });
-      } else {
-        nodes.push({ id: n.id, width: NODE_WIDTH, height: role === "external" ? 52 : h, layoutOptions: partition(role === "external" ? 0 : 1) });
-      }
-    }
-  }
-  return {
-    layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.layered.spacing.nodeNodeBetweenLayers": "112", "elk.spacing.edgeEdge": "20", "elk.layered.spacing.edgeEdgeBetweenLayers": "20", "elk.layered.spacing.edgeNodeBetweenLayers": "24", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
-    nodes,
-    // Externals sit left of the boundary: edges into them are laid out reversed so they flow left to right.
-    edges: [
-      ...graph.edges.map((e) =>
-        layoutReversed(graph, e) ? { id: e.id, source: e.target, target: e.source } : { id: e.id, source: e.source, target: e.target },
-      ),
-      // Band order: unrendered edges between consecutive frames, weighted so cross-links cannot reorder them.
-      ...frames.slice(1).map((f, i) => ({ id: `${frames[i]}>${f}`, source: frames[i]!, target: f, layoutOptions: { "elk.layered.priority.direction": "100" } })),
-    ],
-  };
-}
-
-/** True when `mapLayoutRequest` hands elk this edge reversed (its route must be flipped back). */
-export function layoutReversed(graph: MapGraph, e: MapEdge): boolean {
-  const role = (id: string) => graph.nodes.find((n) => n.id === id)?.role;
-  return role(e.target) === "external" && role(e.source) !== "external";
 }

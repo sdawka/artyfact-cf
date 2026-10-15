@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiRequestError, FixtureModeError, SSE_TYPES, StaleBaseError, commitFiles, createEvolution, getBuilds, getChangelog, getChangelogEntry,
   getClientMode, getCompareFile, getCompareGenome, getCompareSystem, getDeployments, getEvaluations, getFile, getModel, getPhenomeEvents, getParts, getRealizedArtifacts,
-  getRevisions, getSystems, listFiles, promote, resetClientMode, startWork, subscribeEvents,
+  getRevisions, getSystems, listFiles, paths, promote, resetClientMode, startWork, subscribeEvents,
 } from "./client";
 
 const json = (status: number, body: unknown) =>
@@ -10,6 +10,36 @@ const json = (status: number, body: unknown) =>
 
 beforeEach(() => resetClientMode());
 afterEach(() => vi.unstubAllGlobals());
+
+describe("client route contract", () => {
+  it("encodes identifiers and query values in shared route paths", () => {
+    const system = "system/a b", evolution = "evolution?#", realization = "realization/x";
+    expect([
+      paths.systems(), paths.evolutions(system), paths.candidates(system, evolution),
+      paths.startWork(system, evolution), paths.amendmentReview(system, evolution, realization),
+      paths.accept(system, evolution), paths.promote(system), paths.conflicts(system),
+      paths.history(system), paths.events(system), paths.evaluations(system, "candidate/a b"),
+    ]).toEqual([
+      "/api/systems", "/api/systems/system%2Fa%20b/evolutions",
+      "/api/systems/system%2Fa%20b/evolutions/evolution%3F%23/candidates",
+      "/api/systems/system%2Fa%20b/evolutions/evolution%3F%23/realizations",
+      "/api/systems/system%2Fa%20b/evolutions/evolution%3F%23/realizations/realization%2Fx/review",
+      "/api/systems/system%2Fa%20b/evolutions/evolution%3F%23/accept",
+      "/api/systems/system%2Fa%20b/promote", "/api/systems/system%2Fa%20b/conflicts",
+      "/api/systems/system%2Fa%20b/history", "/api/systems/system%2Fa%20b/events",
+      "/api/systems/system%2Fa%20b/evaluations?candidate=candidate%2Fa%20b",
+    ]);
+  });
+
+  it("preserves explicit revision queries and optional candidate queries", () => {
+    expect(paths.model("s", "revision/a b")).toBe("/api/systems/s/model?rev=revision%2Fa%20b");
+    expect(paths.readiness("s", "revision/a b")).toBe("/api/systems/s/readiness?rev=revision%2Fa%20b");
+    expect(paths.model("s", "")).toBe("/api/systems/s/model?rev=");
+    expect(paths.readiness("s", "")).toBe("/api/systems/s/readiness?rev=");
+    expect(paths.evaluations("s")).toBe("/api/systems/s/evaluations");
+    expect(paths.evaluations("s", "")).toBe("/api/systems/s/evaluations");
+  });
+});
 
 describe("api client fixture fallback", () => {
   it("serves the fixture bundle when /api/systems fails", async () => {

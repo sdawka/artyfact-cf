@@ -2,7 +2,7 @@ import { layerOf, type CriterionLayer, type SystemModel } from '@artyfact/model'
 import type { CandidateModel, Evaluation, GenomeCandidateReview } from '../shared/api';
 import type { TaskCandidateReview, TaskReview } from '../shared/lifecycle';
 import { compareExplicitFile } from './compare';
-import { badRequest, conflict, fromRpc, notFound } from './errors';
+import { badRequest, conflict, notFound, rpc } from './errors';
 import { artifactsFor } from './artifacts/client';
 import { compareFrom } from './lifecycle-model';
 import { MODEL_REVIEW_CRITERION } from './lifecycle-model-review';
@@ -18,7 +18,7 @@ export function evidenceLayers(m:SystemModel,evaluations:Evaluation[]):Record<st
 
 /** Reads have the enclosing System's visibility. Candidates must belong to this Task and pinned plan/base. */
 export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:string):Promise<TaskReview> {
- const stub=systemStub(env,sid),plan=await stub.realizationPlan(pid).catch(e=>{throw fromRpc(e)??e;}),task=plan.tasks.find(t=>t.id===tid);
+ const stub=systemStub(env,sid),plan=await rpc(stub.realizationPlan(pid)),task=plan.tasks.find(t=>t.id===tid);
  if(!task)throw notFound(`unknown task ${tid}`);
  const candidates:TaskCandidateReview[]=[];
  for(const attempt of task.attempts) {

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { isOntologySystemId } from "../ontology-packages/store";
 import { requireAdmin } from "../auth";
-import { badRequest, HttpError, notFound, fromRpc } from "../errors";
+import { badRequest, HttpError, notFound, rpc } from "../errors";
 import { systemStub } from "../service";
 import type { CreateInitialSystemRequest, OntologyImportPreviewRequest } from "../../shared/ontology-packages";
 import { type AppEnv, type Ctx } from "./app";
@@ -33,7 +33,6 @@ async function destination(c: Ctx) {
   if (!(await stub.ontologyInitial()) && !(await stub.state())) throw notFound("System import destination not found");
   return { id, stub };
 }
-async function rpc<T>(promise: Promise<T>): Promise<T> { try { return await promise; } catch (e) { throw fromRpc(e) ?? e; } }
 
 /** All private package sources and invalid conversion output require the existing admin authorization. */
 export const ontologyPackages = new Hono<AppEnv>()
