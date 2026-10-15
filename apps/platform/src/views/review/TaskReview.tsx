@@ -13,6 +13,7 @@ import { KindGlyphs, NodeChip } from '@/components/NodeChip/NodeChip';
 import { StatusText } from '@/components/StatusText/StatusText';
 import { useModelOptional } from '@/model/useModel';
 import { groupByLayer, layerFor } from '@/model/layers';
+import { criterionEvidence } from './evidence';
 import { DecisionHead } from '../work/panels/DecisionHead';
 import styles from './review.module.css';
 
@@ -49,10 +50,15 @@ function CandidateEvidence({entry,plan,taskId,token,layers,writeNodes,writeReaso
 export function LayeredEvaluations({evaluations,layers,empty}:{evaluations:Evaluation[];layers:Record<string,CriterionLayer>|undefined;empty:string}){
  const m=useModelOptional();
  if(!evaluations.length)return <p className={styles.muted}>{empty}</p>;
- const groups=groupByLayer(evaluations,e=>layerFor(layers,m,e.criterion));
+ // One row per criterion (and candidate): a criterion with several hooks, or a re-run, folds as the gate folds it.
+ const rows=criterionEvidence(evaluations,m?.offTrigger),many=new Set(rows.map(r=>r.candidate)).size>1;
+ const groups=groupByLayer(rows,r=>layerFor(layers,m,r.criterion));
+ const tone=(v:string)=>v==='pass'?'pass' as const:v==='fail'?'fail' as const:'neutral' as const;
  return <div className={styles.layers}>{groups.map(g=><section key={g.layer} aria-label={g.label} data-layer={g.layer} className={styles.layer}>
   <h5 className={styles.layerTitle}>{g.label} <span className={styles.reason}>{g.says}</span></h5>
-  <ul className={styles.list}>{g.items.map(e=><li key={e.id}>{e.criterion}: <StatusText status={e.verdict} tone={e.verdict==='pass'?'pass':e.verdict==='fail'?'fail':'neutral'} glyph=""/> ({e.execution})</li>)}</ul>
+  <ul className={styles.list}>{g.items.map(r=><li key={r.key} data-criterion={r.criterion}>{r.criterion}{many&&<> on <code>{r.candidate}</code></>}: <StatusText status={r.verdict} tone={tone(r.verdict)} glyph=""/>{r.hooks.length===1
+   ?(r.hooks[0]!.execution!==r.verdict&&<> ({r.hooks[0]!.execution})</>)
+   :<span className={styles.reason}> · {r.hooks.map(h=>`${h.hook} ${h.verdict}`).join(', ')}</span>}</li>)}</ul>
  </section>)}</div>;
 }
 

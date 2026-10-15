@@ -62,10 +62,10 @@ it("groups recorded evaluations by layer in Model, Realization, Running thing or
   expect(evidence.map((s) => s.getAttribute("data-layer"))).toEqual(["genome", "realization", "phenome", "unknown"]);
   expect(evidence[0]!.textContent).toMatch(/Model.*the model exists and is consistent.*C\.model-review: fail/);
   expect(evidence[2]!.textContent).toMatch(/Running thing.*C\.run: unknown/);
-  expect(evidence[3]!.textContent).toMatch(/C\.unplaced: unknown \(not-run\)/);
+  expect(evidence[3]!.textContent).toMatch(/C\.unplaced: not-run$/);
   // Only pass is green; unknown is neutral; fail is danger.
   const tones = [...candidateRegion.querySelectorAll<HTMLElement>("[data-layer] [data-status]")].map((s) => `${s.dataset.status}:${s.dataset.tone}`);
-  expect(tones).toEqual(["fail:fail", "pass:pass", "unknown:neutral", "unknown:neutral"]);
+  expect(tones).toEqual(["fail:fail", "pass:pass", "unknown:neutral", "not-run:neutral"]);
 });
 
 it("shows the model change proposed by the agent: files, nodes against the write nodes, System One judgments and the checkpoint reason", async () => {
