@@ -3,9 +3,12 @@ import type { Edge, Node } from "@xyflow/react";
 import type { ElkPoint } from "@/graph/elk";
 import type { Layer } from "@/model/useSelection";
 import type { MapBand, MapEdge, MapNode } from "../useMapGraph";
+import type { TileMetrics } from "../atlasTile";
 
 export interface MapNodeData extends Record<string, unknown> {
   node: MapNode;
+  /** The tile's line budgets and shown purpose, from the layout that sized its box (absent on the scope frame). */
+  metrics?: TileMetrics;
   relation?: RelationDirections;
   emphasized?: boolean;
   layer: Layer;

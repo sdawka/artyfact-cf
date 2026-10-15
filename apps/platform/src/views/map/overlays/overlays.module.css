@@ -31,10 +31,11 @@
   inset: 4px;
   border-width: 2px;
 }
+/* Top right, beside the kind tab: clear of the layer lane at the bottom. */
 .overlap {
   position: absolute;
-  bottom: calc(var(--spacing-2) + 22px);
-  right: var(--spacing-2);
+  top: var(--spacing-1);
+  right: var(--spacing-3);
   padding: 0 var(--spacing-1);
   border-radius: var(--border-radius-sm);
   background: var(--surface-page);

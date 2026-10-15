@@ -91,6 +91,24 @@ never reuse the verdict hues (success, danger), and verdict rows hide the kind g
 `data-verdict` on `.u-verdict`: pass -> success, fail -> danger, unknown / not-run / stale -> `--color-text-subtle`
 (stale has a dashed border). Always pair colour with a glyph and the word. Only `pass` may use the success colour.
 
+## Map tiles (views/map/nodes)
+- **Kind first.** Each tile opens with a kind tab flush in its top-left corner: the kind glyph in its `--kind` hue on an
+  18% tint of that hue, then the kind word. This is the one place a kind hue tints a surface; it reads as the tile's
+  label, never an eyebrow over the name. Names use the UI face (600, 1rem); only the System's name uses Alegreya.
+- **Sized to content.** `atlasTile.ts` measures name, purpose and inside summary with the page fonts (`useTextMeasure`)
+  and gives each tile its exact height; the CSS uses the same px line heights. Tiles are one 288px column wide and
+  pack as masonry, 12px apart; the column count fills the window's canvas at the 0.85 zoom floor, one column on a phone.
+- **No cut words.** A purpose shows up to three lines: whole, else up to the last sentence that fits, else faded on its
+  last line. Long names fade on a fourth line. No ellipsis; the full text is in Details. A purpose that only restates
+  the name is not shown.
+- **Inside is an action.** Containers end with one footer row: counts by kind ("3 sections, 2 journeys", glyph plus
+  words) and a quiet text-style "Open" button at its end (44px hit area, link colour, underline on hover, no border);
+  the tile itself stays the Enter and double-click target. Every in-System tile keeps an 18px lane at the bottom for Proteome and
+  Phenome counts, so overlays never move a tile; the candidate Overlap link sits top right beside the tab.
+- **Quiet frame.** The scope frame is a faint line with no fill, under the tiles in contrast; outside-scope tiles sit
+  on the page surface, outside-System tiles are dashed. The outside-scope column sits 72px from the frame and the
+  first camera never shows a sliver of it: it is wholly in view or starts at the canvas edge. Selection, hover, relation borders and halos are unchanged.
+
 ## React Flow (reactflow.css)
 Nodes use `--color-surface-secondary`, `--color-border-subtle`, radius md, no shadow, no pills. Selected node gets the
 2px focus outline. Edge style (solid/dashed/dotted) carries certainty; colour does not.

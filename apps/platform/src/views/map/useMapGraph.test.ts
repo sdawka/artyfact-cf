@@ -228,7 +228,7 @@ describe("atlas graph projection", () => {
     ]);
   });
 
-  it("has bounded direct-child previews and authored descriptions", () => {
+  it("counts direct children by kind and keeps authored descriptions", () => {
     const m = structuredClone(fixtureBundle().model);
     m.nodes.find((n) => n.id === "component.AddContactDialog")!.description = "Collect a contact.";
     m.externals.find((e) => e.id === "ext.owner")!.modeled = "Uses the contact workspace.";
@@ -236,9 +236,11 @@ describe("atlas graph projection", () => {
     expect(g.nodes.find((n) => n.id === "ext.owner")?.description).toBe("Uses the contact workspace.");
     const dialog = g.nodes.find((n) => n.id === "component.AddContactDialog")!;
     expect(dialog.description).toBe("Collect a contact.");
-    expect(dialog.preview).toHaveLength(3);
-    expect(dialog.preview.every((p) => buildIndex(m).parent(p.id)?.id === dialog.id)).toBe(true);
-    expect(g.nodes.find((n) => n.id === "component.SearchInput")?.preview).toEqual([]);
+    const children = buildIndex(m).children(dialog.id);
+    expect(dialog.inside.reduce((sum, i) => sum + i.count, 0)).toBe(children.length);
+    expect(new Set(dialog.inside.map((i) => i.kind))).toEqual(new Set(children.map((c) => c.kind)));
+    expect(dialog.inside.map((i) => i.count)).toEqual([...dialog.inside.map((i) => i.count)].sort((a, b) => b - a));
+    expect(g.nodes.find((n) => n.id === "component.SearchInput")?.inside).toEqual([]);
   });
 
   it("admission is one hop only and empty/unfamiliar scopes remain valid", () => {

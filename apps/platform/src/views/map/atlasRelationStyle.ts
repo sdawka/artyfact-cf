@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { AtlasLayout } from "./atlasLayout";
 export interface RelationDirections { top: number; right: number; bottom: number; left: number }
 /** Maximum per side preserves opposite/parallel relations without vector cancellation. */
-export function relationDirections(layout: AtlasLayout, edges: readonly { source: string; target: string }[]) {
+export function relationDirections(layout: Pick<AtlasLayout, "boxes" | "width" | "height">, edges: readonly { source: string; target: string }[]) {
   const result = new Map<string, RelationDirections>();
   for (const edge of edges) {
     const a = layout.boxes[edge.source], b = layout.boxes[edge.target];

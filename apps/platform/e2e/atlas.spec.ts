@@ -684,8 +684,9 @@ test("candidate overlap link remains separate from Phenome and Proteome footer b
   await page.goto(`${SYSTEM}/map?scope=${smallScope}&focus=${subject}&candidates=cand.a,cand.b&layer=phenome`);
   await scope(page, smallScope);
   const unscaledWidth = await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.width));
-  expect(unscaledWidth).toBe(216);
-  expect(await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.height))).toBe(144);
+  // Column width is fixed; height follows content, so a one-line purpose makes a short tile, not a fixed cell.
+  expect(unscaledWidth).toBe(288);
+  expect(await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.height))).toBeLessThan(144);
   await expect(tile(page, subject).getByText("Small leaf with a short purpose.", { exact: true })).toBeVisible();
   testInfo.annotations.push({ type: "minimum-tile-width", description: `${unscaledWidth}px authored width` });
   const node = tile(page, subject), overlap = node.getByRole("link", { name: "Overlap, 2 candidates", exact: true });
