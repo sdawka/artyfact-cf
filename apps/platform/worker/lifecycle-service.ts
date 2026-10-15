@@ -9,11 +9,10 @@ import { z } from 'zod';
 import { diffModels, isTaskId, overlap, type TaskDefinition } from '@artyfact/model';
 import type { RealizationPlan, Task, TaskStartResponse, TaskSubmitResponse, ImplementationReview, IntegratedBinding, PlanPromoteResponse } from '../shared/lifecycle';
 import type { Candidate, Evaluation, GateItem } from '../shared/api';
-import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike, type TreeEntry } from './artifacts/client';
+import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike, type TreeEntry } from './artifacts/client';
 import { diffTrees, manifestHash, type TreeDiff } from './artifacts/candidates';
 import { listTree } from './artifacts/genome-source';
 import { nodesForPath, sourceMapFor } from './artifacts/source-map';
-import { newRealizationSecret } from './auth';
 import { badRequest, conflict, fromRpc, notFound, rpc, unprocessable } from './errors';
 import { hookRunner } from './hooks';
 import { selectHooks } from './hooks/run';
@@ -21,12 +20,11 @@ import type { CandidateRef, SubmissionContext } from './hooks/contract';
 import { pushCommit, type FileChange } from './git/push';
 import { gateCriteria, hooksOf } from './promotion';
 import { evidenceFresh, gateRefusal, genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
-import { lifecyclePacket } from './packets/lifecycle-packet';
+import { provisionTaskAttempt, taskAttemptProvisioning } from './lifecycle-provisioning';
 import { taskDefinitions } from './tasks/definitions';
-import { sha256Hex } from './util';
 import { screenshotsSchema, storeScreenshots } from './evidence';
 import picomatch from 'picomatch';
-import { buildTaskManifest, compareFrom, inFootprint, integratedModelFiles, isModelPath, modelPathNodes, modelTreeDiff, pinnedModelEntries, seedModel, splitDiff, TASK_PROTECTED, taskModelOf, taskPermittedGlobs, type ModelLoader, type TaskManifest } from './lifecycle-model';
+import { buildTaskManifest, compareFrom, inFootprint, integratedModelFiles, isModelPath, modelPathNodes, modelTreeDiff, pinnedModelEntries, seedModel, splitDiff, TASK_PROTECTED, taskPermittedGlobs, type ModelLoader, type TaskManifest } from './lifecycle-model';
 import { reviewTaskModel } from './lifecycle-model-review';
 import { buildGenome } from './artifacts/genome-source';
 import { evidenceLayers } from './lifecycle-task-review';
@@ -95,31 +93,25 @@ export async function assertGenomeCompatible(env:Env,p:RealizationPlan):Promise<
  const o=overlap(delta,taskDelta,before.model);
  if(o.shared.length||o.viaCriteria.length)throw conflict('replan-required','accepted Genome changed overlapping task scope; create a new pinned plan');
 }
+/**
+ * Claim, start or resume a Task attempt. This orchestrates the policy checks and the reservation; provisioning the reserved
+ * attempt (prior-credential revocation, fork creation or recovery, pinned-model seeding, credential minting, fenced activation,
+ * packet assembly) and its compensation live in lifecycle-provisioning.ts. Unlike the legacy `startWork`, the reservation is
+ * a fenced attempt on a pinned plan: a resume ends the previous attempt and rotates its credentials.
+ */
 export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown,platformUrl:string,resume=false):Promise<TaskStartResponse> {
  const input=parse(claimSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid));await assertGenomeCompatible(env,p);
  const originalTask=taskOf(p,tid),preparedBase=originalTask.attempts.length?undefined:await prepareFanInBase(env,p,originalTask);
- const claim=await stub.claimLifecycleTask(pid,tid,input,resume,preparedBase).catch(async e=>{throw await claimRefusal(stub,pid,tid,e);}),{task,attempt}=claim;let tokenId:string|undefined,out:TaskStartResponse;
- try {
-  // Revoke before creating replacement credentials; if revocation fails, no replacement writer is minted.
-  for(const credential of await stub.lifecycleCredentials(pid,tid))if(credential.tokenId){await withRepo(artifactsFor(env),credential.forkRepo,r=>r.revokeToken(credential.tokenId!));await stub.lifecycleCredentialRevoked(credential.realizationId,credential.tokenId);}
-  const forked=claim.createFork?await forkAndWait(artifactsFor(env),task.base.repo,task.forkRepo,{baseCommit:task.base.commit}):await withRepo(artifactsFor(env),task.forkRepo,r=>r.info()).catch(e=>{if(artifactsErrorCode(e)==='NOT_FOUND')return forkAndWait(artifactsFor(env),task.base.repo,task.forkRepo,{baseCommit:task.base.commit});throw e;});
-  const remote=remoteUrl(env,task.forkRepo,forked.remote);
-  // The fork carries the pinned model under system/ (docs/design/task-fork-model.md §1). A fork of the app binding gets the
-  // pinned Genome (replacing a stale system/); a fork of a predecessor's candidate keeps the model it selected.
-  let model=task.model;
-  if(!model){const [head]=await withRepo(artifactsFor(env),task.forkRepo,r=>r.log({limit:1}));const overwrite=task.base.repo===p.baseManifest.artifacts[task.artifactId]?.repo;model=taskModelOf(p.genome.commit,await seedModel(artifactsFor(env),task.forkRepo,head?.hash??task.base.commit,p.genome,{overwrite,remote}));}
-  const token=await withRepo(artifactsFor(env),task.forkRepo,r=>r.createToken('write',Math.min(input.leaseSeconds??900,3600)));tokenId=token.id;
-  const secret=newRealizationSecret();
-  const plan=await rpc(stub.lifecycleActivate(pid,tid,attempt.id,attempt.generation,{tokenId:token.id,tokenExpires:token.expiresAt,remote,secretHash:await sha256Hex(secret),model}));
-  const reviewUrl=`${platformUrl.replace(/\/$/,'')}/s/${encodeURIComponent(sid)}/r/head/review?plan=${encodeURIComponent(pid)}&task=${encodeURIComponent(tid)}`;
-  const current=taskOf(plan,tid),g=await genomeAt(env,sid,p.genome.commit,p.genome.repo),packet=lifecyclePacket({plan,task:current,attempt:current.attempts.at(-1)!,remote,reviewUrl,model:g.model});
-  out={plan,task:current,attempt:current.attempts.at(-1)!,secret,token:{value:token.plaintext,expiresAt:token.expiresAt,remote},remote,packet,reviewUrl};
- }catch(e){
-  const log=(what:string)=>(w:unknown)=>console.error(`[lifecycle] ${what} after a failed ${resume?'resume':'claim'} of ${pid}/${tid} failed: ${(w as Error)?.message??w}`);
-  if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(log(`revoking token ${tokenId}`));
-  await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(log(`ending attempt ${attempt.id}`));await refresh(env,sid);throw e;}
- // Outside the try: the claim is live and credentials are minted; nothing after this may undo them.
- await refresh(env,sid);return out;
+ const claim=await stub.claimLifecycleTask(pid,tid,input,resume,preparedBase).catch(async e=>{throw await claimRefusal(stub,pid,tid,e);});
+ const {steps,compensation}=taskAttemptProvisioning(env,stub,{sid,pid,tid,plan:p,claim,leaseSeconds:input.leaseSeconds,platformUrl});
+ const outcome=await provisionTaskAttempt(steps,compensation);
+ if(!outcome.ok){
+  // Compensation failures are logged beside the original error, which is what the caller sees.
+  for(const c of outcome.compensation)if(c.error!==undefined)console.error(`[lifecycle] ${c.action} after a failed ${resume?'resume':'claim'} of ${pid}/${tid} (at ${outcome.step}) failed: ${(c.error as Error)?.message??c.error}`);
+  await refresh(env,sid);throw outcome.error;
+ }
+ // The claim is live and credentials are minted; nothing after this may undo them. The refresh is best effort.
+ await refresh(env,sid);return outcome.value;
 }
 /**
  * A claim refusal from the DO as an HttpError with structured details, same code and message: unselected dependencies
