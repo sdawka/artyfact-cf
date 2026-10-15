@@ -10,6 +10,7 @@ import { NODE_FILE, parseTree } from "@artyfact/ontology";
 import { CliError } from "./git.ts";
 import { isSecretFile } from "./ignore.ts";
 import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
+import { sendJson } from "./transport.ts";
 import type { Io } from "./main.ts";
 
 const META_DIR = ".artyfact";
@@ -295,19 +296,9 @@ function saveNewComposition(output: string, composition: SavedComposition, execu
 
 async function requestJson(io: Io, token: string | undefined, method: string, base: string, path: string, body?: unknown): Promise<unknown> {
   if (token) assertBearerTransport(base, "the Parts catalog credential");
-  let response: Response;
-  try {
-    response = await (io.fetch ?? fetch)(`${base.replace(/\/$/, "")}${path}`, {
-      method,
-      headers: { ...(body === undefined ? {} : { "content-type": "application/json" }), ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch (error) {
-    throw new CliError(`cannot reach Parts catalog at ${base}: ${(error as Error).message}`);
-  }
-  const text = await response.text();
-  if (!response.ok) throw new CliError(`${method} ${path} -> ${response.status} ${text}`.trim());
-  return text ? JSON.parse(text) : {};
+  const response = await sendJson(io.fetch, { method, base, path, body, token, target: "Parts catalog" });
+  if (!response.ok) throw new CliError(`${method} ${path} -> ${response.status} ${response.text}`.trim());
+  return response.json();
 }
 
 async function loadCatalogRecipe(recipe: PartRecipe, io: Io, platform: string, systemId?: string): Promise<Map<string, PartPackage>> {
