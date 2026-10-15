@@ -3,6 +3,9 @@ import { REGISTRY, type SystemAuthority } from '../worker/do/system-authority';
 import { replayChanges, replayDelta, replayFrom } from '../worker/lifecycle-service';
 import { FakeArtifacts } from './helpers/fake-artifacts';
 import type { TreeEntry } from '../worker/artifacts/client';
+import type { SystemModel } from '@artyfact/model';
+import { buildGenome } from '../worker/artifacts/genome-source';
+import { integratedModelFiles, listModel, modelDelta, MODEL_MAX_FILES, MODEL_MAX_FILE_BYTES, outsideWriteNodes, pinnedModelFiles, readModelFiles } from '../worker/lifecycle-model';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { lifecyclePaths, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse, type TaskReview, type ImplementationReview, type PlanPromoteResponse } from '../shared/lifecycle';
@@ -292,5 +295,51 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   const review=(await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN)).json;expect(review.modelDelta).toBeUndefined();expect(review.bindings[0].model).toBeUndefined();
   const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId)},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
   const state=(await systemStub(env,f.systemId).state())!;expect(state.genomeCommit).toBe(p.genome.commit);expect(state.genomeSource).toBe(f.genomeRepo);
+ });
+ it('confines model edits to write nodes by whole path segment, and to nothing without write nodes',()=>{
+  const m={origin:{'screen.people':'thing.webapp/section.ui/screen.people/node.yaml','E.one':'evolutions/one.yaml','thing.webapp':'thing.webapp/node.yaml'}} as unknown as SystemModel;
+  const inside='system/thing.webapp/section.ui/screen.people/component.X/node.yaml',sibling='system/thing.webapp/section.ui/screen.people-2/node.yaml',evo='system/evolutions/one.yaml',evoLike='system/evolutions/one.yaml.bak',removed='system/thing.webapp/section.domain/entity.ContactRecord/node.yaml';
+  expect(outsideWriteNodes(m,['screen.people'],[inside,sibling,FILE,removed])).toEqual([sibling,removed]);
+  // A node declared by a file other than node.yaml confines to that file, never to every path sharing its prefix.
+  expect(outsideWriteNodes(m,['E.one'],[evo,evoLike])).toEqual([evoLike]);
+  expect(outsideWriteNodes(m,['thing.webapp'],[inside,sibling,evo])).toEqual([evo]);
+  expect(outsideWriteNodes(m,[],[inside,FILE])).toEqual([inside,FILE]);
+ });
+ it('derives outsideWriteNodes from the whole changed set, deletions included, and from no write nodes when none are given',async()=>{
+  const {f,p,s,fork,files}=await claimed('Confine');
+  const {genomeAt}=await import('../worker/service');const base=(await genomeAt(env,f.systemId,p.genome.commit,p.genome.repo)).model,load=(fs:Map<string,string>,rev:string)=>buildGenome(fs,rev).model;
+  const CONTACT='system/thing.webapp/section.domain/entity.ContactRecord/node.yaml',DIALOG='system/thing.webapp/section.ui/screen.people/component.AddContactDialog/node.yaml';
+  const edited=new Map(files);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));edited.delete(CONTACT);edited.delete(DIALOG);
+  const commit=fork.commit(edited,'Edit and delete'),at={repo:s.task.forkRepo,commit};
+  expect((await modelDelta(f.ns,p.genome,base,at,load,undefined,['screen.people']))!.outsideWriteNodes).toEqual([CONTACT]);
+  expect((await modelDelta(f.ns,p.genome,base,at,load))!.outsideWriteNodes).toEqual([CONTACT,DIALOG,FILE].sort());
+ });
+ it('refuses to promote an integrated model whose fork root would redirect the canonical Genome reader',async()=>{
+  const f=await importFresh(),footprint={repo:f.appRepo,artifactId:'artifact.webapp',globs:['node.yaml','src/ui/people/**'],paths:[],unmatched:[],known:true};
+  const p=await systemStub(env,f.systemId).createRealizationPlan({title:'Root',tasks:[{...definition,footprint}]});
+  const s=(await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).json,fork=f.ns.repo(s.task.forkRepo),files=await walkTree(fork,s.task.model!.commit);
+  files.set(FILE,files.get(FILE)!.replace('route: /people','route: /contacts'));files.set('node.yaml',files.get('system/node.yaml')!);
+  const sub=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit:fork.commit(files,'Root node')},{authorization:`Bearer ${s.secret}`});expect(sub.status,JSON.stringify(sub.json)).toBe(201);
+  expect((await call('POST',path(f.systemId,p.id,'ui','select'),{candidateId:sub.json.candidate.id},ADMIN)).status).toBe(200);
+  const review=(await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN)).json;expect(review.modelDelta).toBeDefined();
+  const [b]=review.bindings;await expect(integratedModelFiles(f.ns,b.source)).rejects.toMatchObject({status:409,code:'model-delta-invalid'});
+  const promoted=await call<{error:{code:string;message:string}}>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId),acceptModelDelta:true},ADMIN);
+  expect(promoted.status).toBe(409);expect(promoted.json.error.code).toBe('model-delta-invalid');expect(promoted.json.error.message).toContain('under system/');
+  expect((await systemStub(env,f.systemId).state())!.genomeCommit).toBe(p.genome.commit);
+ });
+ it('caps a model on its listing before any blob is fetched, counts an unsized blob as over the cap, and seeds through the same reader',async()=>{
+  const ns=new FakeArtifacts(),repo=ns.create('m'),blobs=(from:number)=>repo.calls.slice(from).filter(c=>c.startsWith('readBlob')).length,trees=(from:number)=>repo.calls.slice(from).filter(c=>c.startsWith('readTree')).length;
+  // Three directories whose first two already cross the file cap: the walk (root, system/, x/, y/) stops there, z/ is never listed and no blob is read.
+  const many:Record<string,string>={};for(const d of ['x','y'])for(let i=0;i<MODEL_MAX_FILES*0.75;i++)many[`system/${d}/n${i}.yaml`]='n: 1\n';many['system/z/last.yaml']='z: 1\n';
+  const wide=repo.commit(many,'wide');let from=repo.calls.length;
+  await expect(listModel(repo,wide)).rejects.toMatchObject({status:422,code:'model-too-large'});expect(trees(from)).toBe(4);expect(blobs(from)).toBe(0);
+  // A blob of unknown size is never decoded.
+  const small=repo.commit({'system/node.yaml':'id: s\n'},'small'),readBlob=repo.readBlob.bind(repo);
+  repo.readBlob=async h=>{const b=await readBlob(h);return b&&Object.assign({text:()=>b.text()},{size:undefined as unknown as number}) as unknown as Blob;};
+  await expect(readModelFiles(repo,small)).rejects.toMatchObject({status:422,code:'model-too-large'});repo.readBlob=readBlob;
+  // The pinned Genome a fork is seeded with goes through the same per-file cap.
+  const genome=ns.create('g'),big=genome.commit({'node.yaml':'id: s\n','big.yaml':`x: ${'y'.repeat(MODEL_MAX_FILE_BYTES)}\n`},'big');from=genome.calls.length;
+  await expect(pinnedModelFiles(ns,{repo:'g',commit:big})).rejects.toMatchObject({status:422,code:'model-too-large'});
+  expect(genome.calls.slice(from).filter(c=>c.startsWith('readBlob')).length).toBe(1);
  });
 });

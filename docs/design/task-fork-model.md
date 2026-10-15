@@ -60,8 +60,11 @@ checkpoint. The platform then treats the candidate as code **and** a model propo
   untouched never conflict, and the integrated commit holds a full model (seeded, then the edits). The integrated
   binding's `model` is the integrated delta; `ImplementationReview.modelDelta` names it.
 - Promote: when a binding carries a model delta the request must say `acceptModelDelta: true` (else 409
-  `model-delta-unreviewed`), and the integrated commit's `system/` is re-read and re-loaded by the canonical loader
-  (`genomeAt`) at that moment, never trusted from the stored delta (409 `model-delta-invalid`); the DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
+  `model-delta-unreviewed`). The delta is re-derived from the integrated commit and must match the reviewed binding (same
+  commit, changed paths and files outside the write nodes), and that commit's `system/` is re-read through the same capped
+  reader as the submit path (`readModelFiles`) and re-loaded by `buildGenome` at that moment, never trusted from the stored
+  delta; a fork root carrying a `node.yaml` or `system.yaml`, which would redirect the canonical reader away from `system/`,
+  is refused (all 409 `model-delta-invalid`). The DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
   compare-and-swap that moves the app head, exactly as `accept` does for a Genome amendment fork. Open plans pinned to
   the previous Genome are checked by `assertGenomeCompatible` as after any accept.
 

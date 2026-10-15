@@ -24,7 +24,7 @@ import { taskDefinitions } from './tasks/definitions';
 import { sha256Hex } from './util';
 import { screenshotsSchema, storeScreenshots } from './evidence';
 import picomatch from 'picomatch';
-import { buildTaskManifest, compareFrom, inFootprint, isModelPath, modelPathNodes, modelTreeDiff, pinnedModelEntries, seedModel, splitDiff, TASK_PROTECTED, taskModelOf, taskPermittedGlobs, type ModelLoader, type TaskManifest } from './lifecycle-model';
+import { buildTaskManifest, compareFrom, inFootprint, integratedModelFiles, isModelPath, modelPathNodes, modelTreeDiff, pinnedModelEntries, seedModel, splitDiff, TASK_PROTECTED, taskModelOf, taskPermittedGlobs, type ModelLoader, type TaskManifest } from './lifecycle-model';
 import { reviewTaskModel } from './lifecycle-model-review';
 import { buildGenome } from './artifacts/genome-source';
 import { evidenceLayers } from './lifecycle-task-review';
@@ -271,10 +271,15 @@ export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:un
  for(const b of p.integration) {
   const c=await stub.candidate(b.candidateId),manifest=await stub.candidateManifest(b.candidateId);if(!c||!manifest)throw conflict('gate-unavailable','integrated candidate missing');
   const tasks=p.tasks.filter(t=>t.artifactId===b.artifactId),combined={checks:[...new Set(tasks.flatMap(t=>t.checks))],writeNodes:[...new Set(tasks.flatMap(t=>t.writeNodes))],footprint:{repo:p.baseManifest.artifacts[b.artifactId].repo,artifactId:b.artifactId,globs:[...new Set(tasks.flatMap(t=>t.footprint.globs))],paths:c.changedPaths,unmatched:[],known:true},base:p.baseManifest.artifacts[b.artifactId]};
-  const exact=await manifestHash(await taskManifest(env,p,{realizationId:c.realization,repo:b.source.repo,baseRepo:combined.base.repo,baseCommit:combined.base.commit,commit:c.commit},combined.writeNodes))===manifest.manifestHash;
+  const fresh=await taskManifest(env,p,{realizationId:c.realization,repo:b.source.repo,baseRepo:combined.base.repo,baseCommit:combined.base.commit,commit:c.commit},combined.writeNodes),exact=await manifestHash(fresh)===manifest.manifestHash;
   if(!exact)throw conflict('stale-candidate','integrated candidate no longer matches exact reviewed evidence');
-  // The integrated system/ is re-read and re-parsed by the canonical loader now, never trusted from the stored delta: what loads here is what becomes the Genome.
-  if(b.model){try{await genomeAt(env,sid,b.source.commit,b.source.repo);}catch(e){throw conflict('model-delta-invalid',`the integrated model does not load: ${(e as Error)?.message??e}`);}}
+  if(b.model||fresh.model) {
+   // The model delta is re-derived from the integrated commit now, never trusted from the stored binding: the commit the Genome moves to must be the one that was reviewed (same repo, same commit, same changed paths and the same files outside the write nodes).
+   const same=(a?:string[],b?:string[])=>JSON.stringify([...(a??[])].sort())===JSON.stringify([...(b??[])].sort());
+   if(!b.model||!fresh.model||c.commit!==b.source.commit||manifest.repo!==b.source.repo||!same(fresh.model.changedPaths,b.model.changedPaths)||!same(fresh.model.outsideWriteNodes,b.model.outsideWriteNodes))throw conflict('model-delta-invalid','the integrated model differs from the reviewed model delta; integrate again');
+   // The integrated system/ is re-read through the same capped reader as the submit path and re-parsed by the Genome loader now: what loads here is exactly the tree that becomes the Genome.
+   try{const {load}=await modelLoader(env,sid);load(await integratedModelFiles(artifactsFor(env),b.source),b.source.commit);}catch(e){if((e as {code?:string})?.code==='model-delta-invalid')throw e;throw conflict('model-delta-invalid',`the integrated model does not load: ${(e as Error)?.message??e}`);}
+  }
   await runCandidate(env,p,combined,c,b.source.repo,'promotion',exact);gates[c.id]=gateCriteria(g.model,{acceptanceCriteria:combined.checks},{target:'app'});
  }
  // An integrated model delta moves the accepted Genome to the integrated commit (its system/), once the reviewer accepts it.

@@ -8,9 +8,9 @@ import { diffModels, type SemanticDelta, type SystemModel } from "@artyfact/mode
 import type { CandidateModel } from "../shared/api";
 import type { TaskModel } from "../shared/lifecycle";
 import { changedNodesFor, diffSubtrees, diffTrees, type CandidateManifest, type TreeDiff } from "./artifacts/candidates";
-import { withRepo, type ArtifactsNamespaceLike, type ArtifactsRepoLike } from "./artifacts/client";
-import { assertGenomeSourceSize, GENOME_MAX_BYTES, genomePrefix, isGenomeSource, listTree, readGenomeSourceFiles, treeAt } from "./artifacts/genome-source";
-import { unprocessable } from "./errors";
+import { withRepo, type ArtifactsNamespaceLike, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
+import { assertGenomeSourceSize, GENOME_MAX_BYTES, genomePrefix, isGenomeSource, treeAt } from "./artifacts/genome-source";
+import { conflict, unprocessable } from "./errors";
 import { NODE_FILE } from "@artyfact/ontology/genome";
 import { gitTransport } from "./editor";
 import { pushCommit, PushRejected, type FileChange } from "./git/push";
@@ -39,7 +39,7 @@ export interface GenomeRef { repo: string; commit: string }
 
 /** The pinned Genome's source files (YAML and the intent sidecars) at their fork paths under `system/`. */
 export async function pinnedModelFiles(ns: ArtifactsNamespaceLike, genome: GenomeRef): Promise<Map<string, string>> {
-  const files = await withRepo(ns, genome.repo, (r) => readGenomeSourceFiles(r, genome.commit));
+  const files = await withRepo(ns, genome.repo, async (r) => readModelFiles(r, genome.commit, await genomePrefix(r, genome.commit)));
   return new Map([...files].map(([p, t]) => [`${MODEL_PREFIX}/${p}`, t] as const));
 }
 
@@ -56,7 +56,7 @@ export interface SeedOptions {
  */
 export async function seedModel(ns: ArtifactsNamespaceLike, forkRepo: string, parent: string, genome: GenomeRef, o: SeedOptions): Promise<string> {
   return withRepo(ns, forkRepo, async (repo) => {
-    const existing = await listTree(repo, parent, MODEL_PREFIX);
+    const existing = await listModel(repo, parent);
     if (!o.overwrite && existing.has("node.yaml")) return parent;
     const pinned = await pinnedModelFiles(ns, genome);
     const changes: FileChange[] = [...pinned].map(([path, content]) => ({ path, content }));
@@ -94,30 +94,45 @@ export function modelPathNodes(m: SystemModel, paths: string[]): Record<string, 
 }
 
 /** 422 `model-too-large`: the candidate's `system/` is beyond the caps; nothing of it is read or judged. */
-const tooLarge = (what: string) => unprocessable("model-too-large", `the candidate's ${MODEL_PREFIX}/ ${what}; the limits are ${MODEL_MAX_FILES} files, ${MODEL_MAX_DEPTH} levels, ${MODEL_MAX_FILE_BYTES} bytes a file and ${GENOME_MAX_BYTES} bytes of YAML in all`);
+const tooLarge = (what: string, prefix = MODEL_PREFIX) => unprocessable("model-too-large", `the candidate's ${prefix || "root"}/ ${what}; the limits are ${MODEL_MAX_FILES} files, ${MODEL_MAX_DEPTH} levels, ${MODEL_MAX_FILE_BYTES} bytes a file and ${GENOME_MAX_BYTES} bytes of YAML in all`);
 
-/** The listing of a fork commit's `system/`, refused (422) beyond the file and depth caps before any content is read. */
-export async function listModel(repo: ArtifactsRepoLike, commit: string) {
-  const listing = await listTree(repo, commit, MODEL_PREFIX);
-  if (listing.size > MODEL_MAX_FILES) throw tooLarge(`has ${listing.size} files`);
-  for (const p of listing.keys()) if (p.split("/").length > MODEL_MAX_DEPTH) throw tooLarge(`nests ${p} deeper than ${MODEL_MAX_DEPTH} levels`);
-  return listing;
+/** Walk `tree` (path → entry), refusing mid-walk once the file or depth cap is crossed, so an oversize tree is never listed whole. */
+async function listBounded(repo: ArtifactsRepoLike, tree: string, prefix: string, base: string, depth: number, out: Map<string, TreeEntry>): Promise<void> {
+  if (depth > MODEL_MAX_DEPTH) throw tooLarge(`nests ${base} deeper than ${MODEL_MAX_DEPTH} levels`, prefix);
+  const entries = await repo.readTree(tree);
+  if (!entries) throw unprocessable("missing-tree", `tree ${tree} not found`);
+  for (const e of entries) {
+    const p = base + e.name;
+    if (e.type === "tree") await listBounded(repo, e.hash, prefix, `${p}/`, depth + 1, out);
+    else if (e.type !== "gitlink") { out.set(p, e); if (out.size > MODEL_MAX_FILES) throw tooLarge(`has more than ${MODEL_MAX_FILES} files`, prefix); }
+  }
+}
+
+/** The listing of a fork commit's `system/` (or the Genome at `prefix`), refused (422) beyond the file and depth caps before any content is read. */
+export async function listModel(repo: ArtifactsRepoLike, commit: string, prefix = MODEL_PREFIX): Promise<Map<string, TreeEntry>> {
+  const tree = await treeAt(repo, commit, prefix), out = new Map<string, TreeEntry>();
+  if (tree) await listBounded(repo, tree, prefix, "", 1, out);
+  return out;
 }
 
 /**
- * The candidate's model files (Genome-relative paths → text), read the way the import path reads a Genome: source
- * files only, each blob's size checked before it is decoded, the total capped at GENOME_MAX_BYTES. The same bytes go
- * to the loader, to System One and, on promotion, into the accepted Genome.
+ * The model files under `prefix` at `commit` (Genome-relative paths → text), the one capped reader for a candidate's
+ * `system/`, the pinned Genome a fork is seeded with and the integrated commit re-read at promote: the listing is capped
+ * before a blob is fetched, blobs are fetched one at a time with each size checked before it is decoded, and the running
+ * total aborts the fetch loop at GENOME_MAX_BYTES. Source files only. The same bytes go to the loader, to System One
+ * and, on promotion, into the accepted Genome.
  */
-export async function readModelFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
-  const listing = await listModel(repo, commit), out = new Map<string, string>();
+export async function readModelFiles(repo: ArtifactsRepoLike, commit: string, prefix = MODEL_PREFIX): Promise<Map<string, string>> {
+  const listing = await listModel(repo, commit, prefix), out = new Map<string, string>();
   let total = 0;
   for (const [path, e] of [...listing].filter(([p]) => isGenomeSource(p)).sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (total > GENOME_MAX_BYTES) throw tooLarge(`exceeds ${GENOME_MAX_BYTES} bytes of source`, prefix);
     const blob = await repo.readBlob(e.hash);
-    if (!blob) throw unprocessable("missing-blob", `${MODEL_PREFIX}/${path} is missing at ${commit.slice(0, 12)}`);
-    if (blob.size > MODEL_MAX_FILE_BYTES) throw tooLarge(`${path} is ${blob.size} bytes`);
+    if (!blob) throw unprocessable("missing-blob", `${prefix ? `${prefix}/` : ""}${path} is missing at ${commit.slice(0, 12)}`);
+    // A blob of unknown size counts as over the cap: nothing is decoded on trust.
+    if (typeof blob.size !== "number" || blob.size > MODEL_MAX_FILE_BYTES) throw tooLarge(`${path} is ${typeof blob.size === "number" ? blob.size : "unknown"} bytes`, prefix);
     total += blob.size;
-    if (total > GENOME_MAX_BYTES) throw tooLarge(`exceeds ${GENOME_MAX_BYTES} bytes of source`);
+    if (total > GENOME_MAX_BYTES) throw tooLarge(`exceeds ${GENOME_MAX_BYTES} bytes of source`, prefix);
     out.set(path, await blob.text());
   }
   assertGenomeSourceSize(out, commit);
@@ -125,13 +140,32 @@ export async function readModelFiles(repo: ArtifactsRepoLike, commit: string): P
 }
 
 /**
+ * The integrated commit's `system/` as the Genome a promotion accepts, through the same capped reader as the submit
+ * path. 409 `model-delta-invalid` when the canonical Genome reader (`genomePrefix`) would not find the Genome there: a
+ * `node.yaml` or `system.yaml` at the fork root would redirect every later read to a tree nobody reviewed.
+ */
+export async function integratedModelFiles(ns: ArtifactsNamespaceLike, fork: GenomeRef): Promise<Map<string, string>> {
+  return withRepo(ns, fork.repo, async (r) => {
+    if ((await genomePrefix(r, fork.commit)) !== MODEL_PREFIX) throw conflict("model-delta-invalid", `the integrated commit ${fork.commit.slice(0, 12)} does not carry its Genome under ${MODEL_PREFIX}/ alone; replan or revise the candidate`);
+    return readModelFiles(r, fork.commit);
+  });
+}
+
+/** Whether `path` is `dir` itself or lies under it, by whole path segments (`a/b` never admits `a/b-2`). */
+const underDir = (dir: string, path: string): boolean => path === dir || path.startsWith(`${dir}/`);
+
+/**
  * Changed model files outside the Task's write nodes: a file is inside when it lies under a write node's directory or
- * declares a write node. Paths with no node of their own (a new node under a write node's directory) are inside.
+ * declares a write node. Paths with no node of their own (a new node under a write node's directory) are inside. With
+ * no write nodes nothing is inside: every changed model file is listed.
  */
 export function outsideWriteNodes(m: SystemModel, writeNodes: string[], changedPaths: string[]): string[] {
-  const dirs = writeNodes.map((id) => m.origin[id]).filter((o): o is string => !!o).map((o) => `${MODEL_PREFIX}/${o.endsWith(`/${NODE_FILE}`) ? o.slice(0, -NODE_FILE.length) : o === NODE_FILE ? "" : o}`);
+  const dirs = writeNodes.map((id) => m.origin[id]).filter((o): o is string => !!o).map((o) => {
+    const rel = o === NODE_FILE ? "" : o.endsWith(`/${NODE_FILE}`) ? o.slice(0, -(NODE_FILE.length + 1)) : o;
+    return rel ? `${MODEL_PREFIX}/${rel}` : MODEL_PREFIX;
+  });
   const declared = modelPathNodes(m, changedPaths), writes = new Set(writeNodes);
-  return changedPaths.filter((p) => !dirs.some((d) => p.startsWith(d)) && !(declared[p] ?? []).some((id) => writes.has(id)));
+  return changedPaths.filter((p) => !dirs.some((d) => underDir(d, p)) && !(declared[p] ?? []).some((id) => writes.has(id)));
 }
 
 /** The pinned Genome tree and the fork commit's `system/` tree, in their own repos. */
@@ -161,12 +195,13 @@ export type ModelLoader = (files: Map<string, string>, revision: string) => Syst
  * The candidate's model delta: null when its `system/` equals the pinned Genome. Otherwise the changed paths, and
  * the semantic delta of the two loaded models (`loadError` when the candidate's does not load; the delta is then empty).
  */
-export async function modelDelta(ns: ArtifactsNamespaceLike, genome: GenomeRef, base: SystemModel, fork: GenomeRef, load: ModelLoader, diff?: TreeDiff, writeNodes?: string[]): Promise<CandidateModel | null> {
+export async function modelDelta(ns: ArtifactsNamespaceLike, genome: GenomeRef, base: SystemModel, fork: GenomeRef, load: ModelLoader, diff?: TreeDiff, writeNodes: string[] = []): Promise<CandidateModel | null> {
   diff ??= await modelTreeDiff(ns, genome, fork);
+  // The whole changed set, deletions included (a rename is an addition and a deletion), is confined to the write nodes.
   const changedPaths = [...diff.added, ...diff.modified, ...diff.removed].sort();
   if (!changedPaths.length) return null;
   const out: CandidateModel = { prefix: MODEL_PREFIX, genomeCommit: genome.commit, changedPaths, changedNodes: [], delta: emptyDelta() };
-  if (writeNodes) { const outside = outsideWriteNodes(base, writeNodes, changedPaths); if (outside.length) out.outsideWriteNodes = outside; }
+  const outside = outsideWriteNodes(base, writeNodes, changedPaths); if (outside.length) out.outsideWriteNodes = outside;
   // Over the caps the candidate is refused (422) before a byte of it is parsed; a model that reads but does not load is recorded with its loadError.
   const files = await withRepo(ns, fork.repo, (r) => readModelFiles(r, fork.commit));
   try {
@@ -187,7 +222,7 @@ export type TaskManifest = CandidateManifest & { model?: CandidateModel };
  * changes a code footprint); model paths are the candidate's `system/` vs the pinned Genome. `changedNodes` are the code
  * paths' source-map nodes plus the model delta's ids. The hash covers both path sets.
  */
-export async function buildTaskManifest(ns: ArtifactsNamespaceLike, input: TaskManifestInput, genome: GenomeRef, base: SystemModel, sourceMap: SourceMapEntry[], load: ModelLoader, writeNodes?: string[]): Promise<TaskManifest> {
+export async function buildTaskManifest(ns: ArtifactsNamespaceLike, input: TaskManifestInput, genome: GenomeRef, base: SystemModel, sourceMap: SourceMapEntry[], load: ModelLoader, writeNodes: string[] = []): Promise<TaskManifest> {
   const code = splitDiff(await withRepo(ns, input.repo, (r) => diffTrees(r, input.baseCommit, input.commit))).code;
   const modelDiff = await modelTreeDiff(ns, genome, { repo: input.repo, commit: input.commit });
   const model = await modelDelta(ns, genome, base, { repo: input.repo, commit: input.commit }, load, modelDiff, writeNodes);
@@ -203,7 +238,7 @@ export const emptyDelta = (): SemanticDelta => ({ added: [], removed: [], change
 /** The pinned Genome's blob entries at their fork paths: the implicit "before" of every model path in a replay. */
 export async function pinnedModelEntries(ns: ArtifactsNamespaceLike, genome: GenomeRef) {
   return withRepo(ns, genome.repo, async (r) => {
-    const listing = await listTree(r, genome.commit, await genomePrefix(r, genome.commit));
+    const listing = await listModel(r, genome.commit, await genomePrefix(r, genome.commit));
     return new Map([...listing].filter(([p]) => isGenomeSource(p)).map(([p, e]) => [`${MODEL_PREFIX}/${p}`, e] as const));
   });
 }
