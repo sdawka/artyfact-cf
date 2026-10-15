@@ -118,7 +118,8 @@ describe("the Artyfact self-Genome", () => {
     for (const t of things) {
       const n = tree.nodes.get(t.id)!;
       const pkg = JSON.parse(readFileSync(join(repo, n.file.root!, "package.json"), "utf8")) as { name: string };
-      expect(pkg.name, t.id).toMatch(/^@artyfact\//);
+      // Workspace packages are scoped; the published CLI is the unscoped `artyfact`.
+      expect(pkg.name, t.id).toMatch(/^(@artyfact\/|artyfact$)/);
       const want = instantiateNodes(loadMetaTemplate(n.file.template!), t.id).filter((s) => s.kind === "section").map((s) => s.id).sort();
       expect(graph.nodes.filter((x) => x.kind === "section" && x.parent === t.id).map((x) => x.id).sort(), t.id).toEqual(want);
     }
@@ -130,8 +131,13 @@ describe("the Artyfact self-Genome", () => {
       return [(JSON.parse(readFileSync(join(repo, root, "package.json"), "utf8")) as { name: string }).name, t.id] as const;
     }));
     for (const t of things) {
-      const pkg = JSON.parse(readFileSync(join(repo, tree.nodes.get(t.id)!.file.root!, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
-      const want = Object.keys(pkg.dependencies ?? {}).filter((d) => byPackage.has(d)).map((d) => byPackage.get(d)!).sort();
+      const pkg = JSON.parse(readFileSync(join(repo, tree.nodes.get(t.id)!.file.root!, "package.json"), "utf8")) as {
+        dependencies?: Record<string, string>; devDependencies?: Record<string, string>; scripts?: Record<string, string>;
+      };
+      // A package with a `bundle` script compiles its workspace dependencies in: they are devDependencies at publish
+      // time and still what the Thing depends on.
+      const declared = { ...(pkg.scripts?.bundle ? pkg.devDependencies : {}), ...pkg.dependencies };
+      const want = Object.keys(declared).filter((d) => byPackage.has(d)).map((d) => byPackage.get(d)!).sort();
       const have = graph.links.filter((l) => l.from === t.id && l.rel === "dependsOn").map((l) => l.to).sort();
       expect(have, t.id).toEqual(want);
     }

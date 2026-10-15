@@ -2,6 +2,8 @@ id: thing.cli
 kind: thing
 template: template.thing.cli@1
 root: packages/cli
+files:
+  - scripts/bundle.mjs
 fields:
   name: artyfact CLI
   description: "The artyfact command-line tool: sets up a System's repos, starts and submits realizations for agents, manages Parts, converts Genomes and releases the platform's own builds through Artifacts."
