@@ -2,63 +2,72 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-A collaboration platform whose main object is the whole System, not a repository. It runs on Cloudflare Workers and Cloudflare Artifacts. It was built for the Cloudflare "Build the Next-Gen Git Platform" competition.
+A version control platform whose unit of change is the product model, not the file tree. Coding agents work in parallel forks against a typed model of the System, and the platform computes interference, checks and promotion over that model. It runs on Cloudflare Workers and Cloudflare Artifacts and was built for the Cloudflare "Build the Next-Gen Git Platform" competition.
+
+- Website: https://artyfact.ing, with the agent guide at [/connect-agent](https://artyfact.ing/connect-agent), the theory at [/model](https://artyfact.ing/model) and a walkthrough drawn from Artyfact's own model at [/how-it-works](https://artyfact.ing/how-it-works).
+- Hosted platform: https://artyfact-platform.dawka.workers.dev. It is a hosted demo: System One judgments, visual checks, intent translation and plan drafts are simulated, and its header says so. Run it on your own Cloudflare account for real judgments.
+- Repository: https://github.com/sdawka/artyfact-cf
+- npm package: `artyfact` (`npx artyfact@latest --help`)
+- Licence: Apache-2.0
+
+## How to use it today
+
+Today the platform is driven by coding agents through the CLI and the `artyfact-genome` skill. The Genome is not authored in the browser yet. The web app is where a person looks and decides. The Map shows the model with candidates overlaid. Review accepts an imported Genome, agrees a proposed model change node by node, picks Task candidates and promotes. Changelog and Compare show what changed at System, Genome and file level. Deployments shows builds, deployments and runtime events. Authoring the Genome in the browser and a per-template UI are still under development.
+
+The agent path, in order:
+
+```sh
+# 1. Install the skill into a project (Claude Code layout, or AGENTS.md for any other agent)
+npx artyfact@latest skill --write --agent claude      # or --agent generic
+
+# 2. The agent writes genome/**/node.yaml from the templates, then validates until the output ends in ok:
+npx artyfact validate-genome ./genome --app .
+
+# 3. Import: pushes the Genome and app to Artifacts and leaves an import review pending
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir <project> --platform <origin>
+```
+
+A person then opens Review in the web app and accepts the import. From there the lifecycle runs from the CLI, with the admin token passed inline on coordinator commands only:
+
+```sh
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution propose --system <id> --file intent.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system <id> --evolution <evolution-id> --create
+npx artyfact plan tasks <plan-id> --system <id>
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim <plan-id> <task-id> --system <id> --dir ./work/<task-id>
+cd ./work/<task-id> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit"
+```
+
+Inside the fork the agent runs `artyfact task checkpoint "<message>"` and `artyfact task submit`. The coordinator then runs `task select`, `plan integrate`, `plan review` and `plan promote`. Every command and flag is in [packages/cli/README.md](packages/cli/README.md); the skill the agent follows is [packages/cli/skills/artyfact-genome/SKILL.md](packages/cli/skills/artyfact-genome/SKILL.md). Claude Code can also load the skill as a plugin from the manifest in [.claude-plugin/](.claude-plugin/plugin.json) with `/plugin install artyfact --marketplace sdawka/artyfact-cf`.
 
 ## Thesis
 
 A file-centred platform can tell you that two agents changed different files. It cannot tell you that their changes disagree about what the product is. artyfact keeps a typed model of the System next to the code. The model is the Genome. It holds the purpose, the screens, the entities, the policies, the journeys and the criteria that say when each part counts as done.
 
-Start a System with an imported ontology or one authored by your agent. Map its subjects to implementation artifacts, files and folders. Ask for a change, review its Evolution from the purpose down to individual nodes, and accept a new Genome revision. Then create a separate Realization with scoped Tasks for one or more local agents. Select their candidates, review the combined implementation, and promote it with exact evidence and a compare-and-swap on the reviewed System head. Deployment and operational flags are separate actions. A verdict is `pass`, `fail`, `unknown`, `stale` or `waived`; only `pass` is drawn in the success colour.
+A change starts as an Evolution of the Genome, reviewed from the purpose down to individual nodes. Implementation is a Realization: a plan of Tasks pinned to that revision, each with a scope of model nodes, a private fork and checks. The platform computes which Tasks interfere from the nodes they read and write, orders them into waves, integrates the selected candidates into one review, and promotes with a compare-and-swap on the reviewed System head. A verdict is `pass`, `fail`, `unknown`, `stale` or `waived`; only `pass` is drawn in the success colour.
 
-## See it in 90 seconds
+## Judging criteria, where to look
 
-Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md); `npm run release` pushes each build to the Artifacts repo `artyfact/platform.builds` and deploys the Workers from there.
-
-![Map with two candidates overlapping on operation.contact.save](docs/images/map-candidates.png)
-
-The Map with candidates switched on. A bracket halo marks a node a candidate touches. A double bracket and an "overlap" chip mark a node that two candidates share. The layer switch swaps Genome, Proteome and Phenome over the same nodes.
-
-![Work, two realizations and the soft-semantic conflict](docs/images/work-conflict.png)
-
-The Work board groups Evolutions by state. Each realization shows its agent, fork, last checkpoint and the nodes its files map to. The soft-semantic chip is the conflict between the two agents. Their files do not overlap.
-
-![Amendment review, a rules violation](docs/images/amendment-violation.png)
-
-![Amendment review, a deliberate choice](docs/images/amendment-deliberate.png)
-
-The amendment review shows the semantic delta, the Readiness findings that were added and resolved, and System One's signals. The first amendment adds a recipient list to a draft and is blocked by a rule. Its screenshot shows the delta and the findings only. The second rewords a commitment and is a deliberate choice, and its screenshot also shows System One's signals. These shots were taken from a local run with the fake System One provider, and the panel labels those judgments, as the second shot shows.
-
-More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png), [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/theory.png), [Overview](docs/images/overview.png).
-
-## Features
-
-- **Home.** Every System as a card with signifiers: evolving, pending realization, awaiting review, not built, deployed or behind, observed.
-- **Start a System.** Review native ontology packages or agent conversions, then bootstrap the accepted Genome through the local CLI. Domain vocabulary is open; reusable Parts and outcomes conventions are optional.
-- **Realizations and Tasks.** Pin an accepted Genome, inspect read/write interference and dependencies, run scoped attempts in isolated forks, and review one integrated implementation.
-- **Intent edits.** Describe a change in words. The ontology engine proposes node updates linked to a durable Evolution. Accepting the reviewed proposal changes only the Genome.
-- **Code.** Browse Genome and implementation revisions. Genome changes use Evolutions; new implementation work uses Realization Tasks. Legacy editor and agent histories remain readable.
-- **Changelog and Compare.** One row per System commit with its semantic delta, files, criteria, builds and deployment. Compare any two revisions at System, Genome or file level.
-- **Builds and deployments.** Record preview and production builds with source/output lineage. A Realization promotion records its implementation manifest; deployment is a separate action. Historical promotion flows retain their existing deployment behavior.
-- **Phenome.** Deployments, configured Cloudflare runtime metrics, custom measurements and audited Flagship controls. An optional outcomes pack adds versioned event contracts, expected effects and assay links.
-- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it for both Peopling and Artyfact itself.
+- Originality. The unit of version control is the product model. The model and its loader are in `packages/model`, the Rule Packs and templates in `packages/templates`, the Datalog engine in `packages/rules`, and the ontology engine that routes an intent through the tree in `packages/ontology`. Design: [docs/design/model.md](docs/design/model.md) and [docs/design/ontology.md](docs/design/ontology.md). On screen: the Map, and the agreement tree under Work.
+- Multi-agent concurrency. Task footprints and conflicts are computed in `apps/platform/worker/tasks/footprint.ts` and `planner.ts`, with no language model. Claims, leases, fencing and dependency refusal are in `apps/platform/worker/lifecycle-service.ts`. The compare-and-swap promote is in `apps/platform/worker/do/system-authority.ts`. Contracts: [docs/design/lifecycle.md](docs/design/lifecycle.md) and [docs/design/task-fork-model.md](docs/design/task-fork-model.md). On screen: the Work board with waves and conflict chips.
+- User experience. The agreement tree in `apps/platform/src/views/work/intent/agreement`, one review across all Tasks in `apps/platform/src/views/review`, verdicts that are never green without a pass, and Changelog and Compare under `apps/platform/src/views`. The submission text is [docs/submission.md](docs/submission.md).
 
 ## How Cloudflare is used
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a Task forks its explicit artifact binding, commits the pinned Genome into the fork under `system/` over Git, and returns a short-lived write token and attempt secret. Resuming fences the previous attempt and replaces its credentials while preserving its fork. Older agent-level Realizations and Genome amendments keep their existing API. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads commits and trees through the `ARTIFACTS` binding and loads the Genome at an exact commit; no Git library runs in the Worker. Claiming a Task forks the app repository, commits the pinned Genome into the fork under `system/` over Git, and returns a short-lived write token and attempt secret. Resuming fences the previous attempt and replaces its credentials while preserving its fork. Agents clone and push with ordinary Git over HTTPS.
 
-**Submission and push events on Queues.** The primary path is the CLI `submit` command, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`). It resolves the fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, and this version does not create one per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit, and a redelivered event does nothing.
+**Submission and push events on Queues.** The primary path is `artyfact task submit`, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`) that resolves a fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, which is not created per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit.
 
-**Durable Object with SQLite.** `SystemAuthority` is one Durable Object per System. It stores the head, System commits, Evolutions, realizations, candidates, evaluations and seen events. `promote` runs in one synchronous transaction. It reads the head, compares it with the caller's expected head, checks the promotion gate, writes a new System commit with a hashed manifest, moves the head and rejects sibling candidates. Promotion changes the manifest, not Git history.
+**Durable Object with SQLite.** `SystemAuthority` is one Durable Object per System. It stores the head, System commits, Evolutions, plans, Tasks, candidates, evaluations and seen events. `promote` runs in one synchronous transaction: it compares the head with the caller's expected head, checks the promotion gate, writes a new System commit with a hashed manifest, moves the head and rejects sibling candidates. Promotion changes the manifest, not Git history.
 
-**Storage.** The System's state lives in two places: the Artifacts repositories and the Durable Object's SQLite. Evaluations and their observations are stored in the Durable Object.
+**System One.** Semantic judgments go to System One. With `S1_PROVIDER` unset or `auto` the providers are tried in order: TypeSafe (`TYPESAFE_API_KEY`), Cloudflare Clef through the Workers AI binding (`AI`, `@cf/cloudflare/clef`), then OpenRouter (`OPENROUTER_API_KEY`). `S1_PROVIDER` set to `clef`, `jev`, `openrouter`, `fake` or `off` names one and never falls through; a named provider without its key or binding is off with the reason. `FAKE_S1=1` wins over all of it and is for local runs and tests. Without a provider every judgment is `unknown`. The hosted demo reads no model key; Clef and Jev run when you run Artyfact locally on your own account. Intent translation and plan drafting use OpenRouter, because Clef does not generate text.
 
-**System One.** Semantic judgments, such as classifying a Genome change, go to System One. Providers are tried in this order: the fake provider (`FAKE_S1=1`), TypeSafe (`TYPESAFE_API_KEY`), Cloudflare Clef through the Workers AI binding (`AI`, `@cf/cloudflare/clef`), then OpenRouter (`OPENROUTER_API_KEY`). `S1_PROVIDER` (`auto`, `clef`, `jev`, `openrouter`, `fake` or `off`) names one instead, and a named one without its key or binding is off with the reason rather than another provider; `jev` is TypeSafe's Jev, through `TYPESAFE_API_KEY` or, with only `OPENROUTER_API_KEY`, OpenRouter's `typesafe/jev-1.13`. Without a provider every judgment is `unknown`. The hosted platform is a read-only demo: its judgments, visual checks, translations and plan drafts are simulated and labelled so, and it reads no model key. Clef, Jev and Browser Run run when you run Artyfact locally on your own Cloudflare account. Keys are Worker secrets. Text generation (intent translation and plan drafting) stays on OpenRouter, because Clef does not generate text. See the run notes for `FAKE_S1`.
+**Visual checks.** A `browser` hook with `inputs.judgment: visual` captures the candidate's CI preview at 1280×800 and 390×844 through Cloudflare Browser Run, and reads screenshots the agent attached with `artyfact task submit --screenshot page.png`. Clef judges them when the `AI` binding is present, and the images are kept in the R2 bucket `artyfact-evidence`. Agent screenshots can fail a check but never pass it without a platform capture. A probability of 0.9 or above passes, 0.1 or below fails with a named concern, and anything between is `unknown`. Artyfact judges its own /model page this way.
 
-**Visual checks.** A criterion can be judged from screenshots. A `browser` hook with `inputs.judgment: visual` captures the candidate's CI preview at desktop (1280×800) and mobile (390×844) widths through Cloudflare Browser Run, and reads any screenshots the agent attached with `artyfact task submit --screenshot page.png` (up to 4 per submit). Visual checks always use Clef when the `AI` binding is present, even when TypeSafe judges text. Each image is labelled as a platform capture or an agent screenshot and kept in the R2 bucket `artyfact-evidence`, linked from the evaluation. Agent screenshots are unverified: they can fail a check but never pass it without a platform capture. An ask takes up to 4 images (PNG, JPEG or WebP, 4 MiB each, 8 MiB per ask), and a check makes at most 3 asks. Clef returns a probability: 0.9 or above passes, 0.1 or below fails with a named concern (broken layout, unreadable text, missing content, weak hierarchy or error state), and anything between is `unknown`. With no images, or no model that can read them, the check is `not-run`; it is never judged from text alone. Artyfact judges its own /model page this way, through `C.site.model.compelling-visual-presentation`.
+**CI.** A separate `artyfact-ci` Worker runs a Workflow, started through a cross-script binding, that builds app commits in a container and deploys previews and production. The public site deploys from the Artifacts repo `artyfact/platform.builds` through the same Worker.
 
-The longer version, with a diagram, is in [docs/architecture.md](docs/architecture.md).
+The longer version is in [docs/architecture.md](docs/architecture.md).
 
 ## Architecture
 
@@ -94,31 +103,25 @@ flowchart LR
 
 ## What is deterministic and what is model-judged
 
-The Genome is loaded and validated by a Datalog engine running versioned Rule Packs. The same Genome and the same packs give the same findings, and each finding carries its derivation. File mapping, scope checks, existence checks, overlap detection and the promotion gate are plain code.
+The Genome is loaded and validated by a Datalog engine running versioned Rule Packs. The same Genome and the same packs give the same findings, and each finding carries its derivation. File mapping, scope checks, Task footprints, overlap detection, wave ordering and the promotion gate are plain code.
 
-System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks. The exception is an outcome hook that only runs after deployment: its `not-run` row is disregarded.
+System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Checks sit on three layers: the model holds together, the code realizes the pinned nodes, the running thing behaves. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks, except for an outcome hook that only runs after deployment.
 
-Without a System One provider (`TYPESAFE_API_KEY`, the Workers AI `AI` binding for Clef, or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
+Without a System One provider, set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys until you remove that line.
 
 ## The model in two paragraphs
 
 A System has a Purpose, a set of Externals (the people, devices and services outside it), one or more Things and a Theory of how the System should produce its outcome. The Genome is the intended model: a General Description, then nested ontologies for the System and each Thing, refined into requirements and criteria. The Proteome is the layer of agents and execution arrangements that realize the Genome. The Phenome is the layer of measurements and evidence. The three are views over the same nodes, so selecting `screen.people` keeps its identity when you switch layers.
 
-An Evolution changes only the Genome. Its acceptance and implementation approval are distinct decisions. A Realization pins an accepted Genome revision and contains Tasks, each with scope, dependencies, steps and agent attempts. Task candidates integrate by artifact binding into one reviewed implementation manifest. Promotion preserves the current accepted Genome and records the Genome actually realized by each changed binding. Criteria and their assay hooks supply evaluations with explicit methods, verdicts and limitations. The optional outcomes pack extends the base Phenome with expected effects and versioned event contracts.
+An Evolution changes only the Genome. Its acceptance and implementation approval are distinct decisions. A Realization pins an accepted Genome revision and contains Tasks, each with scope, dependencies, steps and agent attempts. Task candidates integrate by artifact binding into one reviewed implementation manifest. A Task may change the pinned model under `system/` when it cannot be realized as written; the difference is submitted as a model delta, judged by System One and accepted at promotion. Criteria and their assay hooks supply evaluations with explicit methods, verdicts and limitations.
 
 ## The agent loop
 
-Your local coordinator creates the plan, inspects dependency waves and starts eligible Tasks. `artyfact task start` clones a Task fork and writes its packet and `AGENTS.md` block. Agents checkpoint and submit exact candidates. The coordinator selects results and runs `artyfact plan integrate`, then reviews the whole implementation before promotion. The platform checks scopes, dependencies, active writers and exact evidence. See the [agent guide](apps/site/src/pages.tsx), [CLI commands](packages/cli/README.md) and [lifecycle contract](docs/design/lifecycle.md).
+The coordinator is whoever plans the work and hands out Tasks. `plan tasks` prints each Task with its wave, dependencies and footprint, and the next claim command. `task claim` forks the app repository, clones it, writes `TASK_PACKET.md` and an `AGENTS.md` block beside the code, and stores the fork token and attempt secret in `.git/artyfact-task.json`, never printed. The agent runs without the admin token, checkpoints and submits. Submit pushes the fork and submits that exact commit as a candidate; the platform maps the changed files to model nodes and runs the checks. A dependent Task is refused until its predecessors are selected, and so is a Task whose conflicting neighbour holds a live lease. The coordinator selects, integrates, reviews the whole implementation and promotes. See the [agent guide](https://artyfact.ing/connect-agent), [CLI commands](packages/cli/README.md) and [lifecycle contract](docs/design/lifecycle.md).
 
-## Earlier demonstration scenarios
+## Earlier flows still readable
 
-These recorded scenarios use the preserved legacy Evolution-owned agent workflow. New implementation plans follow the separate lifecycle above.
-
-**Two agents, different files, one conflict.** Agent A edits the add-contact dialog's save handler. Agent B edits the contacts routes. No file is shared. Through the source map (the `files` globs on Genome nodes) both files reach the node `operation.contact.save`, and the platform reports a soft-semantic conflict between the candidates. The overlap is derived from the Genome and the source map, so it does not depend on a model. System One is also asked whether the changes interfere. With the fake provider it answers "low", and the video says so. The reviewer sees the conflict on the Work board and the Map before promotion. Promoting A and then trying B returns 409 `stale-base`, and promoting B on the current head is refused because it was built on the old one.
-
-**A rule violation is not a deliberate choice.** One agent amends the Genome so that a draft message has a list of recipients. The rules engine proves a `topology.recipientArray` violation and shows its derivation. Accepting the amendment returns 409 and the admin rejects it with a reason. A second agent rewords a commitment. No rule fires, the review panel shows System One's signals, and the admin accepts it with an interpretation. The commit records which provider backed the evidence, here `fake`. The fake provider labels both amendments "deliberate choice", including the violating one, and the rules engine and the gate do not rely on it.
-
-The exact commands and output for both are in [docs/demo-runbook.md](docs/demo-runbook.md) (steps 7 to 10).
+The screenshots in [docs/images/](docs/images/) predate the plan flow. [map-candidates.png](docs/images/map-candidates.png) and [work-conflict.png](docs/images/work-conflict.png) show the older agent-level Realization views, and the two amendment screenshots show the older amendment review. Those flows remain readable in Work and Changelog, and their recorded commands are in [docs/demo-runbook.md](docs/demo-runbook.md).
 
 ## Run it locally
 
@@ -126,20 +129,18 @@ The exact commands and output for both are in [docs/demo-runbook.md](docs/demo-r
 
 - Node 24 (`.nvmrc`) and npm. The repo is one npm workspace: run `npm install` once at the root.
 - A Playwright browser for the end-to-end suites: `npx playwright install chromium`.
-- For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `npx wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. Wrangler and `cf` log in separately; `npx wrangler whoami` and `cf auth whoami` must show the same account. `artyfact init` and `npm run release` check this.
-- Cost. Fixture and fake mode are free and talk to no Cloudflare service. The real backend uses Artifacts, which has a free tier of operations, and adds Workers AI (`AI`, for Clef) and Browser Run (`BROWSER`, for preview screenshots), both billed to the logged-in account. [docs/costs.md](docs/costs.md) has the numbers.
+- For the real backend only: a Cloudflare account on Workers Paid (Artifacts is unavailable on Free), `npx wrangler login`, and the Cloudflare `cf` CLI logged in with `cf auth login`. They log in separately; `npx wrangler whoami` and `cf auth whoami` must show the same account, and `artyfact init` and `npm run release` check this.
+- Cost. Fixture and fake mode are free and talk to no Cloudflare service. The real backend uses Artifacts, which has a free tier of operations, plus Workers AI (`AI`, for Clef) and Browser Run (`BROWSER`, for preview screenshots), both billed to the logged-in account. [docs/costs.md](docs/costs.md) has the numbers.
 
 ### Three ways to run, cheapest first
 
-**Fixture mode** needs no backend and no login. The SPA uses a bundled copy of the Peopling System.
+**Fixture mode** needs no backend and no login. The SPA uses a bundled copy of the Peopling System. The same fallback appears whenever the API is unreachable, with a "fixture data" notice in the header.
 
 ```sh
 npm test                                          # unit tests; the live System One smoke test is skipped without a key
 npm run typecheck
 npm run e2e                                       # builds the SPA and runs the Playwright suite on port 1338
 npm run preview:fixture -w @artyfact/platform     # http://localhost:1338
-npm run dev:amendment -w @artyfact/platform       # amendment review fixture page:
-# http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings
 ```
 
 **Fake platform** runs the whole backend on in-memory Artifacts seeded from `examples/`, with the fake System One and no AI or Browser Run. It needs no login and keeps no state between runs. The variables go in the shell, not in `.dev.vars`, because the Vite config reads them to drop the remote binding.
@@ -159,7 +160,7 @@ cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # set ADMIN_TOKEN=$
 npm run dev -w @artyfact/platform                            # http://localhost:1337 (Vite moves to the next free port)
 ```
 
-`apps/platform/wrangler.jsonc` carries the maintainer's account values (`ACCOUNT_ID`, `PUBLIC_URL`, `WORKERS_SUBDOMAIN`, the Flagship `app_id`). `ACCOUNT_ID` in `.dev.vars` overrides the first locally; change the rest before deploying to your own account. Read routes are unauthenticated; admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`.
+`apps/platform/wrangler.jsonc` carries the maintainer's account values (`ACCOUNT_ID`, `PUBLIC_URL`, `WORKERS_SUBDOMAIN`, the Flagship `app_id`). `ACCOUNT_ID` in `.dev.vars` overrides the first locally; change the rest before deploying to your own account. Read routes are unauthenticated; admin routes (import, claim, accept, reject, promote) need `ADMIN_TOKEN`.
 
 ### Platform Worker variables
 
@@ -167,7 +168,7 @@ Set in: `.dev.vars` (local, git-ignored), `vars` in `wrangler.jsonc`, a deployed
 
 | Variable | Needed for | Set in | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `ADMIN_TOKEN` | admin routes | `.dev.vars`, secret | unset: admin routes return 503 | Bearer for import, start, accept, reject and promote. |
+| `ADMIN_TOKEN` | admin routes | `.dev.vars`, secret | unset: admin routes return 503 | Bearer for import, claim, accept, reject and promote. |
 | `ACCOUNT_ID` | real backend | `.dev.vars` or vars | the maintainer's id | Builds fork remotes `https://<id>.artifacts.cloudflare.net/git/<ns>/<repo>.git`. |
 | `ARTIFACTS_NAMESPACE` | always | vars | `artyfact` | Artifacts namespace of the deployment. |
 | `PUBLIC_URL` | CI builds | vars | the hosted origin | Deployed origin, used in CI report URLs and app vars. Local pages use the request origin. |
@@ -228,50 +229,22 @@ The site (`apps/site`) has no runtime variables. Its build reads optional `SITE_
 
 ### Import a project
 
-`npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. `scripts/bootstrap.sh` runs it on the Peopling example in `examples/`. It needs the real backend and `ARTYFACT_ADMIN_TOKEN`; without the token it prints the `curl` line and exits 0.
-
-- **Names.** One Artifacts namespace per deployment. `system.peopling` gives the repositories `peopling.genome` and `peopling.app`. Task forks are `<repo>--task-<id>` and carry the pinned Genome under `system/` ([task fork model](docs/design/task-fork-model.md)); integration forks are `<repo>--integrate-<id>`.
-- **The `platform` repository** holds the templates and Rule Packs. `init` creates it when missing, `npx artyfact platform-sync` updates it, and imports record its commit as provenance.
-- **Pushes.** `init` never rewrites history. It fast-forwards only from the head it last pushed, and `--adopt` commits on top of history it did not push. Secret files (`.dev.vars`, `.env` and variants, except `*.example`), `node_modules`, `.wrangler` and `dist` are never pushed.
-- **Templates.** `--from-template template.thing.<id>@<version>` seeds a new app from a scaffold in `platform`.
-
-A re-run pushes nothing and re-imports as a no-op. An older recorded run is in step 2 of [the runbook](docs/demo-runbook.md); flags are in [packages/cli/README.md](packages/cli/README.md). The full loop against real Artifacts, with agents, a conflict, a promotion and Genome amendments, is the rest of the runbook.
+`npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command; `scripts/bootstrap.sh` runs it on the Peopling example. It needs the real backend and `ARTYFACT_ADMIN_TOKEN`; without the token it prints the `curl` line and exits 0. The import stays pending until a person accepts it in Review, unless `--no-review` is passed. One Artifacts namespace per deployment: `system.peopling` gives the repositories `peopling.genome` and `peopling.app`, Task forks are `<repo>--task-<id>` with the pinned Genome under `system/`, and integration forks are `<repo>--integrate-<id>`. The `platform` repository holds the templates and Rule Packs; `init` creates it when missing and `npx artyfact platform-sync` updates it. `init` never rewrites history, never pushes secret files, `node_modules`, `.wrangler` or `dist`, and a re-run is a no-op. `--from-template template.thing.<id>@<version>` seeds a new app from a scaffold. The full loop against real Artifacts, with agents, waves, a refused dependent Task and a promotion, is [docs/demo-runbook.md](docs/demo-runbook.md).
 
 ### Deploy and release
 
-`npm run release`, from a clean checkout of main, builds the platform and the site, commits them to the Artifacts repo `artyfact/platform.builds` and deploys both Workers from there ([design](docs/design/release-artifacts.md)). `npm run deploy` is the manual fallback. Resources, first deploy and the production admin token are in [docs/deploy.md](docs/deploy.md).
+`npm run release`, from a clean checkout of main, builds the platform and the site, commits them with a `release.json` to the Artifacts repo `artyfact/platform.builds` and deploys the platform Worker from that checkout ([design](docs/design/release-artifacts.md)). A push to that repo also starts the site deploy Workflow in `artyfact-ci`. `npm run deploy` is the manual fallback. Resources, first deploy and the production admin token are in [docs/deploy.md](docs/deploy.md).
 
 ## Artyfact describes itself
 
-The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): ten Things (platform, ci, site, model, ontology, semantic, rules, templates, cli and effects), with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that. To browse it on the fake platform, with no login:
+The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): ten Things (platform, ci, site, model, ontology, semantic, rules, templates, cli and effects), with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that, and the site's /how-it-works page is drawn from it at build time. To browse it on the fake platform, with no login:
 
 ```sh
 cd apps/platform
 FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Peopling too
 ```
 
-## Phenome event header
-
-A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header. Most event payloads are free-form JSON; `measurement` and `outcome.event` use the contracts below.
-
-| Field | Meaning |
-|---|---|
-| `systemId`, `thingId`, `artifactId` | Which System, Thing and Artifact emitted the event |
-| `buildId` | The app's `BUILD_ID`, which is its commit |
-| `commit` | The app commit, 7 to 64 hex characters |
-| `systemCommit` | The System commit the app was built for (optional) |
-| `deploymentId` | The deployment that reported it (optional) |
-| `emittedAt` | ISO 8601 time with offset |
-| `kind` | Dotted event kind such as `journey.step` or `criterion.observed` |
-| `subject`, `criterion` | A Genome node and a criterion the event is about (optional) |
-| `id` | Emitter-chosen id; a repeated id is dropped (optional) |
-| `payload` | Kind-specific JSON |
-
-The platform stamps `seq`, `receivedAt` and the realization. The Deployments page groups events by `buildId`, else `commit`. The schema is `PhenomeEventHeader` in `packages/model/src/phenome.ts`.
-
-A `measurement` payload is `{name, value, unit?}` with a finite numeric value. Its lineage comes from authenticated deployment, build and Task records, never from payload claims. `outcome.event` carries `{contractId, version, payload}` and is validated against the event contract in the emitting implementation’s Genome. Event validity alone does not establish an expected effect. Retention is capped at 5,000 events per System.
-
-Runtime operations require server configuration. `OPERATIONS_BINDINGS` maps System IDs to artifact binding IDs and `{accountId, scriptName, environment, flagshipAppId?, metricsRetentionDays?}`. `OPERATIONS_API_TOKEN` stays server-side. With either missing, the UI reports unavailable data. Workers analytics aggregates span versions and carry no inferred output lineage. Flag updates require the reviewed version fingerprint and record an operational audit; changes made outside Artyfact may race the provider write because the API has no documented conditional-write guarantee. For deployment, the CI Worker’s `FLAGSHIP_APP_IDS` allowlist maps System IDs to allowed binding names/app IDs. Provision these resources separately; tests use fake providers. The platform Worker's own `FLAGS` Flagship binding (app `artyfact`) gates `cat-mode`; the test configs omit it, so the flag reads as off there.
+A deployed app reports what it observes to `POST /api/systems/:id/phenome/events`; the header schema is `PhenomeEventHeader` in `packages/model/src/phenome.ts`, and the Deployments view groups the events by build. Runtime metrics and Flagship controls need `OPERATIONS_BINDINGS` and `OPERATIONS_API_TOKEN`; without them the view reports the data as unavailable.
 
 ## Repository layout
 
@@ -280,9 +253,12 @@ Runtime operations require server configuration. `OPERATIONS_BINDINGS` maps Syst
 | `packages/model` | Schemas, loader, validation, diff, overlap |
 | `packages/rules` | Datalog engine with derivation trees |
 | `packages/templates` | System and Thing templates, Rule Packs |
+| `packages/ontology` | Ontology engine, intent routing, System One providers |
 | `packages/semantic` | System One client, question catalog, policy |
-| `packages/cli` | The `artyfact` command for agents |
+| `packages/cli` | The `artyfact` command and the `artyfact-genome` skill |
 | `apps/platform` | The Worker, the Durable Object and the SPA |
+| `apps/ci` | The `artyfact-ci` Worker: build Workflow, previews, site deploys |
+| `apps/site` | The public site at artyfact.ing |
 | `genome` | Artyfact's own Genome (node tree) |
 | `examples/peopling-system` | The worked example Genome |
 | `examples/peopling-app` | The example app that agents change |
@@ -291,14 +267,14 @@ Runtime operations require server configuration. `OPERATIONS_BINDINGS` maps Syst
 
 ## Not done on purpose
 
+- Authoring the Genome in the browser and a per-template UI. Agents author through the CLI and skill today.
 - The Ascent and WASM evaluator.
 - Reasoning-model hooks beyond System One.
 - Paid runs.
 - A Git-parity suite. Artifacts is used for what a Git platform needs here, and nothing more is claimed.
 - Platform-hosted agents. Agents run on the user's machine.
 - Replay of server-sent events after a disconnect. The UI polls and refetches on reconnect.
-- Composing more than one app candidate or Genome candidate in one promotion. The API returns `invalid-state`.
-- Authentication beyond one admin bearer token and per-realization secrets. Start work needs the admin bearer. Checkpoint, submit, sync, status and packet need the per-realization secret returned once by start work, or the admin bearer. The platform keeps only the secret's hash, and rejecting a realization revokes it. There are no user accounts.
+- Authentication beyond one admin bearer token and per-Task secrets. Claiming needs the admin bearer; checkpoint, submit and status need the attempt secret returned once at claim, or the admin bearer. The platform keeps only the secret's hash. There are no user accounts.
 
 ## Licence
 
