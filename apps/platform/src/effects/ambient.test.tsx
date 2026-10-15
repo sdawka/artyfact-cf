@@ -50,7 +50,8 @@ describe("Shell ambient field", () => {
     expect(ambient().querySelector<HTMLElement>("[data-effect]")!.style.position).toBe("fixed");
   });
 
-  it("tints by event kind, ignores malformed events, and eases back", async () => {
+  // Waits out the real 1.8 s accent hold; give a loaded machine room.
+  it("tints by event kind, ignores malformed events, and eases back", { timeout: 15_000 }, async () => {
     renderApp(`${BASE}/overview`);
     await screen.findByRole("heading", { level: 1, name: "Peopling" });
     fx({ kind: "nope" });

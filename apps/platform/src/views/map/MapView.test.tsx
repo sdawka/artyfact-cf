@@ -17,7 +17,8 @@ const box = (id: string) => {
 };
 const ready = (id: string) => waitFor(() => expect(nodeEl(id)).not.toBeNull(), { timeout: 4000 });
 
-describe("System atlas", () => {
+// These wait on real camera and gesture windows (250 to 400 ms sleeps, a 220 ms release window), so a loaded machine needs more than the 5 s default.
+describe("System atlas", { timeout: 15_000 }, () => {
   it("starts in the environment and offers navigation on demand", async () => {
     const { router } = renderApp(MAP);
     await ready(SYS);
