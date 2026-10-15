@@ -1,32 +1,21 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../auth";
-import { assertImportReviewed } from "../import-review";
 import { abandonProposal, acceptProposal, createProposal, decideProposal, getProposal, replyProposal, reviseStagedProposal } from "../intents";
 import { body, origin, type AppEnv } from "./app";
+import { requireImportReviewed as reviewed } from "./import-review";
 
 // Intents (docs/design/ontology.md §5). Admin only, like creating an Evolution: a proposal is the first step of a
-// Genome change.
+// Genome change. Every step but abandoning waits for the System's import review (409 `import-unreviewed`).
 export const intents = new Hono<AppEnv>()
-  .post("/systems/:id/intents", requireAdmin, async (c) => {
-    await assertImportReviewed(c.env, c.req.param("id"));
-    return c.json(await createProposal(c.env, c.req.param("id"), await body(c)), 201);
-  })
+  .post("/systems/:id/intents", requireAdmin, reviewed, async (c) => c.json(await createProposal(c.env, c.req.param("id"), await body(c)), 201))
   .get("/systems/:id/intents/:pid", requireAdmin, async (c) => c.json(await getProposal(c.env, c.req.param("id"), c.req.param("pid"))))
-  .post("/systems/:id/intents/:pid/reply", requireAdmin, async (c) => {
-    await assertImportReviewed(c.env, c.req.param("id"));
-    return c.json(await replyProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c)));
-  })
-  .put("/systems/:id/intents/:pid/decisions", requireAdmin, async (c) => {
-    await assertImportReviewed(c.env, c.req.param("id"));
-    return c.json(await decideProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c)));
-  })
-  .post("/systems/:id/intents/:pid/revise", requireAdmin, async (c) => {
-    await assertImportReviewed(c.env, c.req.param("id"));
-    return c.json(await reviseStagedProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c)));
-  })
+  .post("/systems/:id/intents/:pid/reply", requireAdmin, reviewed, async (c) =>
+    c.json(await replyProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
+  .put("/systems/:id/intents/:pid/decisions", requireAdmin, reviewed, async (c) =>
+    c.json(await decideProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
+  .post("/systems/:id/intents/:pid/revise", requireAdmin, reviewed, async (c) =>
+    c.json(await reviseStagedProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
   .post("/systems/:id/intents/:pid/abandon", requireAdmin, async (c) =>
     c.json(await abandonProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
-  .post("/systems/:id/intents/:pid/accept", requireAdmin, async (c) => {
-    await assertImportReviewed(c.env, c.req.param("id"));
-    return c.json(await acceptProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c), origin(c)), 201);
-  });
+  .post("/systems/:id/intents/:pid/accept", requireAdmin, reviewed, async (c) =>
+    c.json(await acceptProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c), origin(c)), 201));
