@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { canonicalJson, normalizeVerificationRequest, type VerificationOutput, type VerificationRequest, type VerificationResult } from "@artyfact/model";
+import { longFetch } from "./api.ts";
 import { CliError, git, isPristine } from "./git.ts";
 import { assertName } from "./safety.ts";
 import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
@@ -451,13 +452,15 @@ async function connect(values: Values, io: OperatorIo) {
   const expected = { systemId, planId, artifactId }, p = paths(systemId, planId, artifactId);
   const send = (method: string, path: string, body?: unknown) => request(fetcher, base, token, method, path, body);
   const json = (method: string, path: string, body?: unknown) => jsonRequest(fetcher, base, token, method, path, body);
+  // Starting a verification can outlast fetch's 300 s headers timeout.
+  const longJson = (method: string, path: string, body?: unknown) => jsonRequest(io.fetch ?? longFetch, base, token, method, path, body);
   const fetchActivation = async () => validateActivation(await json("GET", p.activation), expected);
-  return { expected, runtimeEnv, p, send, json, fetchActivation };
+  return { expected, runtimeEnv, p, send, json, longJson, fetchActivation };
 }
 
 async function verifyCommand(values: Values, io: OperatorIo): Promise<number> {
-  const { expected, p, json } = await connect(values, io);
-  let verification = verificationOf(await json("POST", p.start, { artifactId: expected.artifactId, ...(values.retry && { retry: true }) }));
+  const { expected, p, json, longJson } = await connect(values, io);
+  let verification = verificationOf(await longJson("POST", p.start, { artifactId: expected.artifactId, ...(values.retry && { retry: true }) }));
   const timeout = io.verifyTimeoutMs ?? VERIFY_TIMEOUT_MS, deadline = Date.now() + timeout;
   while (["queued", "running"].includes(verification.status)) {
     if (Date.now() >= deadline)
