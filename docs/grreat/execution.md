@@ -9,7 +9,7 @@
 - Remaining milestone: passing real Cloudflare execution (first attempt failed), initial and implementation human approvals, K2/Basin event improvement and approved local activation. Local operator is at http://127.0.0.1:1348; US$1 incremental cloud-test budget. Hosting follows later.
 - Tracking: canonical Markdown authoritative. RPC sync pending a confirmed separate Artyfact destination; preserve wrong-project conflict. Original checkout user edits untouched.
 - Last updated: 2026-10-14T21:32:00-04:00.
-- Refactor follow-up: [PR #91](https://github.com/sdawka/artyfact-cf/pull/91) is ready for review after integration with current main. Typecheck, 139 focused tests, independent review and all ten pre-push CI steps pass; exact-head hosted results are tracked on the PR. Evidence: [[journals/2026-10-14-refactor-shared-helpers]].
+- Refactor follow-up: [PR #91](https://github.com/sdawka/artyfact-cf/pull/91) merged the three planned cleanups. The approved small `refactor/verification-rpc` follow-up completes the newly added verification module’s shared RPC use; typecheck, 16 verification/RPC checks and independent review pass. The pre-push hook gates source pushes; hosted check status is authoritative on GitHub. Evidence: [[journals/2026-10-14-refactor-shared-helpers]].
 
 ## Intent integrity release
 
