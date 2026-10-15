@@ -246,10 +246,11 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   const submit=(commit:string)=>call<TaskSubmitResponse&{error:{code:string;message:string}}>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit},{authorization:`Bearer ${s.secret}`});
   return {f,p,s,fork,files,submit};
  }
- it('does not count platform-written files such as AGENTS.md as a scope violation',async()=>{
-  const {fork,files,submit}=await claimed('Platform files');
+ it('refuses a candidate that changes the root AGENTS.md outside its binding scope',async()=>{
+  // Every later agent reads AGENTS.md as instructions: a Task must not change it, platform-written or not.
+  const {fork,files,submit}=await claimed('Agents file');
   const edited=new Map(files);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));edited.set('AGENTS.md','<!-- artyfact-task:start -->\nTask block\n<!-- artyfact-task:end -->\n');
-  const r=await submit(fork.commit(edited,'With AGENTS.md'));expect(r.status,JSON.stringify(r.json)).toBe(201);
+  const r=await submit(fork.commit(edited,'With AGENTS.md'));expect(r.status).toBe(422);expect(r.json.error.code).toBe('scope-violation');expect(r.json.error.message).toContain('AGENTS.md');
  });
  it('keeps the app scope check with a model edit alongside, and flags model edits outside the write nodes',async()=>{
   const {f,p,fork,files,submit}=await claimed('Scope');
