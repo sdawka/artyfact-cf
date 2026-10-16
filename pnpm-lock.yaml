@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@cloudflare/ci@0.2.0': 46b85ace0a64f1017324d5f6798ce91d5965497e4a48946e93d1937a8f77e994
+
 importers:
 
   .:
@@ -28,7 +31,7 @@ importers:
         version: link:../../packages/model
       '@cloudflare/ci':
         specifier: 0.2.0
-        version: 0.2.0
+        version: 0.2.0(patch_hash=46b85ace0a64f1017324d5f6798ce91d5965497e4a48946e93d1937a8f77e994)
       '@cloudflare/sandbox':
         specifier: 0.12.1
         version: 0.12.1
@@ -2469,7 +2472,7 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
-  '@cloudflare/ci@0.2.0':
+  '@cloudflare/ci@0.2.0(patch_hash=46b85ace0a64f1017324d5f6798ce91d5965497e4a48946e93d1937a8f77e994)':
     dependencies:
       '@cloudflare/sandbox': 0.12.1
       zod: 4.6.6
