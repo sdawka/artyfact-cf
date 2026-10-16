@@ -154,9 +154,13 @@ export function importVerificationArchive(bytes: Buffer, expected: VerificationO
   }
 }
 
-async function request(fetcher: typeof fetch, base: string, token: string, method: string, path: string, body?: unknown): Promise<Response> {
+const REQUEST_TIMEOUT_MS = 120_000;
+/** The platform's verification start allows 120 s for the CI call plus Genome reads. */
+const START_TIMEOUT_MS = 300_000;
+
+async function request(fetcher: typeof fetch, base: string, token: string, method: string, path: string, body?: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   let response: Response;
-  try { response = await fetcher(`${base.replace(/\/$/, "")}${path}`, { method, redirect: "error", signal: AbortSignal.timeout(120_000), headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try { response = await fetcher(`${base.replace(/\/$/, "")}${path}`, { method, redirect: "error", signal: AbortSignal.timeout(timeoutMs), headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch (e) { throw new CliError(`cannot reach platform at ${base}: ${(e as Error).message}`); }
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 1000);
@@ -165,8 +169,8 @@ async function request(fetcher: typeof fetch, base: string, token: string, metho
   return response;
 }
 
-async function jsonRequest(fetcher: typeof fetch, base: string, token: string, method: string, path: string, body?: unknown): Promise<unknown> {
-  const response = await request(fetcher, base, token, method, path, body);
+async function jsonRequest(fetcher: typeof fetch, base: string, token: string, method: string, path: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
+  const response = await request(fetcher, base, token, method, path, body, timeoutMs);
   try { return await response.json(); } catch { throw new CliError(`${method} ${path} returned invalid JSON`); }
 }
 
@@ -453,7 +457,7 @@ async function connect(values: Values, io: OperatorIo) {
   const send = (method: string, path: string, body?: unknown) => request(fetcher, base, token, method, path, body);
   const json = (method: string, path: string, body?: unknown) => jsonRequest(fetcher, base, token, method, path, body);
   // Starting a verification can outlast fetch's 300 s headers timeout.
-  const longJson = (method: string, path: string, body?: unknown) => jsonRequest(io.fetch ?? longFetch, base, token, method, path, body);
+  const longJson = (method: string, path: string, body?: unknown) => jsonRequest(io.fetch ?? longFetch, base, token, method, path, body, START_TIMEOUT_MS);
   const fetchActivation = async () => validateActivation(await json("GET", p.activation), expected);
   return { expected, runtimeEnv, p, send, json, longJson, fetchActivation };
 }

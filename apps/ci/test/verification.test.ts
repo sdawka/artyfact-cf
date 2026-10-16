@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { VerificationRequest, VerificationResult } from "@artyfact/model";
-import { verificationModelDigest } from "@artyfact/model";
+import { VERIFICATION_OUTPUT_MAX_BYTES, verificationModelDigest } from "@artyfact/model";
 import {
+  GATE_TAIL_BYTES,
+  PACKAGE_OUTPUT_COMMAND,
+  packageVerificationOutput,
+  type PackageSandbox,
   authorized,
   authorizeVerification,
   createQueuedResult,
@@ -95,6 +99,142 @@ describe("verification plan", () => {
   });
 });
 
+describe("verification gate log", () => {
+  /** Run the planned gate in a scratch workspace whose fake `npm` prints `bytes` of log and exits `status` on `npm run`. */
+  function runGate(bytes: number, status: number) {
+    const root = mkdtempSync(join(tmpdir(), "artyfact-gate-test-"));
+    const workspace = join(root, "workspace"), bin = join(root, "bin");
+    mkdirSync(workspace);
+    mkdirSync(bin);
+    writeFileSync(join(workspace, "source.txt"), "source\n");
+    writeFileSync(join(bin, "npm"), `#!/bin/sh\nif [ "$1" = run ]; then head -c ${bytes} /dev/zero | tr '\\0' x; echo; echo end-of-log >&2; exit ${status}; fi\n`, { mode: 0o755 });
+    writeFileSync(join(bin, "npx"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const command = planVerificationSteps({ ...base, checks: [] })[0]!.command;
+    let stdout: Buffer, exitCode = 0;
+    try {
+      stdout = execFileSync("sh", ["-c", command], { cwd: workspace, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdio: "pipe", maxBuffer: 64 * 1024 * 1024 });
+    } catch (error) {
+      const failure = error as { status: number; stdout: Buffer };
+      stdout = failure.stdout;
+      exitCode = failure.status;
+    }
+    return { root, workspace, stdout, exitCode };
+  }
+
+  it("prints only a bounded tail and keeps the full log in the workspace when the gate passes", () => {
+    const run = runGate(500_000, 0);
+    try {
+      expect(run.exitCode).toBe(0);
+      expect(run.stdout.byteLength).toBe(GATE_TAIL_BYTES);
+      expect(run.stdout.toString().endsWith("end-of-log\n")).toBe(true);
+      const log = readFileSync(join(run.workspace, ".verification/gate.log"), "utf8");
+      expect(log.length).toBeGreaterThan(500_000);
+      const tracked = execFileSync("git", ["ls-files"], { cwd: run.workspace, encoding: "utf8" }).trim().split("\n");
+      expect(tracked).toEqual(["source.txt"]);
+    } finally {
+      rmSync(run.root, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the failing command's exit status and a bounded tail", () => {
+    const run = runGate(500_000, 3);
+    try {
+      expect(run.exitCode).toBe(3);
+      expect(run.stdout.byteLength).toBe(GATE_TAIL_BYTES);
+      expect(run.stdout.toString().endsWith("end-of-log\n")).toBe(true);
+      expect(existsSync(join(run.workspace, ".verification"))).toBe(false);
+    } finally {
+      rmSync(run.root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("trusted package step", () => {
+  const snapshot = { id: "backup-1", dir: "/workspace" };
+  const archive = new Uint8Array([0x1f, 0x8b, 0x08, 0x00]);
+  const streamOf = (bytes: Uint8Array) => new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(bytes); controller.close(); } });
+
+  function harness(files: Record<string, { bytes: Uint8Array; size?: number }>, exitCode = 0) {
+    const calls: string[] = [];
+    const destroy = vi.fn(async () => {});
+    const sandbox: PackageSandbox = {
+      restoreBackup: async (backup) => { calls.push(`restore ${backup.id}`); },
+      exec: async (command, options) => { calls.push(`exec ${options.cwd} ${command === PACKAGE_OUTPUT_COMMAND}`); return { exitCode, stderr: exitCode ? "tar failed" : "" }; },
+      readFile: async (path) => {
+        const file = files[path];
+        if (!file) throw new Error(`missing ${path}`);
+        return { content: streamOf(file.bytes), size: file.size ?? file.bytes.byteLength };
+      },
+      destroy,
+    };
+    const objects = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>();
+    const bucket: VerificationBucketLike = {
+      head: async (key) => { const value = objects.get(key); return value ? { size: value.bytes.byteLength, customMetadata: value.customMetadata } : null; },
+      put: async (key, value, options) => {
+        if (options?.onlyIf?.etagDoesNotMatch === "*" && objects.has(key)) return null;
+        objects.set(key, { bytes: typeof value === "string" ? new TextEncoder().encode(value) : value, customMetadata: options?.customMetadata });
+        return {};
+      },
+      get: async () => null,
+    };
+    return { sandbox, bucket, objects, calls, destroy };
+  }
+
+  it("stores the archive and gate log in R2 and returns only their references", async () => {
+    const log = new TextEncoder().encode("gate passed\n");
+    const h = harness({ "/tmp/out.tgz": { bytes: archive }, "/tmp/gate.log": { bytes: log } });
+    const packaged = await packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id });
+    expect(packaged).toEqual({
+      key: "verification/v1/verify.1/output.tar.gz",
+      digest: "fd72d30440b0bae1b1c6db6c8ad807f238ef3ca613aa7e8d5329e1e8ddf7da72",
+      size: 4,
+      logKey: "verification/v1/verify.1/gate.log",
+    });
+    expect(structuredClone(packaged)).toEqual(packaged);
+    expect(h.calls).toEqual(["restore backup-1", "exec /workspace true"]);
+    expect([...h.objects.get(packaged.key)!.bytes]).toEqual([...archive]);
+    expect(h.objects.get(packaged.key)!.customMetadata).toEqual({ digest: packaged.digest });
+    expect(h.objects.get(packaged.logKey)!.bytes).toEqual(log);
+    expect(h.destroy).toHaveBeenCalledOnce();
+    // A retry rebuilds the same deterministic archive and reuses the stored object.
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).resolves.toEqual(packaged);
+  });
+
+  it("writes the archive to a file instead of printing it", () => {
+    expect(PACKAGE_OUTPUT_COMMAND).not.toContain("base64");
+    expect(PACKAGE_OUTPUT_COMMAND).toContain("archive=/tmp/out.tgz");
+    expect(PACKAGE_OUTPUT_COMMAND).toContain("gzip -n");
+    expect(PACKAGE_OUTPUT_COMMAND).toContain("--mtime=@0");
+  });
+
+  it("refuses an archive over the size cap before reading it and destroys the sandbox", async () => {
+    const h = harness({ "/tmp/out.tgz": { bytes: archive, size: VERIFICATION_OUTPUT_MAX_BYTES + 1 }, "/tmp/gate.log": { bytes: new Uint8Array() } });
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).rejects.toThrow(/package output exceeds the limit/);
+    expect(h.objects.has("verification/v1/verify.1/output.tar.gz")).toBe(false);
+    expect(h.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a stream longer than its reported size", async () => {
+    const h = harness({ "/tmp/out.tgz": { bytes: archive, size: 2 }, "/tmp/gate.log": { bytes: new Uint8Array() } });
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).rejects.toThrow(/larger than reported/);
+    expect(h.objects.has("verification/v1/verify.1/output.tar.gz")).toBe(false);
+    expect(h.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("refuses bytes that are not gzip", async () => {
+    const h = harness({ "/tmp/out.tgz": { bytes: new Uint8Array([1, 2, 3]) }, "/tmp/gate.log": { bytes: new Uint8Array() } });
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).rejects.toThrow(/not gzip/);
+    expect(h.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("destroys the sandbox when the package command fails", async () => {
+    const h = harness({}, 1);
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).rejects.toThrow(/package output exited 1: tar failed/);
+    expect(h.objects.size).toBe(0);
+    expect(h.destroy).toHaveBeenCalledOnce();
+  });
+});
+
 describe("verification HTTP", () => {
   const queued = (request: VerificationRequest): VerificationResult => ({ version: 1, request: { ...request, checks: request.checks ?? [] }, status: "queued", steps: [] });
   function harness() {
@@ -156,46 +296,44 @@ describe("verification pipeline", () => {
     const cancel = vi.fn();
     return { cancel, stream: new ReadableStream<Uint8Array>({ cancel }) };
   };
+  const snapshot = { id: "backup-1", dir: "/workspace" };
+  const packaged = { key: "verification/v1/verify.1/output.tar.gz", digest: "d".repeat(64), size: 4, logKey: "verification/v1/verify.1/gate.log" };
 
-  it("uses one live runner for installation, the full gate, and checks before packaging", async () => {
-    const streams = Array.from({ length: 3 }, trackedStream);
-    const archive = btoa(String.fromCharCode(0x1f, 0x8b, 0x08, 0x00));
+  it("runs the gate in one live runner, then packages its snapshot in the trusted step", async () => {
+    const streams = Array.from({ length: 2 }, trackedStream);
     const planned: string[] = [];
-    const packageStderr = streams[2]!;
-    const packageRunner = { exitCode: 0, logs: { stdout: archive, stderr: packageStderr.stream }, runner: async () => packageRunner };
-    const candidateRunner = {
-      exitCode: 0,
-      logs: { stdout: streams[0]!.stream, stderr: streams[1]!.stream },
-      runner: async (step: { name: string }) => { planned.push(step.name); return packageRunner; },
-    };
+    const packagedFrom: unknown[] = [];
+    const candidateRunner = { exitCode: 0, logs: { stdout: streams[0]!.stream, stderr: streams[1]!.stream }, snapshot };
     const result = await runVerificationPipeline({
       request: base,
       authorize: async () => {},
       ci: { runner: async (step: { name: string }) => { planned.push(step.name); return candidateRunner; } },
       now: async () => new Date(0).toISOString(),
       persist: async () => {},
-      storeOutput: async (bytes) => ({ key: "output", digest: "d".repeat(64), size: bytes.byteLength }),
+      packageOutput: async (step, from) => { planned.push(step.name); packagedFrom.push(from); return packaged; },
     });
     expect(planned).toEqual(["candidate verification", "package output"]);
-    expect(result.steps.map((step) => step.name)).toEqual(["candidate verification", "package output"]);
+    expect(packagedFrom).toEqual([snapshot]);
+    expect(result.steps.map((step) => [step.name, step.status])).toEqual([["candidate verification", "passed"], ["package output", "passed"]]);
     expect(result.checks).toEqual([{ ...base.checks![0], status: "passed" }]);
+    expect(result.output).toEqual({ key: packaged.key, digest: packaged.digest, size: packaged.size });
+    expect(result.logKey).toBe(packaged.logKey);
+    expect(result.status).toBe("passed");
     for (const tracked of streams) expect(tracked.cancel).toHaveBeenCalledOnce();
   });
 
-  it("closes package stderr when package stdout is malformed", async () => {
-    const packageStderr = trackedStream();
-    const packageRunner = { exitCode: 0, logs: { stdout: "not base64", stderr: packageStderr.stream }, runner: async () => packageRunner };
-    const intermediate = { exitCode: 0, logs: { stdout: "", stderr: "" }, runner: async () => packageRunner };
-    const ci = { runner: async () => intermediate };
+  it("records a package failure as an error on the package step", async () => {
+    const saved: VerificationResult[] = [];
     await expect(runVerificationPipeline({
       request: { ...base, checks: [] },
       authorize: async () => {},
-      ci,
+      ci: { runner: async () => ({ exitCode: 0, logs: { stdout: "", stderr: "" }, snapshot }) },
       now: async () => new Date(0).toISOString(),
-      persist: async () => {},
-      storeOutput: async () => { throw new Error("must not store"); },
-    })).rejects.toThrow(/canonical base64/i);
-    expect(packageStderr.cancel).toHaveBeenCalledOnce();
+      persist: async (result) => { saved.push(structuredClone(result)); },
+      packageOutput: async () => { throw new Error("package output exceeds the limit"); },
+    })).rejects.toThrow(/exceeds the limit/);
+    expect(saved.at(-1)).toMatchObject({ status: "error", error: "package output exceeds the limit", steps: [{ name: "candidate verification", status: "passed" }, { name: "package output", status: "error" }] });
+    expect(saved.at(-1)?.output).toBeUndefined();
   });
 
   it("does not package, publish, or mark checks passed after combined candidate execution fails", async () => {
@@ -209,7 +347,7 @@ describe("verification pipeline", () => {
       ci,
       now: (() => { let n = 0; return async () => new Date(n++ * 1000).toISOString(); })(),
       persist: async (result) => { saved.push(structuredClone(result)); },
-      storeOutput: async () => { throw new Error("must not store"); },
+      packageOutput: async () => { throw new Error("must not package"); },
     })).rejects.toThrow("tests failed");
     expect(planned).toEqual(["candidate verification"]);
     expect(saved.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "candidate verification", status: "failed" }], checks: [] });

@@ -14,16 +14,26 @@ import {
 
 const ERROR_MAX = 4_000;
 const REQUEST_MAX = 64 * 1024;
-const BASE64_MAX = Math.ceil(OUTPUT_MAX / 3) * 4;
+/** Gate stdout stays well under the runner's 300 KB inline-log limit; the full log is kept in the workspace. */
+export const GATE_TAIL_BYTES = 200_000;
+/** The stored gate log is the tail of the full log, so one runaway command cannot fill R2. */
+export const GATE_LOG_MAX_BYTES = 8 * 1024 * 1024;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 const never = { retries: { limit: 0, delay: 1_000 } };
 const candidateExecution = { ...never, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 10_000 };
+/** Packaging is deterministic and runs no candidate code, so a retry rebuilds identical bytes. */
+const packaging = { retries: { limit: 2, delay: 5_000, backoff: "exponential" as const }, timeout: 10 * 60 * 1_000 };
+const PACKAGE_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
+const WORKSPACE_DIR = "/workspace";
+const PACKAGE_ARCHIVE = "/tmp/out.tgz";
+const PACKAGE_LOG = "/tmp/gate.log";
 
 /**
  * Candidate-controlled files are copied into a private staging directory, checked for unsafe file types, and archived
- * with fixed metadata. The archive is the only stdout, so the Worker can bound, hash and store it without credentials
- * ever entering the sandbox.
+ * with fixed metadata to /tmp/out.tgz, so retries produce identical bytes. The bounded tail of the gate log is copied
+ * to /tmp/gate.log only if it is a regular file. The trusted package step reads both files back; nothing is
+ * printed and no credential enters the sandbox.
  */
 export const PACKAGE_OUTPUT_COMMAND = String.raw`set -eu
 test -d apps/platform/dist
@@ -33,10 +43,13 @@ test -f apps/platform/dist/client/index.html
 test -d apps/site/dist
 test -f apps/site/dist/index.html
 test -f apps/site/wrangler.jsonc
+log=.verification/gate.log
+if [ -f "$log" ] && [ ! -L "$log" ]; then tail -c ${GATE_LOG_MAX_BYTES} "$log" > ${PACKAGE_LOG}; else echo 'gate log is missing' > ${PACKAGE_LOG}; fi
 stage="$(mktemp -d)"
 tarfile="$(mktemp)"
-archive="$(mktemp)"
-trap 'rm -rf "$stage"; rm -f "$tarfile" "$archive"' EXIT
+archive=${PACKAGE_ARCHIVE}
+trap 'rm -rf "$stage"; rm -f "$tarfile"' EXIT
+rm -f "$archive"
 mkdir -p "$stage/platform" "$stage/site/dist"
 cp -R apps/platform/dist/. "$stage/platform/"
 cp -R apps/site/dist/. "$stage/site/dist/"
@@ -48,14 +61,13 @@ if find "$stage" ! -type f ! -type d -print -quit | grep -q .; then echo 'output
 tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' -C "$stage" -cf "$tarfile" platform site
 gzip -n -9 -c "$tarfile" > "$archive"
 size="$(wc -c < "$archive")"
-test "$size" -le ${OUTPUT_MAX}
-base64 -w 0 "$archive"`;
+test "$size" -le ${OUTPUT_MAX}`;
 
 export interface VerificationPlannedStep {
   name: string;
   command: string;
   cache?: { inputs: string[] };
-  config: typeof never | typeof candidateExecution;
+  config: typeof candidateExecution | typeof packaging;
   cloudflareCredentials?: never;
   secrets?: never;
 }
@@ -73,11 +85,22 @@ export function planVerificationSteps(request: VerificationRequest): Verificatio
     "npm run ci -- --ultra-compact",
     ...(request.checks ?? []).map((check) => check.command),
   ];
+  // Each literal runs in its own shell so comments and quoting cannot alter later commands. `&&` stops at the first
+  // failure and keeps its status without `set -e`, which would skip the tail. The full log stays outside the workspace
+  // until the gate passes, so the exported-source index never sees it; then it moves into the snapshot.
+  const gate = String.raw`set -u
+full="$(mktemp)"
+status=0
+{ ${commands.map((command) => `sh -c ${shellQuote(command)}`).join(" &&\n  ")}
+} > "$full" 2>&1 || status=$?
+tail -c ${GATE_TAIL_BYTES} "$full"
+if [ "$status" -eq 0 ]; then mkdir -p .verification && mv "$full" .verification/gate.log || status=$?; else rm -f "$full"; fi
+exit "$status"`;
   return [
     // Keep dependencies in the live sandbox that installed them. Snapshot restoration is reserved for packaging the
-    // already-built output. Each literal runs in its own shell so comments and quoting cannot alter later commands.
-    { name: "candidate verification", command: `set -eu\n${commands.map((command) => `sh -c ${shellQuote(command)}`).join("\n")}`, config: candidateExecution },
-    { name: "package output", command: PACKAGE_OUTPUT_COMMAND, config: never },
+    // already-built output, which runs in a trusted step rather than a runner (see packageVerificationOutput).
+    { name: "candidate verification", command: gate, config: candidateExecution },
+    { name: "package output", command: PACKAGE_OUTPUT_COMMAND, config: packaging },
   ];
 }
 
@@ -134,12 +157,18 @@ export function authorizeVerification(
   return normalized.checks;
 }
 
+/** Serializable workspace backup handle, as @cloudflare/ci returns it. */
+export interface WorkspaceSnapshot { id: string; dir: string; localBucket?: boolean }
+
 export interface RunnerLike {
   exitCode: number;
   logs?: { stdout: string | ReadableStream<Uint8Array>; stderr?: string | ReadableStream<Uint8Array> };
-  runner(step: VerificationPlannedStep): Promise<RunnerLike>;
+  snapshot?: WorkspaceSnapshot;
 }
 export interface CiLike { runner(step: VerificationPlannedStep): Promise<RunnerLike> }
+
+/** What the trusted package step returns: references into R2, never the bytes. */
+export interface VerificationPackage extends VerificationOutput { logKey: string }
 
 export interface VerificationPipelineInput {
   request: VerificationRequest;
@@ -147,7 +176,8 @@ export interface VerificationPipelineInput {
   ci: CiLike;
   now(name: string): Promise<string>;
   persist(result: VerificationResult, checkpoint: string): Promise<void>;
-  storeOutput(bytes: Uint8Array): Promise<VerificationOutput>;
+  /** Durable step that packages the gate snapshot into R2 (see {@link packageVerificationOutput}). */
+  packageOutput(step: VerificationPlannedStep, snapshot: WorkspaceSnapshot): Promise<VerificationPackage>;
 }
 
 function failedRunner(error: unknown): string | null {
@@ -155,48 +185,10 @@ function failedRunner(error: unknown): string | null {
   return value?.name === "CiRunnerFailure" ? value.runner?.name ?? "unknown" : null;
 }
 
-async function readBounded(log: string | ReadableStream<Uint8Array> | undefined, maximum: number): Promise<string> {
-  if (log === undefined) throw new Error("package output is missing");
-  if (typeof log === "string") {
-    if (log.length > maximum) throw new Error("package output exceeds the limit");
-    return log;
-  }
-  const reader = log.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  try {
-    while (true) {
-      const next = await reader.read();
-      if (next.done) break;
-      text += decoder.decode(next.value, { stream: true });
-      if (text.length > maximum) throw new Error("package output exceeds the limit");
-    }
-    text += decoder.decode();
-    return text;
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-}
-
-async function cancelRunnerLogs(runner: RunnerLike, includeStdout = true): Promise<void> {
-  const streams = [includeStdout ? runner.logs?.stdout : undefined, runner.logs?.stderr]
+async function cancelRunnerLogs(runner: RunnerLike): Promise<void> {
+  const streams = [runner.logs?.stdout, runner.logs?.stderr]
     .filter((log): log is ReadableStream<Uint8Array> => typeof log !== "string" && log !== undefined);
   await Promise.allSettled(streams.map((stream) => stream.cancel()));
-}
-
-/** Decode a bounded base64 archive without accepting log framing or trailing output. */
-export async function packageBytes(runner: RunnerLike): Promise<Uint8Array> {
-  try {
-    const encoded = await readBounded(runner.logs?.stdout, BASE64_MAX);
-    if (!encoded || encoded.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
-      throw new Error("package output is not canonical base64");
-    }
-    const binary = atob(encoded);
-    if (binary.length > OUTPUT_MAX) throw new Error("package output exceeds the limit");
-    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  } finally {
-    await cancelRunnerLogs(runner, false);
-  }
 }
 
 /** Execute the fixed profile, persist every observable status, and publish output only after every gate passes. */
@@ -204,26 +196,27 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
   const request = normalizeVerificationRequest(input.request);
   const result: VerificationResult = { version: 1, request, status: "running", steps: [], checks: [] };
   let current: VerificationPlannedStep | undefined;
+  const timed = async <T>(step: VerificationPlannedStep, run: () => Promise<T>): Promise<T> => {
+    current = step;
+    const started = Date.parse(await input.now(`${step.name} started`));
+    const value = await run();
+    result.steps.push({ name: step.name, command: step.command, status: "passed", durationMs: Date.parse(await input.now(`${step.name} finished`)) - started });
+    return value;
+  };
   try {
     await input.authorize();
     result.startedAt = await input.now("verification started");
     await input.persist(result, "persist running");
-    let runner: RunnerLike | null = null;
-    const plan = planVerificationSteps(request);
-    for (let index = 0; index < plan.length; index++) {
-      current = plan[index];
-      const started = Date.parse(await input.now(`${current.name} started`));
-      runner = await (runner ? runner.runner(current) : input.ci.runner(current));
-      const step: VerificationStep = { name: current.name, command: current.command, status: "passed", durationMs: Date.parse(await input.now(`${current.name} finished`)) - started };
-      result.steps.push(step);
-      if (current.name === "candidate verification") {
-        result.checks!.push(...request.checks.map((check) => ({ ...check, status: "passed" as const })));
-      }
-      if (index < plan.length - 1) await cancelRunnerLogs(runner);
-      await input.persist(result, `persist ${current.name}`);
-    }
-    const bytes = await packageBytes(runner!);
-    result.output = await input.storeOutput(bytes);
+    const [gate, pack] = planVerificationSteps(request) as [VerificationPlannedStep, VerificationPlannedStep];
+    const runner = await timed(gate, () => input.ci.runner(gate));
+    result.checks!.push(...request.checks.map((check) => ({ ...check, status: "passed" as const })));
+    await cancelRunnerLogs(runner);
+    if (!runner.snapshot) throw new Error("candidate verification produced no workspace snapshot");
+    await input.persist(result, `persist ${gate.name}`);
+    const snapshot = runner.snapshot;
+    const packaged = await timed(pack, () => input.packageOutput(pack, snapshot));
+    result.output = { key: packaged.key, digest: packaged.digest, size: packaged.size };
+    result.logKey = packaged.logKey;
     result.status = "passed";
     result.finishedAt = await input.now("verification finished");
     await input.persist(result, "persist passed");
@@ -243,6 +236,63 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
     result.finishedAt = await input.now("verification finished");
     await input.persist(result, `persist ${status}`);
     throw error;
+  }
+}
+
+/** The slice of the Sandbox SDK the package step uses, so it can be exercised without a container. */
+export interface PackageSandbox {
+  restoreBackup(backup: WorkspaceSnapshot): Promise<unknown>;
+  exec(command: string, options: { cwd: string; timeout: number }): Promise<{ exitCode: number; stderr: string }>;
+  readFile(path: string, options: { encoding: "none" }): Promise<{ content: ReadableStream<Uint8Array>; size: number }>;
+  destroy(): Promise<void>;
+}
+
+/** Read a sandbox file into memory, refusing it before or during the read once it passes `maximum` bytes. */
+async function readCapped(sandbox: PackageSandbox, path: string, maximum: number, what: string): Promise<Uint8Array> {
+  const { content, size } = await sandbox.readFile(path, { encoding: "none" });
+  const reader = content.getReader();
+  try {
+    if (!Number.isSafeInteger(size) || size < 0 || size > maximum) throw new Error(`${what} exceeds the limit`);
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      if (offset + next.value.byteLength > size) throw new Error(`${what} is larger than reported`);
+      bytes.set(next.value, offset);
+      offset += next.value.byteLength;
+    }
+    if (offset !== size) throw new Error(`${what} is shorter than reported`);
+    return bytes;
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
+/**
+ * Trusted package step. A fresh sandbox restores the passed gate's snapshot (no source overlay, so no checkout token
+ * reaches it), runs only the fixed package command, and the Worker reads the archive and gate log back as bytes. Both
+ * land in R2 and only their references return, which keeps the Workflow step result small and serialisable.
+ */
+export async function packageVerificationOutput(input: {
+  sandbox: PackageSandbox;
+  snapshot: WorkspaceSnapshot;
+  bucket: VerificationBucketLike;
+  id: string;
+}): Promise<VerificationPackage> {
+  const { sandbox, bucket, id } = input;
+  if (!ID_RE.test(id)) throw new Error("verification output id is invalid");
+  try {
+    await sandbox.restoreBackup(input.snapshot);
+    const run = await sandbox.exec(PACKAGE_OUTPUT_COMMAND, { cwd: WORKSPACE_DIR, timeout: PACKAGE_COMMAND_TIMEOUT_MS });
+    if (run.exitCode !== 0) throw new Error(`package output exited ${run.exitCode}: ${run.stderr.slice(-ERROR_MAX / 2)}`);
+    const log = await readCapped(sandbox, PACKAGE_LOG, GATE_LOG_MAX_BYTES, "gate log");
+    const logKey = verificationLogKey(id);
+    await bucket.put(logKey, log, { httpMetadata: { contentType: "text/plain; charset=utf-8", cacheControl: "private, no-store" } });
+    const output = await storeVerificationOutput(bucket, id, await readCapped(sandbox, PACKAGE_ARCHIVE, OUTPUT_MAX, "package output"));
+    return { ...output, logKey };
+  } finally {
+    await sandbox.destroy().catch((error) => console.error("failed to destroy package sandbox", { error }));
   }
 }
 
@@ -301,6 +351,7 @@ export interface VerificationBucketLike {
 }
 
 export const verificationResultKey = (id: string) => `verification/v1/${id}/result.json`;
+export const verificationLogKey = (id: string) => `verification/v1/${id}/gate.log`;
 export { verificationOutputKey };
 
 /** A run with no recorded progress for this long is settled as `error`, so the platform's retry path can proceed. */
