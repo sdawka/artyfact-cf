@@ -1,13 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { VerificationRequest, VerificationResult } from "@artyfact/model";
 import { VERIFICATION_OUTPUT_MAX_BYTES, verificationModelDigest } from "@artyfact/model";
 import {
+  boundedStderr,
   GATE_TAIL_BYTES,
   PACKAGE_OUTPUT_COMMAND,
+  PACKAGE_SOURCE_MAX_BYTES,
+  packageOutputCommand,
   packageVerificationOutput,
   type PackageSandbox,
   authorized,
@@ -94,7 +97,7 @@ describe("verification plan", () => {
     expect(steps.some((s) => s.command.includes("deploy"))).toBe(false);
     expect(steps.every((s) => s.cloudflareCredentials === undefined && s.secrets === undefined)).toBe(true);
     expect(steps.every((s) => s.cache === undefined)).toBe(true);
-    expect(steps[0]?.config).toEqual({ retries: { limit: 0, delay: 1_000 }, timeout: 1_800_000, commandTimeoutMs: 1_790_000 });
+    expect(steps[0]?.config).toEqual({ retries: { limit: 0, delay: 1_000 }, timeout: 1_800_000, commandTimeoutMs: 1_740_000 });
     expect(steps.find((s) => s.name === "package output")?.command).toContain("apps/platform/dist");
   });
 });
@@ -149,6 +152,116 @@ describe("verification gate log", () => {
   });
 });
 
+describe("package command against a candidate workspace", () => {
+  const gnuTar = (() => { try { return execFileSync("tar", ["--version"], { encoding: "utf8" }).includes("GNU tar"); } catch { return false; } })();
+
+  /** A workspace with valid built output, a gate log, and a secret outside it that an attack would try to package. */
+  function fixture() {
+    const root = mkdtempSync(join(tmpdir(), "artyfact-package-test-"));
+    const workspace = join(root, "workspace"), bin = join(root, "bin"), secret = join(root, "secret");
+    const write = (path: string, text: string) => { mkdirSync(join(workspace, path, ".."), { recursive: true }); writeFileSync(join(workspace, path), text); };
+    write("apps/platform/dist/artyfact_platform/wrangler.json", "{}");
+    write("apps/platform/dist/artyfact_platform/index.js", "export default {}");
+    write("apps/platform/dist/artyfact_platform/.dev.vars", "SECRET=1");
+    write("apps/platform/dist/client/index.html", "<p>platform</p>");
+    write("apps/platform/dist/client/.assetsignore", "wrangler.json");
+    write("apps/site/dist/index.html", "<p>site</p>");
+    write("apps/site/wrangler.jsonc", "{}");
+    write(".verification/gate.log", "gate passed\n");
+    mkdirSync(join(secret, "dist"), { recursive: true });
+    writeFileSync(join(secret, "environ"), "CF_TOKEN=leaked");
+    writeFileSync(join(secret, "dist/index.html"), "CF_TOKEN=leaked");
+    writeFileSync(join(secret, "wrangler.jsonc"), "CF_TOKEN=leaked");
+    mkdirSync(bin);
+    // BSD tar has no --sort; a stand-in archiver keeps the checks testable off Linux.
+    if (!gnuTar) writeFileSync(join(bin, "tar"), '#!/bin/sh\nwhile [ $# -gt 0 ]; do if [ "$1" = -cf ]; then out=$2; fi; shift; done\nprintf stand-in > "$out"\n', { mode: 0o755 });
+    const archive = join(root, "out.tgz"), log = join(root, "gate.log");
+    const run = () => {
+      try {
+        execFileSync("sh", ["-c", boundedStderr(packageOutputCommand(archive, log))], { cwd: workspace, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdio: "pipe" });
+        return { exitCode: 0, stderr: "" };
+      } catch (error) {
+        const failure = error as { status: number; stderr: Buffer };
+        return { exitCode: failure.status, stderr: failure.stderr.toString() };
+      }
+    };
+    return { root, workspace, secret, archive, log, run, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  }
+
+  it("archives valid output without dotfiles, deterministically, and copies the gate log", () => {
+    const f = fixture();
+    try {
+      expect(f.run()).toEqual({ exitCode: 0, stderr: "" });
+      const first = readFileSync(f.archive);
+      expect([first[0], first[1]]).toEqual([0x1f, 0x8b]);
+      expect(readFileSync(f.log, "utf8")).toBe("gate passed\n");
+      if (gnuTar) {
+        const entries = execFileSync("tar", ["-tzf", f.archive], { encoding: "utf8" }).trim().split("\n");
+        expect(entries).toContain("platform/client/index.html");
+        expect(entries).toContain("site/wrangler.jsonc");
+        expect(entries.some((entry) => entry.split("/").some((part) => part.startsWith(".")))).toBe(false);
+        expect(f.run().exitCode).toBe(0);
+        expect(readFileSync(f.archive)).toEqual(first);
+      }
+    } finally {
+      f.cleanup();
+    }
+  });
+
+  const attacks: [string, (f: ReturnType<typeof fixture>) => void, RegExp][] = [
+    ["a symlinked wrangler.jsonc", (f) => { rmSync(join(f.workspace, "apps/site/wrangler.jsonc")); symlinkSync(join(f.secret, "environ"), join(f.workspace, "apps/site/wrangler.jsonc")); }, /apps\/site\/wrangler.jsonc is a symlink/],
+    ["a symlinked parent directory", (f) => { rmSync(join(f.workspace, "apps/site"), { recursive: true }); symlinkSync(f.secret, join(f.workspace, "apps/site")); }, /apps\/site is a symlink/],
+    ["a symlinked apps directory", (f) => { const moved = join(f.root, "apps"); execFileSync("mv", [join(f.workspace, "apps"), moved]); symlinkSync(moved, join(f.workspace, "apps")); }, /apps is a symlink/],
+    ["a symlink inside dist", (f) => { symlinkSync(join(f.secret, "environ"), join(f.workspace, "apps/platform/dist/client/environ")); }, /output contains a symlink/],
+    ["a hardlink inside dist", (f) => { linkSync(join(f.secret, "environ"), join(f.workspace, "apps/site/dist/environ")); }, /output contains a hardlink/],
+    ["a fifo inside dist", (f) => { execFileSync("mkfifo", [join(f.workspace, "apps/site/dist/pipe")]); }, /unsupported file type/],
+    ["a sparse file over the source cap", (f) => { const big = join(f.workspace, "apps/site/dist/big.bin"); writeFileSync(big, ""); truncateSync(big, PACKAGE_SOURCE_MAX_BYTES + 1); }, /exceeds the source limit/],
+    ["missing built output", (f) => { rmSync(join(f.workspace, "apps/site/dist/index.html")); }, /^$/],
+  ];
+  for (const [name, attack, message] of attacks) {
+    it(`refuses ${name} before packaging`, () => {
+      const f = fixture();
+      try {
+        attack(f);
+        const result = f.run();
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stderr).toMatch(message);
+        expect(existsSync(f.archive)).toBe(false);
+      } finally {
+        f.cleanup();
+      }
+    });
+  }
+
+  it("does not follow a symlinked gate log or .verification directory", () => {
+    for (const attack of [
+      (f: ReturnType<typeof fixture>) => { rmSync(join(f.workspace, ".verification/gate.log")); symlinkSync(join(f.secret, "environ"), join(f.workspace, ".verification/gate.log")); },
+      (f: ReturnType<typeof fixture>) => { rmSync(join(f.workspace, ".verification"), { recursive: true }); writeFileSync(join(f.secret, "gate.log"), "CF_TOKEN=leaked"); symlinkSync(f.secret, join(f.workspace, ".verification")); },
+      (f: ReturnType<typeof fixture>) => { rmSync(join(f.workspace, ".verification/gate.log")); linkSync(join(f.secret, "environ"), join(f.workspace, ".verification/gate.log")); },
+    ]) {
+      const f = fixture();
+      try {
+        attack(f);
+        expect(f.run().exitCode).toBe(0);
+        expect(readFileSync(f.log, "utf8")).toBe("gate log is missing or unsafe\n");
+      } finally {
+        f.cleanup();
+      }
+    }
+  });
+
+  it("keeps the package command's set -e semantics and bounds its stderr", () => {
+    const run = (command: string) => {
+      try { execFileSync("sh", ["-c", boundedStderr(command)], { stdio: "pipe" }); return { exitCode: 0, stderr: "" }; }
+      catch (error) { const e = error as { status: number; stderr: Buffer }; return { exitCode: e.status, stderr: e.stderr.toString() }; }
+    };
+    expect(run("set -eu\nfalse\necho unreachable >&2")).toEqual({ exitCode: 1, stderr: "" });
+    const noisy = run("head -c 100000 /dev/zero | tr '\\0' e >&2; exit 4");
+    expect(noisy.exitCode).toBe(4);
+    expect(noisy.stderr.length).toBe(2_000);
+  });
+});
+
 describe("trusted package step", () => {
   const snapshot = { id: "backup-1", dir: "/workspace" };
   const archive = new Uint8Array([0x1f, 0x8b, 0x08, 0x00]);
@@ -159,7 +272,7 @@ describe("trusted package step", () => {
     const destroy = vi.fn(async () => {});
     const sandbox: PackageSandbox = {
       restoreBackup: async (backup) => { calls.push(`restore ${backup.id}`); },
-      exec: async (command, options) => { calls.push(`exec ${options.cwd} ${command === PACKAGE_OUTPUT_COMMAND}`); return { exitCode, stderr: exitCode ? "tar failed" : "" }; },
+      exec: async (command, options) => { calls.push(`exec ${options.cwd} ${command === boundedStderr(PACKAGE_OUTPUT_COMMAND)}`); return { exitCode, stderr: exitCode ? "tar failed" : "" }; },
       readFile: async (path) => {
         const file = files[path];
         if (!file) throw new Error(`missing ${path}`);
@@ -198,6 +311,14 @@ describe("trusted package step", () => {
     expect(h.destroy).toHaveBeenCalledOnce();
     // A retry rebuilds the same deterministic archive and reuses the stored object.
     await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).resolves.toEqual(packaged);
+  });
+
+  it("never overwrites a stored gate log with different bytes", async () => {
+    const h = harness({ "/tmp/out.tgz": { bytes: archive }, "/tmp/gate.log": { bytes: new TextEncoder().encode("second\n") } });
+    await h.bucket.put("verification/v1/verify.1/gate.log", new TextEncoder().encode("first\n"), { customMetadata: { digest: "0".repeat(64) } });
+    await expect(packageVerificationOutput({ sandbox: h.sandbox, snapshot, bucket: h.bucket, id: base.id })).rejects.toThrow(/gate log is immutable/);
+    expect(new TextDecoder().decode(h.objects.get("verification/v1/verify.1/gate.log")!.bytes)).toBe("first\n");
+    expect(h.destroy).toHaveBeenCalledOnce();
   });
 
   it("writes the archive to a file instead of printing it", () => {

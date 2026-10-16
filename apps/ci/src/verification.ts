@@ -21,47 +21,87 @@ export const GATE_LOG_MAX_BYTES = 8 * 1024 * 1024;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 const never = { retries: { limit: 0, delay: 1_000 } };
-const candidateExecution = { ...never, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 10_000 };
+const candidateExecution = { ...never, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 60_000 };
 /** Packaging is deterministic and runs no candidate code, so a retry rebuilds identical bytes. */
-const packaging = { retries: { limit: 2, delay: 5_000, backoff: "exponential" as const }, timeout: 10 * 60 * 1_000 };
 const PACKAGE_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
+/** Snapshot restore (the whole workspace, node_modules included) plus the command plus two capped reads and puts. */
+const packaging = { retries: { limit: 2, delay: 5_000, backoff: "exponential" as const }, timeout: 15 * 60 * 1_000 };
 const WORKSPACE_DIR = "/workspace";
 const PACKAGE_ARCHIVE = "/tmp/out.tgz";
 const PACKAGE_LOG = "/tmp/gate.log";
 
+/** Total bytes of the packaged source trees; the archive itself is capped separately at OUTPUT_MAX. */
+export const PACKAGE_SOURCE_MAX_BYTES = 64 * 1024 * 1024;
+/** `ulimit -f` blocks (512 B in dash, 1 KiB in bash): every file the command writes stays under 128-256 MiB. */
+const PACKAGE_FILE_BLOCKS = 262_144;
+
 /**
- * Candidate-controlled files are copied into a private staging directory, checked for unsafe file types, and archived
- * with fixed metadata to /tmp/out.tgz, so retries produce identical bytes. The bounded tail of the gate log is copied
- * to /tmp/gate.log only if it is a regular file. The trusted package step reads both files back; nothing is
- * printed and no credential enters the sandbox.
+ * Package the candidate's built output. The restored workspace is candidate-controlled, so the source tree is validated
+ * before anything is read: every path component is a real directory or file inside the workspace (no symlink, no
+ * escape through realpath), the trees hold only regular single-link files and directories, and their total size is
+ * bounded. Copies never follow links, and the staged copy is checked again. The archive has fixed order and metadata,
+ * so retries produce identical bytes. Dotfiles are dropped; the build emits only `.vite`, `.dev.vars` and
+ * `client/.assetsignore`, and deploy needs none of them. The gate log tail is copied out under the same checks; it is
+ * informational only. Nothing is printed and no credential enters the sandbox.
  */
-export const PACKAGE_OUTPUT_COMMAND = String.raw`set -eu
-test -d apps/platform/dist
+export const packageOutputCommand = (archive: string, log: string) => String.raw`set -eu
+export LC_ALL=C
+ulimit -f ${PACKAGE_FILE_BLOCKS}
+root="$(pwd -P)"
+fail() { echo "$*" >&2; exit 1; }
+inside() {
+  [ ! -L "$1" ] || fail "$1 is a symlink"
+  [ -e "$1" ] || fail "$1 is missing"
+  [ "$(realpath -- "$1")" = "$root/$1" ] || fail "$1 escapes the workspace"
+}
+for path in apps apps/platform apps/platform/dist apps/site apps/site/dist apps/site/wrangler.jsonc; do inside "$path"; done
+sources="apps/platform/dist apps/site/dist apps/site/wrangler.jsonc"
+if find $sources -type l -print -quit | grep -q .; then fail 'output contains a symlink'; fi
+if find $sources ! -type f ! -type d -print -quit | grep -q .; then fail 'output contains an unsupported file type'; fi
+if find $sources -type f -links +1 -print -quit | grep -q .; then fail 'output contains a hardlink'; fi
+if find $sources -type f -size +${PACKAGE_SOURCE_MAX_BYTES}c -print -quit | grep -q .; then fail 'output exceeds the source limit'; fi
+total="$(find $sources -type f -exec sh -c 'for f do wc -c < "$f"; done' sh {} + | awk '{ s += $1 } END { print s + 0 }')"
+[ "$total" -le ${PACKAGE_SOURCE_MAX_BYTES} ] || fail 'output exceeds the source limit'
+test -d apps/platform/dist/artyfact_platform
 test -f apps/platform/dist/artyfact_platform/wrangler.json
 test -f apps/platform/dist/artyfact_platform/index.js
 test -f apps/platform/dist/client/index.html
-test -d apps/site/dist
 test -f apps/site/dist/index.html
 test -f apps/site/wrangler.jsonc
-log=.verification/gate.log
-if [ -f "$log" ] && [ ! -L "$log" ]; then tail -c ${GATE_LOG_MAX_BYTES} "$log" > ${PACKAGE_LOG}; else echo 'gate log is missing' > ${PACKAGE_LOG}; fi
+gate=.verification/gate.log
+if [ -d .verification ] && [ ! -L .verification ] && [ "$(realpath -- .verification)" = "$root/.verification" ] \
+  && [ -f "$gate" ] && [ ! -L "$gate" ] && [ "$(realpath -- "$gate")" = "$root/$gate" ] && [ -z "$(find "$gate" -links +1)" ]; then
+  tail -c ${GATE_LOG_MAX_BYTES} "$gate" > ${log}
+else
+  echo 'gate log is missing or unsafe' > ${log}
+fi
 stage="$(mktemp -d)"
 tarfile="$(mktemp)"
-archive=${PACKAGE_ARCHIVE}
+archive=${archive}
 trap 'rm -rf "$stage"; rm -f "$tarfile"' EXIT
 rm -f "$archive"
 mkdir -p "$stage/platform" "$stage/site/dist"
-cp -R apps/platform/dist/. "$stage/platform/"
-cp -R apps/site/dist/. "$stage/site/dist/"
-cp apps/site/wrangler.jsonc "$stage/site/wrangler.jsonc"
+cp -R -P apps/platform/dist/. "$stage/platform/"
+cp -R -P apps/site/dist/. "$stage/site/dist/"
+cp -P apps/site/wrangler.jsonc "$stage/site/wrangler.jsonc"
 find "$stage" -depth -name '.*' -exec rm -rf -- {} +
-if find "$stage" -type l -print -quit | grep -q .; then echo 'output contains a symlink' >&2; exit 1; fi
-if find "$stage" -type f -links +1 -print -quit | grep -q .; then echo 'output contains a hardlink' >&2; exit 1; fi
-if find "$stage" ! -type f ! -type d -print -quit | grep -q .; then echo 'output contains an unsupported file type' >&2; exit 1; fi
+if find "$stage" -type l -print -quit | grep -q .; then fail 'output contains a symlink'; fi
+if find "$stage" -type f -links +1 -print -quit | grep -q .; then fail 'output contains a hardlink'; fi
+if find "$stage" ! -type f ! -type d -print -quit | grep -q .; then fail 'output contains an unsupported file type'; fi
 tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' -C "$stage" -cf "$tarfile" platform site
 gzip -n -9 -c "$tarfile" > "$archive"
 size="$(wc -c < "$archive")"
 test "$size" -le ${OUTPUT_MAX}`;
+
+export const PACKAGE_OUTPUT_COMMAND = packageOutputCommand(PACKAGE_ARCHIVE, PACKAGE_LOG);
+
+/** Run a command with its stdout discarded and only a bounded stderr tail returned. */
+export const boundedStderr = (command: string) => String.raw`err="$(mktemp)"
+sh -c ${shellQuote(command)} > /dev/null 2> "$err"
+status=$?
+tail -c ${ERROR_MAX / 2} "$err" >&2
+rm -f "$err"
+exit "$status"`;
 
 export interface VerificationPlannedStep {
   name: string;
@@ -284,11 +324,12 @@ export async function packageVerificationOutput(input: {
   if (!ID_RE.test(id)) throw new Error("verification output id is invalid");
   try {
     await sandbox.restoreBackup(input.snapshot);
-    const run = await sandbox.exec(PACKAGE_OUTPUT_COMMAND, { cwd: WORKSPACE_DIR, timeout: PACKAGE_COMMAND_TIMEOUT_MS });
+    const run = await sandbox.exec(boundedStderr(PACKAGE_OUTPUT_COMMAND), { cwd: WORKSPACE_DIR, timeout: PACKAGE_COMMAND_TIMEOUT_MS });
     if (run.exitCode !== 0) throw new Error(`package output exited ${run.exitCode}: ${run.stderr.slice(-ERROR_MAX / 2)}`);
+    // Candidate-written and informational only: nothing reads it back as evidence.
     const log = await readCapped(sandbox, PACKAGE_LOG, GATE_LOG_MAX_BYTES, "gate log");
     const logKey = verificationLogKey(id);
-    await bucket.put(logKey, log, { httpMetadata: { contentType: "text/plain; charset=utf-8", cacheControl: "private, no-store" } });
+    await storeImmutable(bucket, logKey, log, "text/plain; charset=utf-8", "gate log");
     const output = await storeVerificationOutput(bucket, id, await readCapped(sandbox, PACKAGE_ARCHIVE, OUTPUT_MAX, "package output"));
     return { ...output, logKey };
   } finally {
@@ -401,30 +442,34 @@ export async function failQueuedResult(bucket: VerificationBucketLike, result: V
 
 const hex = (value: ArrayBuffer) => [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
+/** Create-if-absent put; an existing object must carry the same size and digest, so a retry is a no-op. */
+async function storeImmutable(bucket: VerificationBucketLike, key: string, bytes: Uint8Array, contentType: string, what: string): Promise<string> {
+  const digestBytes = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = hex(digestBytes);
+  const same = (object: { size: number; customMetadata?: Record<string, string> } | null) =>
+    !!object && object.size === bytes.byteLength && object.customMetadata?.digest === digest;
+  const existing = await bucket.head(key);
+  if (existing) {
+    if (!same(existing)) throw new Error(`${what} is immutable`);
+    return digest;
+  }
+  const stored = await bucket.put(key, bytes, {
+    onlyIf: { etagDoesNotMatch: "*" },
+    httpMetadata: { contentType, cacheControl: "private, no-store" },
+    customMetadata: { digest },
+    sha256: digestBytes,
+  });
+  if (!stored && !same(await bucket.head(key))) throw new Error(`${what} is immutable`);
+  return digest;
+}
+
 /** Atomically store immutable output bytes in trusted R2 and return their exact identity. */
 export async function storeVerificationOutput(bucket: VerificationBucketLike, id: string, bytes: Uint8Array): Promise<VerificationOutput> {
   if (!ID_RE.test(id)) throw new Error("verification output id is invalid");
   if (bytes.byteLength === 0 || bytes.byteLength > OUTPUT_MAX) throw new Error("verification output size is invalid");
   if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) throw new Error("verification output is not gzip");
-  const digestBytes = await crypto.subtle.digest("SHA-256", bytes);
-  const digest = hex(digestBytes);
   const key = verificationOutputKey(id);
-  const metadata = { digest };
-  const existing = await bucket.head(key);
-  if (existing) {
-    if (existing.size !== bytes.byteLength || existing.customMetadata?.digest !== digest) throw new Error("verification output is immutable");
-    return { key, digest, size: bytes.byteLength };
-  }
-  const stored = await bucket.put(key, bytes, {
-    onlyIf: { etagDoesNotMatch: "*" },
-    httpMetadata: { contentType: "application/gzip", cacheControl: "private, no-store" },
-    customMetadata: metadata,
-    sha256: digestBytes,
-  });
-  if (!stored) {
-    const raced = await bucket.head(key);
-    if (!raced || raced.size !== bytes.byteLength || raced.customMetadata?.digest !== digest) throw new Error("verification output is immutable");
-  }
+  const digest = await storeImmutable(bucket, key, bytes, "application/gzip", "verification output");
   return { key, digest, size: bytes.byteLength };
 }
 

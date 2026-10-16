@@ -111,7 +111,9 @@ async function authorizeFromArtifacts(env: CiEnv, request: VerificationRequest):
 
 /** A fresh RPC sandbox per attempt; the same options @cloudflare/ci's runner uses. */
 const packageSandbox = (env: CiEnv) => getSandbox(env.SANDBOX, `package-output-${crypto.randomUUID()}`, {
-  transport: "rpc", enableDefaultSession: false, containerTimeouts: { portReadyTimeoutMS: 60_000 },
+  // An attempt cut off by its step timeout or an eviction never reaches destroy(); idle sleep reclaims it.
+  // In-flight RPC calls renew activity, so a running exec or read is not cut short.
+  transport: "rpc", enableDefaultSession: false, sleepAfter: "3m", containerTimeouts: { portReadyTimeoutMS: 60_000 },
 }) as unknown as PackageSandbox;
 
 export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv> {
