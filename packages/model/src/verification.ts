@@ -58,6 +58,8 @@ export interface VerificationResult {
   startedAt?: string;
   finishedAt?: string;
   output?: VerificationOutput;
+  /** R2 key of the passed gate's log tail, stored next to the output. */
+  logKey?: string;
   error?: string;
 }
 

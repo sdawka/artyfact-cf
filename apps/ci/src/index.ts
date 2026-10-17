@@ -7,6 +7,7 @@
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
 import { CiSandbox, type CiBindings } from "@cloudflare/ci/worker";
+import { getSandbox } from "@cloudflare/sandbox";
 import type { CiBuildParams } from "./contract";
 import type { VerificationRequest } from "@artyfact/model";
 import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
@@ -22,9 +23,10 @@ import {
   failQueuedResult,
   getVerificationResult,
   handleVerificationHttp,
+  packageVerificationOutput,
   persistVerificationResult,
   runVerificationPipeline,
-  storeVerificationOutput,
+  type PackageSandbox,
   type VerificationBucketLike,
 } from "./verification";
 
@@ -107,6 +109,13 @@ async function authorizeFromArtifacts(env: CiEnv, request: VerificationRequest):
   authorizeVerification(request, effective, pinned);
 }
 
+/** A fresh RPC sandbox per attempt; the same options @cloudflare/ci's runner uses. */
+const packageSandbox = (env: CiEnv) => getSandbox(env.SANDBOX, `package-output-${crypto.randomUUID()}`, {
+  // An attempt cut off by its step timeout or an eviction never reaches destroy(); idle sleep reclaims it.
+  // In-flight RPC calls renew activity, so a running exec or read is not cut short.
+  transport: "rpc", enableDefaultSession: false, sleepAfter: "3m", containerTimeouts: { portReadyTimeoutMS: 60_000 },
+}) as unknown as PackageSandbox;
+
 export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv> {
   override async run(event: WorkflowEvent<CiWorkflowPayload<CloudflareArtifacts>>, step: WorkflowStep) {
     const raw: unknown = event.payload;
@@ -123,7 +132,9 @@ export class ArtyfactVerification extends CIWorkflow<CloudflareArtifacts, CiEnv>
       ci,
       now: (name) => step.do(name, async () => new Date().toISOString()),
       persist: (result, checkpoint) => step.do(checkpoint, () => persistVerificationResult(bucket(this.env), result)),
-      storeOutput: (bytes) => step.do("store output", () => storeVerificationOutput(bucket(this.env), request.id, bytes)),
+      packageOutput: (planned, snapshot) => step.do(planned.name, planned.config, () => packageVerificationOutput({
+        sandbox: packageSandbox(this.env), snapshot, bucket: bucket(this.env), id: request.id,
+      })),
     });
   }
 }
