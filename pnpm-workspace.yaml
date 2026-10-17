@@ -7,3 +7,6 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+
+patchedDependencies:
+  '@cloudflare/ci@0.2.0': patches/@cloudflare__ci@0.2.0.patch
