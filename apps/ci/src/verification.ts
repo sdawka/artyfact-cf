@@ -6,6 +6,7 @@ import {
   verificationLogKey,
   verificationModelDigest,
   verificationOutputKey,
+  verificationStepCommand,
   type VerificationCheck,
   type VerificationOutput,
   type VerificationRequest,
@@ -241,7 +242,7 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
     current = step;
     const started = Date.parse(await input.now(`${step.name} started`));
     const value = await run();
-    result.steps.push({ name: step.name, command: step.command, status: "passed", durationMs: Date.parse(await input.now(`${step.name} finished`)) - started });
+    result.steps.push({ name: step.name, command: verificationStepCommand(step.command), status: "passed", durationMs: Date.parse(await input.now(`${step.name} finished`)) - started });
     return value;
   };
   try {
@@ -270,7 +271,7 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
     if (existingStep && current?.name === "package output" && status === "error") {
       existingStep.status = "error";
     } else if (!existingStep) {
-      result.steps.push({ name, command: current?.command ?? "validate pinned verification request", status });
+      result.steps.push({ name, command: verificationStepCommand(current?.command ?? "validate pinned verification request"), status });
     }
     result.status = status;
     result.error = String((error as Error)?.message ?? error).slice(0, ERROR_MAX);

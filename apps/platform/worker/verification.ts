@@ -1,4 +1,4 @@
-import { normalizeVerificationRequest, verificationLogKey, verificationModelDigest, VERIFICATION_MODEL_MAX_FILES, type VerificationRequest, type VerificationResult } from '@artyfact/model';
+import { normalizeVerificationRequest, verificationLogKey, VERIFICATION_RESULT_MAX_BYTES, verificationResultSchema as resultSchema, verificationModelDigest, VERIFICATION_MODEL_MAX_FILES, type VerificationRequest, type VerificationResult } from '@artyfact/model';
 import { z } from 'zod';
 import { artifactsFor, withRepo } from './artifacts/client';
 import { genomePrefix, readGenomeSourceFiles } from './artifacts/genome-source';
@@ -9,8 +9,6 @@ import { sameVerification } from './do/verification-store';
 import { refreshLifecycleCandidate } from './lifecycle-service';
 
 const inputSchema=z.object({artifactId:z.string().min(1).max(200),retry:z.boolean().optional()}).strict();
-const status=z.enum(['queued','running','passed','failed','error']);
-const resultSchema=z.object({version:z.literal(1),request:z.unknown(),status,steps:z.array(z.object({name:z.string().max(200),command:z.string().max(2000),status,durationMs:z.number().nonnegative().optional()})).max(100),checks:z.array(z.object({criterionId:z.string(),hookId:z.string(),command:z.string(),status:z.enum(['passed','failed','error'])})).max(64).optional(),startedAt:z.string().max(100).optional(),finishedAt:z.string().max(100).optional(),output:z.object({key:z.string().min(1).max(512),digest:z.string().regex(/^[0-9a-f]{64}$/),size:z.number().int().positive().max(64*1024*1024)}).optional(),logKey:z.string().min(1).max(512).optional(),error:z.string().max(8000).optional()}).strict();
 function input(body:unknown){const r=inputSchema.safeParse(body);if(!r.success)throw badRequest('artifactId and optional retry are required');return r.data;}
 function verifier(env:Env){
  if(!env.VERIFICATION_URL||!env.VERIFICATION_TOKEN)throw new HttpError(503,'verification-unconfigured','Configure the Cloudflare verifier URL and server token on the local operator.');
@@ -28,7 +26,7 @@ async function remote(env:Env,path:string,method:string,transport:typeof fetch,b
 async function resultBody(response:Response,request:VerificationRequest):Promise<VerificationResult>{
  const reader=response.body?.getReader();if(!reader)throw conflict('verification-invalid','Cloud verifier returned no evidence');
  let text='',size=0;const decoder=new TextDecoder();
- try{for(;;){const n=await reader.read();if(n.done)break;size+=n.value.byteLength;if(size>256*1024)throw conflict('verification-invalid','Cloud evidence exceeds its limit');text+=decoder.decode(n.value,{stream:true});}text+=decoder.decode();}finally{await reader.cancel();}
+ try{for(;;){const n=await reader.read();if(n.done)break;size+=n.value.byteLength;if(size>VERIFICATION_RESULT_MAX_BYTES)throw conflict('verification-invalid','Cloud evidence exceeds its limit');text+=decoder.decode(n.value,{stream:true});}text+=decoder.decode();}finally{await reader.cancel();}
  let parsed:z.infer<typeof resultSchema>;
  try{parsed=resultSchema.parse(JSON.parse(text));}catch{throw conflict('verification-invalid','Cloud verifier returned invalid evidence');}
  const normalized=normalizeVerificationRequest(parsed.request);
