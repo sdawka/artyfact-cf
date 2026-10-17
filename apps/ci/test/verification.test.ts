@@ -97,7 +97,7 @@ describe("verification plan", () => {
     expect(steps.some((s) => s.command.includes("deploy"))).toBe(false);
     expect(steps.every((s) => s.cloudflareCredentials === undefined && s.secrets === undefined)).toBe(true);
     expect(steps.every((s) => s.cache === undefined)).toBe(true);
-    expect(steps[0]?.config).toEqual({ retries: { limit: 0, delay: 1_000 }, timeout: 1_800_000, commandTimeoutMs: 1_740_000 });
+    expect(steps[0]?.config).toEqual({ retries: { limit: 1, delay: 30_000, backoff: "constant" }, timeout: 1_800_000, commandTimeoutMs: 1_740_000 });
     expect(steps.find((s) => s.name === "package output")?.command).toContain("apps/platform/dist");
   });
 });
@@ -460,7 +460,7 @@ describe("verification pipeline", () => {
   it("does not package, publish, or mark checks passed after combined candidate execution fails", async () => {
     const planned: string[] = [];
     const saved: VerificationResult[] = [];
-    const failure = Object.assign(new Error("tests failed"), { name: "CiRunnerFailure", runner: { name: "candidate verification" } });
+    const failure = Object.assign(new Error("candidate verification failed: [ci:exit-code] tests failed"), { name: "CiRunnerFailure", runner: { name: "candidate verification" } });
     const ci = { runner: async (step: { name: string }) => { planned.push(step.name); throw failure; } };
     await expect(runVerificationPipeline({
       request: base,
@@ -473,6 +473,32 @@ describe("verification pipeline", () => {
     expect(planned).toEqual(["candidate verification"]);
     expect(saved.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "candidate verification", status: "failed" }], checks: [] });
     expect(saved.at(-1)?.output).toBeUndefined();
+  });
+
+  // Runner failures arrive wrapped the way @cloudflare/ci's runner group wraps every step rejection.
+  const runnerFailure = (cause: Error) =>
+    Object.assign(new Error(`candidate verification failed: ${cause.message}`, { cause }), { name: "CiRunnerFailure", runner: { name: "candidate verification" } });
+  const gateOutcome = async (cause: Error) => {
+    const saved: VerificationResult[] = [];
+    await expect(runVerificationPipeline({
+      request: base,
+      authorize: async () => {},
+      ci: { runner: async () => { throw runnerFailure(cause); } },
+      now: async () => new Date(0).toISOString(),
+      persist: async (result) => { saved.push(structuredClone(result)); },
+      packageOutput: async () => { throw new Error("must not package"); },
+    })).rejects.toThrow();
+    return saved.at(-1);
+  };
+
+  it("records a candidate gate whose sandbox was lost as error, not failed", async () => {
+    const outcome = await gateOutcome(new Error("Connection closed: this Durable Object instance is no longer active"));
+    expect(outcome).toMatchObject({ status: "error", steps: [{ name: "candidate verification", status: "error" }], checks: [] });
+  });
+
+  it("records a candidate gate that timed out as failed", async () => {
+    const outcome = await gateOutcome(new Error("[ci:command-timeout] candidate verification timed out after 1740000ms"));
+    expect(outcome).toMatchObject({ status: "failed", steps: [{ name: "candidate verification", status: "failed" }] });
   });
 
   it("stores the immutable archive under a digest-bound R2 key", async () => {

@@ -137,7 +137,7 @@ export interface SiteRunnerOptions {
   name: string;
   command: string;
   env: Record<string, string>;
-  config: { retries: { limit: number; delay: number; backoff?: "constant" } };
+  config: { retries: { limit: number; delay: number; backoff?: "constant" }; retryCommandFailures?: boolean };
   cloudflareCredentials: { accountId: string };
 }
 
@@ -169,7 +169,7 @@ export async function runSiteDeploy(input: SiteDeployInput): Promise<SiteDeployR
     else {
       const runner = await input.ci.runner({
         name: "deploy site", command: siteDeployCommand(), env: { [SITE_CONFIG_ENV]: JSON.stringify(config) },
-        config: { retries: { limit: 1, delay: 10_000, backoff: "constant" } }, cloudflareCredentials: { accountId: input.accountId },
+        config: { retries: { limit: 1, delay: 10_000, backoff: "constant" }, retryCommandFailures: true }, cloudflareCredentials: { accountId: input.accountId },
       });
       const versionId = await step("deployed version", () => deployedVersionId(runner));
       outcome = { status: "deployed", ...release, ...(versionId && { versionId }) };

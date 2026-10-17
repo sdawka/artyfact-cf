@@ -12,6 +12,7 @@ import {
   type VerificationResult,
   type VerificationStep,
 } from "@artyfact/model";
+import { runnerFailure } from "./runner-failure";
 
 const ERROR_MAX = 4_000;
 const REQUEST_MAX = 64 * 1024;
@@ -21,8 +22,8 @@ export const GATE_TAIL_BYTES = 200_000;
 export const GATE_LOG_MAX_BYTES = 8 * 1024 * 1024;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
-const never = { retries: { limit: 0, delay: 1_000 } };
-const candidateExecution = { ...never, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 60_000 };
+/** A failing gate is final (the patched runner throws NonRetryableError); a lost sandbox runs it once more. */
+const candidateExecution = { retries: { limit: 1, delay: 30_000, backoff: "constant" as const }, timeout: 30 * 60 * 1_000, commandTimeoutMs: 30 * 60 * 1_000 - 60_000 };
 /** Packaging is deterministic and runs no candidate code, so a retry rebuilds identical bytes. */
 const PACKAGE_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
 /** Snapshot restore (the whole workspace, node_modules included) plus the command plus two capped reads and puts. */
@@ -221,11 +222,6 @@ export interface VerificationPipelineInput {
   packageOutput(step: VerificationPlannedStep, snapshot: WorkspaceSnapshot): Promise<VerificationPackage>;
 }
 
-function failedRunner(error: unknown): string | null {
-  const value = error as { name?: string; runner?: { name?: string } };
-  return value?.name === "CiRunnerFailure" ? value.runner?.name ?? "unknown" : null;
-}
-
 async function cancelRunnerLogs(runner: RunnerLike): Promise<void> {
   const streams = [runner.logs?.stdout, runner.logs?.stderr]
     .filter((log): log is ReadableStream<Uint8Array> => typeof log !== "string" && log !== undefined);
@@ -263,9 +259,10 @@ export async function runVerificationPipeline(input: VerificationPipelineInput):
     await input.persist(result, "persist passed");
     return result;
   } catch (error) {
-    const runnerName = failedRunner(error);
-    const status = runnerName !== null ? "failed" : "error";
-    const name = runnerName && runnerName !== "unknown" ? runnerName : current?.name ?? "authorize";
+    // Only the candidate's own exit code or timeout is a verdict; a lost sandbox or any other throw is infrastructure.
+    const failure = runnerFailure(error);
+    const status = failure?.commandFailed ? "failed" : "error";
+    const name = failure && failure.runner !== "unknown" ? failure.runner : current?.name ?? "authorize";
     const existingStep = result.steps.find((step) => step.name === name);
     if (existingStep && current?.name === "package output" && status === "error") {
       existingStep.status = "error";
