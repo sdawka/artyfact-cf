@@ -1,4 +1,5 @@
 import { sha256Hex } from "@artyfact/rules";
+import { z } from "zod";
 import { INTENT_BRIEF_PATH, INTENT_MANIFEST_PATH } from "./intent.ts";
 
 export const VERIFICATION_PROFILE = "artyfact-self-v1" as const;
@@ -65,12 +66,34 @@ export interface VerificationResult {
   error?: string;
 }
 
+export const VERIFICATION_MAX_CHECKS = 64;
+export const VERIFICATION_CHECK_COMMAND_MAX = 500;
+/**
+ * A step echoes the exact script CI ran. The candidate gate inlines every check, and shell quoting can expand each
+ * check five-fold, so the cap covers 64 checks of 500 quote characters with room for the fixed profile.
+ */
+export const VERIFICATION_STEP_COMMAND_MAX = 192 * 1024;
+/** Largest result body the platform reads from CI; the worst-case result built from the limits above fits. */
+export const VERIFICATION_RESULT_MAX_BYTES = 512 * 1024;
+const verificationStatusSchema = z.enum(["queued", "running", "passed", "failed", "error"]);
+/** Wire shape of a CI result. The request stays untrusted here and is checked by normalizeVerificationRequest. */
+export const verificationResultSchema = z.object({
+  version: z.literal(1),
+  request: z.unknown(),
+  status: verificationStatusSchema,
+  steps: z.array(z.object({ name: z.string().max(200), command: z.string().max(VERIFICATION_STEP_COMMAND_MAX), status: verificationStatusSchema, durationMs: z.number().nonnegative().optional() })).max(100),
+  checks: z.array(z.object({ criterionId: z.string(), hookId: z.string(), command: z.string(), status: z.enum(["passed", "failed", "error"]) })).max(VERIFICATION_MAX_CHECKS).optional(),
+  startedAt: z.string().max(100).optional(),
+  finishedAt: z.string().max(100).optional(),
+  output: z.object({ key: z.string().min(1).max(512), digest: z.string().regex(/^[0-9a-f]{64}$/), size: z.number().int().positive().max(VERIFICATION_OUTPUT_MAX_BYTES) }).optional(),
+  logKey: z.string().min(1).max(512).optional(),
+  error: z.string().max(8000).optional(),
+}).strict();
+
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 const REPO_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
 const DIGEST_RE = /^[0-9a-f]{64}$/;
-const MAX_CHECKS = 64;
-const MAX_COMMAND = 500;
 
 function assertId(name: string, value: unknown): asserts value is string {
   if (typeof value !== "string" || !ID_RE.test(value)) throw new Error(`${name} must be a canonical id`);
@@ -120,13 +143,13 @@ export function normalizeVerificationRequest(value: unknown): VerificationReques
   if (input.pinnedGenome !== undefined) assertGenome("pinnedGenome", input.pinnedGenome);
   if (input.profile !== VERIFICATION_PROFILE) throw new Error(`profile must be ${VERIFICATION_PROFILE}`);
   const checks = input.checks ?? [];
-  if (!Array.isArray(checks) || checks.length > MAX_CHECKS) throw new Error(`checks must contain at most ${MAX_CHECKS} entries`);
+  if (!Array.isArray(checks) || checks.length > VERIFICATION_MAX_CHECKS) throw new Error(`checks must contain at most ${VERIFICATION_MAX_CHECKS} entries`);
   const seen = new Set<string>();
   for (const check of checks) {
     if (!check || typeof check !== "object") throw new Error("each check must be an object");
     assertId("checks.criterionId", check.criterionId);
     assertId("checks.hookId", check.hookId);
-    if (typeof check.command !== "string" || !check.command || check.command.length > MAX_COMMAND || /[\0\r\n]/.test(check.command)) {
+    if (typeof check.command !== "string" || !check.command || check.command.length > VERIFICATION_CHECK_COMMAND_MAX || /[\0\r\n]/.test(check.command)) {
       throw new Error("checks.command must be a bounded single-line command");
     }
     const key = `${check.criterionId}\0${check.hookId}`;
