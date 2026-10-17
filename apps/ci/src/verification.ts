@@ -3,6 +3,7 @@ import {
   canonicalJson,
   normalizeVerificationRequest,
   VERIFICATION_OUTPUT_MAX_BYTES as OUTPUT_MAX,
+  verificationLogKey,
   verificationModelDigest,
   verificationOutputKey,
   type VerificationCheck,
@@ -392,8 +393,7 @@ export interface VerificationBucketLike {
 }
 
 export const verificationResultKey = (id: string) => `verification/v1/${id}/result.json`;
-export const verificationLogKey = (id: string) => `verification/v1/${id}/gate.log`;
-export { verificationOutputKey };
+export { verificationLogKey, verificationOutputKey };
 
 /** A run with no recorded progress for this long is settled as `error`, so the platform's retry path can proceed. */
 export const VERIFICATION_STALE_MS = 2 * 60 * 60 * 1000;

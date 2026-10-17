@@ -62,6 +62,28 @@ it('refuses a verifier redirect as 502 verification-unavailable without followin
  expect(transport).toHaveBeenCalledTimes(1);
 });
 
+it('keeps the run\'s own gate logKey and still refuses unknown or foreign result fields',async()=>{
+ const {f,p}=await integrated();
+ const {startVerification,pollVerification}=await import('../worker/verification');
+ const configured={...env,VERIFICATION_URL:'https://verify.example.test',VERIFICATION_TOKEN:'private-test-token'};
+ let result:Record<string,unknown>;
+ const transport=vi.fn(async(_input:RequestInfo|URL,init?:RequestInit)=>{
+  if(init?.method==='POST')result={version:1,request:JSON.parse(String(init.body)),status:'queued',steps:[]};
+  return Response.json(result);
+ }) as unknown as typeof fetch;
+ await startVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport);
+ const request=result!.request as VerificationResult['request'];
+ const passed={...result!,status:'passed',steps:[{name:'verify',command:'npm run ci -- --ultra-compact',status:'passed'}],checks:request.checks.map(c=>({...c,status:'passed'})),finishedAt:new Date().toISOString(),output:{key:`verification/v1/${request.id}/output.tar.gz`,digest:'b'.repeat(64),size:10}};
+ result={...passed,logKey:`verification/v1/${request.id}/gate.log`,unexpected:true};
+ await expect(pollVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).rejects.toMatchObject({code:'verification-invalid'});
+ result={...passed,logKey:'verification/v1/other-run/gate.log'};
+ await expect(pollVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).rejects.toMatchObject({code:'verification-invalid'});
+ expect((await systemStub(env,f.systemId).verification(p.id,'artifact.webapp'))!.status).toBe('queued');
+ result={...passed,logKey:`verification/v1/${request.id}/gate.log`};
+ expect((await pollVerification(configured,f.systemId,p.id,{artifactId:'artifact.webapp'},transport)).logKey).toBe(`verification/v1/${request.id}/gate.log`);
+ expect((await systemStub(env,f.systemId).verification(p.id,'artifact.webapp'))!.logKey).toBe(`verification/v1/${request.id}/gate.log`);
+});
+
 it('refreshes immediate and cached success, recovering an interrupted evidence update',async()=>{
  const {f,p}=await integrated();
  const {startVerification,pollVerification}=await import('../worker/verification');

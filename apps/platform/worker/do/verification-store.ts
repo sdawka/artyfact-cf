@@ -1,4 +1,4 @@
-import { canonicalJson, normalizeVerificationRequest, VERIFICATION_OUTPUT_MAX_BYTES, verificationOutputKey, type VerificationRequest, type VerificationResult } from '@artyfact/model';
+import { canonicalJson, normalizeVerificationRequest, VERIFICATION_OUTPUT_MAX_BYTES, verificationLogKey, verificationOutputKey, type VerificationRequest, type VerificationResult } from '@artyfact/model';
 import type { RealizationPlan } from '../../shared/lifecycle';
 
 /** Canonical comparison also fences a response whose check list or model identity changed. */
@@ -48,6 +48,7 @@ export class VerificationStore {
   }
   const o=result.output;
   if(o&&(o.key!==verificationOutputKey(result.request.id)||typeof o.digest!=='string'||!/^[0-9a-f]{64}$/.test(o.digest)||!Number.isSafeInteger(o.size)||o.size<1||o.size>VERIFICATION_OUTPUT_MAX_BYTES))fail('verification output must be the run\'s own bounded, digest-bound archive');
+  if(result.logKey!==undefined&&result.logKey!==verificationLogKey(result.request.id))fail('verification log must be the run\'s own gate log');
   if(result.status==='passed'&&(!result.output||!result.finishedAt||!result.steps.length||result.steps.some(s=>s.status!=='passed')))fail('passed verification lacks successful steps and output');
   this.sql.exec('UPDATE plan_verifications SET result_json=? WHERE plan_id=? AND artifact_id=?',JSON.stringify(result),p.id,result.request.artifactId);
   return result;
