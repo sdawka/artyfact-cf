@@ -8,6 +8,7 @@ import {
   bundleCommand, bundleConfig, CONFIG_ENV, CONFIG_FILES, deployCommand, deployConfig, DeployRefused, SECRET_VARS, SECRETS_ENV,
   systemD1Ids, systemFlagshipAppIds, validateRepoConfig, type FlagshipAppIds, type D1Ids, type DeploySpec,
 } from "./deploy-config";
+import { runnerFailure } from "./runner-failure";
 
 export { shQuote } from "./deploy-config";
 
@@ -27,7 +28,7 @@ export interface PlannedStep {
   cache?: { inputs: string[] };
   /** Literal env for this runner only (redacted from step notifications by `@cloudflare/ci`). */
   env?: Record<string, string>;
-  config: { retries: { limit: number; delay: number; backoff?: "constant" | "linear" | "exponential" } };
+  config: { retries: { limit: number; delay: number; backoff?: "constant" | "linear" | "exponential" }; retryCommandFailures?: boolean };
   cloudflareCredentials?: { accountId: string };
 }
 
@@ -82,13 +83,13 @@ export interface PlanOptions {
 /**
  * install (cached on the lockfile) → test → build → bundle → deploy. Only deploy holds credentials or secrets, and
  * only bundle and deploy run Wrangler, always the pinned image copy under a cleared environment. Test, build and
- * bundle failures are deterministic and not retried; install and deploy retry once.
+ * bundle failures are deterministic and not retried; install and deploy retry once, including a failing command.
  */
 export function planSteps(p: CiBuildParams, o: PlanOptions): PlannedStep[] {
   validateParams(p);
   if (!o.accountId) throw new Error("CLOUDFLARE_ACCOUNT_ID is not configured");
   if (!NONCE_RE.test(o.nonce)) throw new Error("bundle nonce must be 32 hex chars");
-  const once = { retries: { limit: 1, delay: 10_000, backoff: "constant" as const } };
+  const once = { retries: { limit: 1, delay: 10_000, backoff: "constant" as const }, retryCommandFailures: true };
   const never = { retries: { limit: 0, delay: 1_000 } };
   const target = { workerName: p.workerName, accountId: o.accountId };
   const secrets = deploySecrets(p);
@@ -214,12 +215,6 @@ export interface PipelineInput {
   workflowName?: string;
 }
 
-/** A runner failure from `@cloudflare/ci` (`CiRunnerFailure`), recognised without importing the Workers-only package. */
-function failedRunner(e: unknown): string | null {
-  const err = e as { name?: string; runner?: { name?: string } };
-  return err?.name === "CiRunnerFailure" ? (err.runner?.name ?? "unknown") : null;
-}
-
 const VERSION_ID = /^[ \t]*(?:Current|Worker) Version ID:[ \t]*([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})[ \t]*\r?$/im;
 const MAX_DEPLOY_LOG_BYTES = 128 * 1024;
 
@@ -269,9 +264,9 @@ export async function deployedOutput(p: CiBuildParams, accountId: string, runner
 
 /**
  * Report running → check the repo's Wrangler config → install → test → build → bundle → deploy → report passed with
- * the Worker URL. A refused config or a failing runner reports `failed` (its step marked failed); anything else
- * reports `error`. Either way the error is rethrown afterwards so the Workflow instance ends errored. Every report,
- * read and timestamp is its own durable step.
+ * the Worker URL. A refused config or a runner command that exits non-zero or times out reports `failed` (its step
+ * marked failed); anything else, a lost sandbox included, reports `error`. Either way the error is rethrown afterwards
+ * so the Workflow instance ends errored. Every report, read and timestamp is its own durable step.
  */
 export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   const { params: p, step } = input;
@@ -316,9 +311,9 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
     await send("report passed", passed);
     return passed;
   } catch (e) {
-    const runner = failedRunner(e);
-    const failed = runner !== null || (e as Error)?.name === "DeployRefused";
-    steps.push({ name: runner && runner !== "unknown" ? runner : current, status: failed ? "failed" : "error" });
+    const failure = runnerFailure(e);
+    const failed = failure?.commandFailed === true || (e as Error)?.name === "DeployRefused";
+    steps.push({ name: failure && failure.runner !== "unknown" ? failure.runner : current, status: failed ? "failed" : "error" });
     const finishedAt = await now("finished");
     const body = reportBody(p, failed ? "failed" : "error", { ...base, steps, startedAt, finishedAt, error: (e as Error)?.message ?? String(e) });
     await send(`report ${body.status}`, body);

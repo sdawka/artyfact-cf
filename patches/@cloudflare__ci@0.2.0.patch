@@ -1,8 +1,49 @@
+diff --git a/src/ci/capabilities.ts b/src/ci/capabilities.ts
+index 9603fd2ff9548c4640fa202aa951ca4fc8256cb0..3e0b15143e2e587b64d90cd76d638449b6d0e846 100644
+--- a/src/ci/capabilities.ts
++++ b/src/ci/capabilities.ts
+@@ -78,6 +78,7 @@ export async function runCiStep<
+       label: input.label,
+       command: input.command,
+       sensitiveValues: Object.values(prepared.extraEnv),
++      retryCommandFailures: input.retryCommandFailures ?? false,
+     },
+     () => executeStep(env, input, prepared),
+     (execution) => finalizeStep(env, input, prepared, execution)
+diff --git a/src/ci/command-failure.ts b/src/ci/command-failure.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5e272c8e1c8cb25cc402c7af478e5f91846c762a
+--- /dev/null
++++ b/src/ci/command-failure.ts
+@@ -0,0 +1,15 @@
++// Copyright (c) 2026 Cloudflare, Inc.
++// SPDX-License-Identifier: Apache-2.0
++
++// Message markers for failures caused by the command itself rather than the
++// infrastructure running it. The Workflow step boundary keeps an error's
++// message but not its class, so callers classify by these markers.
++export const EXIT_CODE_FAILURE = '[ci:exit-code]';
++export const COMMAND_TIMEOUT_FAILURE = '[ci:command-timeout]';
++
++export function isCommandFailure(message: string) {
++  return (
++    message.includes(EXIT_CODE_FAILURE) ||
++    message.includes(COMMAND_TIMEOUT_FAILURE)
++  );
++}
 diff --git a/src/ci/runners/sandbox.ts b/src/ci/runners/sandbox.ts
-index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..c1e1e39dcb11d2b1ed2f241db7e8d0e9a43299e2 100644
+index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..dea5923c51fbc3b40342ee74b0f760eb1099963d 100644
 --- a/src/ci/runners/sandbox.ts
 +++ b/src/ci/runners/sandbox.ts
-@@ -33,7 +33,6 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+@@ -9,6 +9,7 @@ import {
+   checkoutSourceScript,
+ } from '../../shared/source-checkout';
+ import { slugify } from '../../shared/slugify';
++import { COMMAND_TIMEOUT_FAILURE } from '../command-failure';
+ import type { RunStepInput, RunStepResult, Runner } from './runner';
+ 
+ // Sandbox implementation limits. Pipeline-facing command and Snapshot
+@@ -33,7 +34,6 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
    /**
     * Copies source, runs the command, and snapshots `/workspace` after a
     * successful exit. A restored Snapshot is overlaid with the current source.
@@ -10,7 +51,7 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..c1e1e39dcb11d2b1ed2f241db7e8d0e9
     */
    async run(
      input: RunStepInput & { restore?: DirectoryBackup }
-@@ -45,7 +44,6 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+@@ -45,7 +45,6 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
        containerTimeouts: { portReadyTimeoutMS: PORT_READY_TIMEOUT_MS },
      });
  
@@ -18,7 +59,35 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..c1e1e39dcb11d2b1ed2f241db7e8d0e9
      try {
        // Containers without FUSE must restore through the local R2 binding and
        // unsquashfs. RPC streams those archives instead of base64-encoding them
-@@ -102,66 +100,44 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+@@ -86,9 +85,24 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+           autoCleanup: false,
+         }
+       );
+-      const { exitCode } = await proc.waitForExit(
+-        input.timeoutMs ?? COMMAND_TIMEOUT_MS
+-      );
++      const timeoutMs = input.timeoutMs ?? COMMAND_TIMEOUT_MS;
++      let exitCode: number;
++      try {
++        ({ exitCode } = await proc.waitForExit(timeoutMs));
++      } catch (error) {
++        // The SDK's timeout error crosses RPC, which may drop its name.
++        const { name, message } = (error ?? {}) as Error;
++        if (
++          name !== 'ProcessReadyTimeoutError' &&
++          !String(message).includes('Waiting for: process exit')
++        ) {
++          throw error;
++        }
++        const { stdout, stderr } = await readPreviews(sandbox);
++        throw new Error(
++          `${COMMAND_TIMEOUT_FAILURE} ${input.label} timed out after ${timeoutMs}ms\n=== stdout ===\n${stdout}\n=== stderr ===\n${stderr}`
++        );
++      }
+       const preview = await readPreviews(sandbox);
+ 
+       if (exitCode !== 0) {
+@@ -102,66 +116,44 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
          ttl: input.ttlSeconds,
          localBucket,
        });
@@ -110,7 +179,7 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..c1e1e39dcb11d2b1ed2f241db7e8d0e9
  }
  
  async function readPreviews(sandbox: ReturnType<typeof getSandbox>) {
-@@ -198,43 +174,6 @@ function resolveCwd(cwd: string | undefined) {
+@@ -198,43 +190,6 @@ function resolveCwd(cwd: string | undefined) {
    return posix.join(WORKSPACE_DIR, normalized);
  }
  
@@ -154,3 +223,139 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..c1e1e39dcb11d2b1ed2f241db7e8d0e9
  function createRunnerId(label: string) {
    return `${slugify(label).slice(0, 16)}-${crypto.randomUUID()}`;
  }
+diff --git a/src/ci/step-notification.ts b/src/ci/step-notification.ts
+index 2d70c69e664aa3083fec8346bd51ca2d41101cdc..3dc538019cb9999254402f82214f89166efaeb3f 100644
+--- a/src/ci/step-notification.ts
++++ b/src/ci/step-notification.ts
+@@ -1,6 +1,7 @@
+ // Copyright (c) 2026 Cloudflare, Inc.
+ // SPDX-License-Identifier: Apache-2.0
+ 
++import { NonRetryableError } from 'cloudflare:workflows';
+ import type {
+   CacheSnapshotPointer,
+   CiRunStepOutput,
+@@ -8,6 +9,7 @@ import type {
+   DirectoryBackup,
+ } from '../pipeline';
+ import type { StepNotificationHandle } from '../source-control';
++import { EXIT_CODE_FAILURE, isCommandFailure } from './command-failure';
+ 
+ export type StepExecution = {
+   exitCode: number;
+@@ -29,6 +31,7 @@ export type CompletedStepExecution = StepExecution & {
+  * Runs and finalizes a runner, then reports success or failure.
+  * Failure output is redacted and streamed-log cancellation is attempted.
+  * Reporting and cleanup errors do not replace the original runner failure.
++ * Command failures throw NonRetryableError unless `retryCommandFailures` is set.
+  */
+ export async function withStepNotification(
+   input: {
+@@ -36,6 +39,7 @@ export async function withStepNotification(
+     label: string;
+     command: string;
+     sensitiveValues: string[];
++    retryCommandFailures?: boolean;
+   },
+   execute: () => Promise<StepExecution>,
+   finalize: (
+@@ -53,7 +57,7 @@ export async function withStepNotification(
+         input.sensitiveValues
+       );
+       throw new Error(
+-        `${input.label} failed with exit code ${execution.exitCode}\n=== stdout ===\n${stdout}\n=== stderr ===\n${stderr}`
++        `${EXIT_CODE_FAILURE} ${input.label} failed with exit code ${execution.exitCode}\n=== stdout ===\n${stdout}\n=== stderr ===\n${stderr}`
+       );
+     }
+     if (!execution.snapshot) {
+@@ -79,7 +83,11 @@ export async function withStepNotification(
+       cachePointer: completed.cachePointer,
+     };
+   } catch (error) {
+-    const safeError = sanitizeError(error, input.sensitiveValues);
++    const safeError = sanitizeError(
++      error,
++      input.sensitiveValues,
++      !input.retryCommandFailures
++    );
+     try {
+       await cancelLogs(execution?.logs);
+     } catch (cleanupError) {
+@@ -115,11 +123,19 @@ function redactPreview(
+   };
+ }
+ 
+-function sanitizeError(error: unknown, sensitiveValues: string[]) {
++// Workflows skips retries for an error named NonRetryableError.
++function sanitizeError(
++  error: unknown,
++  sensitiveValues: string[],
++  commandFailuresAreFinal: boolean
++) {
+   const message = redact(
+     error instanceof Error ? error.message : String(error),
+     sensitiveValues
+   );
++  if (commandFailuresAreFinal && isCommandFailure(message)) {
++    return new NonRetryableError(message);
++  }
+   const safe = new Error(message);
+   safe.name = error instanceof Error ? error.name : 'Error';
+   return safe;
+diff --git a/src/pipeline/ci-workflow.ts b/src/pipeline/ci-workflow.ts
+index a0ac164d44c2caace0a209652d181b013a2138e9..c502e915fa7b0b9663c334406009feaf3217566a 100644
+--- a/src/pipeline/ci-workflow.ts
++++ b/src/pipeline/ci-workflow.ts
+@@ -39,6 +39,7 @@ type ResolvedRunnerConfig = {
+     timeout: number;
+   };
+   commandTimeoutMs: number;
++  retryCommandFailures: boolean;
+   snapshotTtlSeconds?: number;
+ };
+ 
+@@ -153,6 +154,7 @@ export abstract class CIWorkflow<
+               command: options.command,
+               cwd: options.cwd,
+               commandTimeoutMs: config.commandTimeoutMs,
++              retryCommandFailures: config.retryCommandFailures,
+               snapshot: inherited,
+               snapshotTtlSeconds: config.snapshotTtlSeconds,
+               cloudflareCredentials: options.cloudflareCredentials,
+@@ -206,7 +208,12 @@ function resolveRunnerConfig(options: RunnerOptions): ResolvedRunnerConfig {
+       'snapshotRetentionSeconds'
+     );
+   }
+-  return { workflow, commandTimeoutMs, snapshotTtlSeconds };
++  return {
++    workflow,
++    commandTimeoutMs,
++    retryCommandFailures: options.config?.retryCommandFailures ?? false,
++    snapshotTtlSeconds,
++  };
+ }
+ 
+ function assertPositiveFinite(
+diff --git a/src/pipeline/types.ts b/src/pipeline/types.ts
+index a1f5ff3aa8c30350300f3bd8d1f25cbc850aff65..a3642bd81f2b4b1c31e6b00e9b0516bf583e8b9b 100644
+--- a/src/pipeline/types.ts
++++ b/src/pipeline/types.ts
+@@ -105,6 +105,10 @@ export type RunnerConfig = StepConfig & {
+   commandTimeoutMs?: number;
+   // How long the workspace Snapshot remains restorable, in seconds.
+   snapshotRetentionSeconds?: number;
++  // A non-zero exit or command timeout is a verdict on the command and throws
++  // NonRetryableError, so `retries` cover only infrastructure failures. Set
++  // this for commands whose own failures can be transient (installs, deploys).
++  retryCommandFailures?: boolean;
+ };
+ 
+ export type CiRunStepInput = {
+@@ -112,6 +116,7 @@ export type CiRunStepInput = {
+   command: string;
+   cwd?: string;
+   commandTimeoutMs?: number;
++  retryCommandFailures?: boolean;
+   provider: string;
+   providerData: unknown;
+   source: { owner: string; repo: string; ref?: string; sha: string };

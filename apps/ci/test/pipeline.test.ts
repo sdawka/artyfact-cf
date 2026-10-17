@@ -47,6 +47,8 @@ describe("planSteps", () => {
     expect(steps[0]).toMatchObject({ command: "npm ci", cache: { inputs: ["package.json", "package-lock.json"] } });
     expect(steps.filter((s) => s.cloudflareCredentials)).toEqual([expect.objectContaining({ name: "deploy", cloudflareCredentials: { accountId: ACCOUNT } })]);
     expect(step(steps, "test").config.retries.limit).toBe(0);
+    // Only install and deploy rerun a failing command; elsewhere a retry is for a lost sandbox alone.
+    expect(steps.filter((s) => s.config.retryCommandFailures).map((s) => s.name)).toEqual(["install", "deploy"]);
   });
 
   it("keeps the ingest token and platform secrets away from every step but deploy, and off the deploy command line", () => {
@@ -296,7 +298,7 @@ describe("report", () => {
 
 // ---------------------------------------------------------------- runPipeline with fakes
 
-function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: number; files?: Record<string, string>; deployStdout?: string } = {}) {
+function harness(opts: { failAt?: string; throwPlain?: boolean; sandboxLost?: boolean; reportStatus?: number; files?: Record<string, string>; deployStdout?: string } = {}) {
   const stepNames: string[] = [];
   const step: DoStep = async (name, fn) => (stepNames.push(name), fn());
   const ran: PlannedStep[] = [];
@@ -309,7 +311,11 @@ function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: n
     ran.push(s);
     if (s.name === opts.failAt) {
       if (opts.throwPlain) throw new Error("sandbox unavailable");
-      throw Object.assign(new Error(`${s.name} failed: exit code 1`), { name: "CiRunnerFailure", runner: { name: s.name } });
+      if (opts.sandboxLost) {
+        const cause = new Error("Connection closed: this Durable Object instance is no longer active");
+        throw Object.assign(new Error(`${s.name} failed: ${cause.message}`, { cause }), { name: "CiRunnerFailure", runner: { name: s.name } });
+      }
+      throw Object.assign(new Error(`${s.name} failed: [ci:exit-code] ${s.name} failed with exit code 1`), { name: "CiRunnerFailure", runner: { name: s.name } });
     }
     return runnerFor(s.name === "deploy" && opts.deployStdout ? { stdout: opts.deployStdout } : undefined);
   };
@@ -380,6 +386,13 @@ describe("runPipeline", () => {
     await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/sandbox unavailable/);
     expect(h.reports.map((r) => r.status)).toEqual(["running", "error"]);
     expect(h.reports[1]!.steps).toEqual([{ name: "config", status: "passed" }, { name: "install", status: "error" }]);
+  });
+
+  it("a runner whose sandbox is lost reports error at that runner, not failed", async () => {
+    const h = harness({ failAt: "test", sandboxLost: true });
+    await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/no longer active/);
+    expect(h.reports.at(-1)).toMatchObject({ status: "error" });
+    expect(h.reports.at(-1)!.steps!.map((s) => [s.name, s.status])).toEqual([["config", "passed"], ["install", "passed"], ["test", "error"]]);
   });
 
   it("a repo config with build.command fails the build at the config step without running anything", async () => {
