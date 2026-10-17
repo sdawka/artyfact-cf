@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   normalizeVerificationRequest,
@@ -5,13 +6,14 @@ import {
   VERIFICATION_MAX_CHECKS,
   VERIFICATION_OUTPUT_MAX_BYTES,
   VERIFICATION_RESULT_MAX_BYTES,
+  VERIFICATION_STEP_COMMAND_MAX,
   verificationLogKey,
   verificationOutputKey,
   verificationResultSchema,
   type VerificationRequest,
   type VerificationResult,
 } from "@artyfact/model";
-import { runVerificationPipeline } from "../src/verification.ts";
+import { PACKAGE_OUTPUT_COMMAND, planVerificationSteps, runVerificationPipeline } from "../src/verification.ts";
 
 // The platform parses CI results with verificationResultSchema; every result CI can persist must pass it.
 const COMMIT = "a".repeat(40);
@@ -59,6 +61,19 @@ describe("verification result contract with the platform", () => {
       expect(results.at(-1)?.status).toBe("passed");
       expectAccepted(results);
     }
+  });
+
+  it("truncates long step commands for display, naming the full command's digest", async () => {
+    const input = request(() => "'".repeat(VERIFICATION_CHECK_COMMAND_MAX));
+    const planned = planVerificationSteps(normalizeVerificationRequest(input)).map((step) => step.command);
+    expect(planned[1]).toBe(PACKAGE_OUTPUT_COMMAND);
+    const steps = (await persisted(input)).at(-1)!.steps;
+    steps.forEach((step, i) => {
+      const digest = createHash("sha256").update(planned[i]!).digest("hex").slice(0, 12);
+      expect(planned[i]!.length).toBeGreaterThan(VERIFICATION_STEP_COMMAND_MAX);
+      expect(step.command).toHaveLength(VERIFICATION_STEP_COMMAND_MAX);
+      expect(step.command).toBe(planned[i]!.slice(0, step.command.indexOf("… [truncated")) + `… [truncated; sha256:${digest}]`);
+    });
   });
 
   it("accepts a failed run with its bounded error", async () => {

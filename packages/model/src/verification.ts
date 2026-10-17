@@ -68,13 +68,16 @@ export interface VerificationResult {
 
 export const VERIFICATION_MAX_CHECKS = 64;
 export const VERIFICATION_CHECK_COMMAND_MAX = 500;
-/**
- * A step echoes the exact script CI ran. The candidate gate inlines every check, and shell quoting can expand each
- * check five-fold, so the cap covers 64 checks of 500 quote characters with room for the fixed profile.
- */
-export const VERIFICATION_STEP_COMMAND_MAX = 192 * 1024;
-/** Largest result body the platform reads from CI; the worst-case result built from the limits above fits. */
-export const VERIFICATION_RESULT_MAX_BYTES = 512 * 1024;
+/** A result step's command is display only (evidence is `checks` against `request`), so it is bounded for the wire. */
+export const VERIFICATION_STEP_COMMAND_MAX = 2_000;
+/** Largest result body the platform reads from CI. */
+export const VERIFICATION_RESULT_MAX_BYTES = 256 * 1024;
+/** Bound a step command for display, naming the full command's digest when it is cut. */
+export function verificationStepCommand(command: string): string {
+  if (command.length <= VERIFICATION_STEP_COMMAND_MAX) return command;
+  const marker = `… [truncated; sha256:${sha256Hex(command).slice(0, 12)}]`;
+  return command.slice(0, VERIFICATION_STEP_COMMAND_MAX - marker.length) + marker;
+}
 const verificationStatusSchema = z.enum(["queued", "running", "passed", "failed", "error"]);
 /** Wire shape of a CI result. The request stays untrusted here and is checked by normalizeVerificationRequest. */
 export const verificationResultSchema = z.object({
