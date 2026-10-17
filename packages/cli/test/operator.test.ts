@@ -4,7 +4,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import type { Cloud } from "../src/cloud.ts";
 import { childEnv, importVerificationArchive, operatorCommand, operatorVars, prepareActivation, publishVerifiedRelease, validateActivation, verifiedReleaseIdentity, type Activation } from "../src/operator.ts";
 import { modelDigestAt } from "../src/release.ts";
@@ -111,6 +111,21 @@ describe("operator verification and publication lifecycle", () => {
       "POST /api/systems/system.artyfact/realization-plans/plan.self/verification/poll",
     ]);
     expect(JSON.parse(output[0]!)).toEqual({ verification: a.verification });
+  });
+
+  it("gives the verification start call longer than the platform's own start budget", async () => {
+    const a = activation("verify-start-timeout", "a".repeat(40), "d".repeat(64));
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    try {
+      const fetcher = (async (input: Parameters<typeof fetch>[0]) =>
+        Response.json({ verification: String(input).endsWith("/verification/start") ? { ...a.verification, status: "queued" } : a.verification })) as typeof fetch;
+      await operatorCommand(["verify", "--system", a.systemId, "--plan", a.planId, "--platform", "http://127.0.0.1:1337"], {
+        out: () => {}, err: () => {}, cwd: tmp, env: { ARTYFACT_ADMIN_TOKEN: "admin-test" }, fetch: fetcher, pollMs: 0,
+      });
+      expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([300_000, 120_000]);
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it("stops polling a run that never settles", async () => {
